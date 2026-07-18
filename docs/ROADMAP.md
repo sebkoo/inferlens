@@ -74,8 +74,11 @@ CI (rung 27) runs `make bootstrap` before `swift test`. The README states this i
                swift test; commit-hygiene trailer lint already active from commit #1
                (ADR-0004); a doc-reference lint — every `rung NN` citation under docs/,
                README.md, and CLAUDE.md must resolve to an existing ROADMAP rung with a
-               matching title, else CI fails (a decision-layer file citing a rung is the
-               same one-way-dependency rule this repo lints for in modules, in prose).
+               matching title, AND every 7–40-char hex commit SHA cited in docs/ or
+               README.md must resolve via `git rev-parse --verify <sha>^{commit}`; else CI
+               fails (a rung citation or a SHA that was true when written rots silently
+               after a renumber or a rebase — the same one-way-dependency class this repo
+               lints for in modules, in prose).
                LiteRT device-only contingency documented in ADR-0002 if the sim slice is
                ever absent
 28 perf(bench): make bench on-device harness emits JSON (device, iOS, thermal, run count,

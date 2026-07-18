@@ -45,8 +45,8 @@ Two lists, so no one has to guess which half of the repo they are reading.
 - The toolchain — version pins, a formatter and linter config, and a
   [Makefile](Makefile) harness shape.
 - Commit hygiene — a committed [`commit-msg` hook](.githooks/commit-msg) and a CI lint
-  that reject AI attribution trailers ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
-- That is all. Nothing compiles yet — by design; see the commit message on `db1056c`.
+  that rejects AI attribution trailers ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
+- That is all. Nothing compiles yet — by design; see the bootstrap commit's message.
 
 **Design-stage (decided, written down, not built)** — each item names its rung in
 [the roadmap](docs/ROADMAP.md):
