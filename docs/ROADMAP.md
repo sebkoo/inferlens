@@ -2,7 +2,7 @@
 
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
-A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–32 are
+A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–36 are
 the build ladder. Rungs 00–03 are committed.
 
 Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
@@ -29,9 +29,9 @@ make bootstrap && swift build      # bootstrap fetches the pinned models + verif
                                    # SPM resolves the TensorFlowLiteC xcframework binaryTarget
 ```
 
-CI (rung 27) runs `make bootstrap` before `swift test`. The README states this in one line.
+CI (rung 31) runs `make bootstrap` before `swift test`. The README states this in one line.
 
-## The ladder (rungs 00–32)
+## The ladder (rungs 00–36)
 
 ```
 00 chore(repo): bootstrap toolchain, license, agent context          <- committed
@@ -39,90 +39,97 @@ CI (rung 27) runs `make bootstrap` before `swift test`. The README states this i
 02 build(spm): Package.swift workspace + empty local module targets + thin app placeholder  <- committed
 03 feat(core): inference contract protocols (InferenceEngine, ModelDescriptor,
                LatencySample, InferenceOutcome) — zero dependencies  <- committed
-04 test(core): contract conformance suite every engine must pass (engine-agnostic)
-05 chore(models): pin Apple MobileNetV2 (FP16 .mlmodel, native) + Google MobileNetV2
+04 build(make): derive the README badge from rung tags; cite docs by stable component
+               name, not rung number (numbers live only in this file); drop hand-typed
+               progress state
+05 test(core): StubEngine — a deterministic in-memory engine, no model, no framework
+06 test(core): assertConformsToContract — the engine-agnostic conformance suite, run
+               against the stub (never names or imports a concrete engine)
+07 test(core): broken stub variants prove the suite catches what it claims
+               (unsorted classifications, confidence > 1, lazy-load in classify)
+08 build(make): wire `make test` to xcodebuild on the iOS simulator — it has been exit-0
+               since commit #1; this is where it stops lying
+09 chore(models): pin Apple MobileNetV2 (FP16 .mlmodel, native) + Google MobileNetV2
                (FP32 .tflite, default) by source URL + checksum in MODEL_PROVENANCE.md;
                make bootstrap fetches them (verify Google .tflite URL here)
-06 feat(coreml): CoreMLEngine over the fetched FP16 .mlmodel, conforms to the contract
-07 perf(coreml): OSSignposter spans around load / preprocess / infer
-08 feat(bench): LatencyRecorder — p50/p95, warm-up discard (HAND-WRITTEN, hand-reviewed;
+10 feat(coreml): CoreMLEngine over the fetched FP16 .mlmodel, conforms to the contract
+11 perf(coreml): OSSignposter spans around load / preprocess / infer
+12 feat(bench): LatencyRecorder — p50/p95, warm-up discard (HAND-WRITTEN, hand-reviewed;
                discard policy documented; never agent-generated)
-09 build(litert): produce & publish the vendored TensorFlowLiteC.xcframework release —
+13 build(litert): produce & publish the vendored TensorFlowLiteC.xcframework release —
                extract from the dl.google.com archive; read Info.plist AvailableLibraries
                and ASSERT ios-arm64_x86_64-simulator FIRST; re-zip; tag GitHub release
-10 build(litert): declare binaryTarget(url:checksum:) + simulator link smoke test
-11 feat(litert): LiteRTEngine over the C API — actor-isolated, ONE @unchecked Sendable
+14 build(litert): declare binaryTarget(url:checksum:) + simulator link smoke test
+15 feat(litert): LiteRTEngine over the C API — actor-isolated, ONE @unchecked Sendable
                boundary (required to compile under strict concurrency); uses FP32 .tflite
-12 ci(litert): document the Sendable boundary + CI lint enforcing exactly-one
+16 ci(litert): document the Sendable boundary + CI lint enforcing exactly-one
                @unchecked-Sendable + a strict-concurrency data-race test
-13 feat(bench): measure & PUBLISH cross-model top-1 agreement on a FROZEN golden set
+17 feat(bench): measure & PUBLISH cross-model top-1 agreement on a FROZEN golden set
                (different weights → disagreement is data, not a gate; ADR-0003)
-14 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
-15 feat(store): document/KV store for model metadata + flag cache (NoSQL)
-16 feat(flags): FeatureFlagProvider protocol + local JSON provider
-17 feat(engine): fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)
-18 refactor(engine): engine actor; cancel in-flight Tasks when input changes
-19 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
-20 feat(ui): pick/capture image -> classify -> top-3 + confidence + backend + p50/p95
-21 feat(ui): thumbs up/down signal -> append to ledger
-22 feat(store): ledger export (NDJSON) for offline eval
-23 feat(thermal): map ProcessInfo.thermalState + model-load failure + OOM to named states
-24 feat(flags): EntitlementProvider seam + AlwaysEntitled stub; paywall flag OFF
-25 feat(app): thin app target composes the modules — the one MVP screen
-26 test(store): migration + append-only invariant tests
-27 build(ci): GitHub Actions — make bootstrap, then swiftformat --lint, swiftlint, and
+18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
+19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
+20 feat(flags): FeatureFlagProvider protocol + local JSON provider
+21 feat(engine): fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)
+22 refactor(engine): engine actor; cancel in-flight Tasks when input changes
+23 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
+24 feat(ui): pick/capture image -> classify -> top-3 + confidence + backend + p50/p95
+25 feat(ui): thumbs up/down signal -> append to ledger
+26 feat(store): ledger export (NDJSON) for offline eval
+27 feat(thermal): map ProcessInfo.thermalState + model-load failure + OOM to named states
+28 feat(flags): EntitlementProvider seam + AlwaysEntitled stub; paywall flag OFF
+29 feat(app): thin app target composes the modules — the one MVP screen
+30 test(store): migration + append-only invariant tests
+31 build(ci): GitHub Actions — make bootstrap, then swiftformat --lint, swiftlint, and
                build+test on the iOS simulator via
                `xcodebuild -destination 'generic/platform=iOS Simulator'` — never
                `swift build`/`swift test` on the host (the host build was green only for as
                long as it was meaningless — empty targets; iOS-era stdlib such as `Duration`
                breaks it, discovered at rung 03). Commit-hygiene trailer lint from commit #1
-               (ADR-0004); a doc-reference lint — every `rung NN` citation under docs/,
-               README.md, and CLAUDE.md must resolve to an existing ROADMAP rung with a
-               matching title, AND every 7–40-char hex commit SHA cited in docs/ or
-               README.md must resolve via `git rev-parse --verify <sha>^{commit}`; else CI
-               fails (a rung citation or a SHA that was true when written rots silently
-               after a renumber or a rebase — the same one-way-dependency class this repo
-               lints for in modules, in prose). The `rungs N/32` badge is linted too,
-               not hand-maintained: N must equal the count of ladder rungs (01–32) marked
-               committed in this file, and 32 the ladder's rung count, else CI fails.
-               LiteRT device-only contingency documented in ADR-0002 if the sim slice is
-               ever absent
-28 perf(bench): make bench on-device harness emits JSON (device, iOS, thermal, run count,
+               (ADR-0004). Derived-vs-declared lints, each failing loud where a hand-typed
+               value would rot silent: (a) no hand-typed rung number anywhere outside this
+               file; (b) every component reference in docs resolves — the Core ML engine,
+               the LiteRT vendoring step, InferlensCoreML — to a real target or ROADMAP
+               rung; (c) the `rungs N/D` badge equals the derived pair, `rung-*` tags on
+               ORIGIN over the ladder's rung count in this file, so an unpushed tag makes N
+               lag and fails here (the core.hooksPath trap again); (d) every rung this file
+               marks committed has a matching `rung-*` tag. LiteRT device-only contingency
+               documented in ADR-0002 if the sim slice is ever absent
+32 perf(bench): make bench on-device harness emits JSON (device, iOS, thermal, run count,
                warm-up policy)
-29 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side —
+33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side —
                Apple FP16 vs Google FP32 — reported prominently; different weights;
                warm-up policy; run counts; thermal state) + LIMITATIONS.md
-30 docs(loop): EVAL_LOOP.md (product loop == eval loop) + docs/prompts/ (one per rung)
-31 docs(monetization): MONETIZATION.md (Pro surface as a plan; revisit-trademark line)
+34 docs(loop): EVAL_LOOP.md (product loop == eval loop) + docs/prompts/ (one per rung)
+35 docs(monetization): MONETIZATION.md (Pro surface as a plan; revisit-trademark line)
                + docs/ASO.md
-32 docs(readme): COMPLETE the README — fill the latency table with real runs, add the
+36 docs(readme): COMPLETE the README — fill the latency table with real runs, add the
                20s GIF, publish docs/ via GitHub Pages (the README itself lands at rung 01)
 ```
 
-**Split rule honored:** SQL vs NoSQL (14/15); produce-artifact vs wire-binaryTarget
-(09/10); engine-lands-isolated vs enforce-the-boundary (11/12); state-enum vs
-screen-wiring (19/20); signal vs export (21/22); CI vs on-device bench (27/28); each doc
-cluster its own rung. The README is created at rung 01 and completed at rung 32 — not
-created twice.
+**Split rule honored:** the conformance work splits into stub / suite / proofs / wiring
+(05–08); SQL vs NoSQL (18/19); produce-artifact vs wire-binaryTarget (13/14);
+engine-lands-isolated vs enforce-the-boundary (15/16); state-enum vs screen-wiring
+(23/24); signal vs export (25/26); CI vs on-device bench (31/32); each doc cluster its own
+rung. The README is created at rung 01 and completed at rung 36 — not created twice.
 
-## Riskiest assumption (tested at rung 09, before any engine logic)
+## Riskiest assumption (tested at rung 13, before any engine logic)
 
 That Google's `TensorFlowLiteC.xcframework`, once re-zipped and pinned, contains an
-`ios-arm64_x86_64-simulator` slice and links under Swift 6.3 strict concurrency. Rung 09's
-first action reads `Info.plist` (`AvailableLibraries`) and asserts the slice; rung 10
-proves it links on the simulator. If absent, the ladder goes red at 09 — before rung 11 —
+`ios-arm64_x86_64-simulator` slice and links under Swift 6.3 strict concurrency. Rung 13's
+first action reads `Info.plist` (`AvailableLibraries`) and asserts the slice; rung 14
+proves it links on the simulator. If absent, the ladder goes red at 13 — before rung 15 —
 and the ADR-0002 device-only CI contingency applies. See ADR-0002.
 
 ## Open inputs (approved deferrals — literals only, decisions made)
 
-- Exact Google `.tflite` download URL — verified at rung 05. Precision (Google FP32
+- Exact Google `.tflite` download URL — verified at rung 09. Precision (Google FP32
   default) is already decided (ADR-0003 / MODEL_PROVENANCE.md).
 - Exact `TensorFlowLiteC` version pin, our release-asset URL, and its checksum — produced
-  when rung 09 runs (a checksum cannot exist before the `.zip` does; ADR-0002).
+  when rung 13 runs (a checksum cannot exist before the `.zip` does; ADR-0002).
 
 ## README
 
 The project overview README lives at [README.md](../README.md) as of rung 01. It is not
-duplicated here. Rung 32 completes it: the latency table filled with real runs, the GIF,
+duplicated here. Rung 36 completes it: the latency table filled with real runs, the GIF,
 and GitHub Pages. The empty latency table and scoped headline are already on the page
 today, marked empty because the measurements do not exist yet.
