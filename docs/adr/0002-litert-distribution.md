@@ -116,6 +116,30 @@ outputs of executing the named, decided procedure.
   project's single riskiest assumption, isolated here on purpose: if the slice is
   missing, rung 09 goes red before any engine logic (rung 11) exists.
 
+## Slice check — evidence (2026-07-17)
+
+Artifact inspected: `github.com/kewlbear/TensorFlowLiteC/releases/download/0.0.20250619/TensorFlowLiteC.xcframework.zip` (tag `0.0.20250619`).
+
+Root listing — `ls -1` of the unzipped `TensorFlowLiteC.xcframework/`, verbatim:
+
+```
+Info.plist
+ios-arm64
+ios-arm64_x86_64-simulator
+PrivacyInfo.xcprivacy
+```
+
+Finding: the `ios-arm64_x86_64-simulator` slice is present (it includes the Apple Silicon
+simulator), so the project's single riskiest assumption is **falsified for this repackage**.
+
+Scope of this evidence: the check was run against **kewlbear's repackage, not the
+`dl.google.com/tflite-release/...` archive this repo will self-host**. kewlbear repackages
+Google's released bytes and does not add slices, so our artifact *should* be identical —
+but "should" is precisely what this ADR exists to remove. Rung 09 therefore still reads the
+`Info.plist` (`AvailableLibraries`) of **our own** re-zipped xcframework before
+extract/zip/host. Today's check made the assumption cheap to falsify; it did not verify the
+bytes we will ship.
+
 ## Alternatives rejected
 
 - **CocoaPods `TensorFlowLiteSwift`** — frozen and not SPM-consumable (cannot be used
