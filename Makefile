@@ -2,24 +2,49 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-.PHONY: help bootstrap format lint test bench
+.PHONY: help bootstrap format lint test bench readme-sync land
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n", $$1, $$2}'
+		awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
 
-bootstrap: ## Wire git hooks; fetch pinned models + verify checksums (rung 04); resolve the LiteRT xcframework (rung 09)
+bootstrap: ## Wire git hooks; fetch pinned models; resolve the LiteRT xcframework
 	@git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks && echo "hooks: core.hooksPath -> .githooks" || true
-	@echo "TODO(rung 04/09): fetch checksum-pinned models into Vendor/ and resolve the binaryTarget. See docs/research/MODEL_PROVENANCE.md."
+	@echo "TODO (model-vendoring rung): fetch checksum-pinned models into Vendor/ and resolve the binaryTarget. See docs/research/MODEL_PROVENANCE.md."
 
 format: ## Run swiftformat
-	@echo "TODO(rung 01+): swiftformat . --config .swiftformat"
+	@echo "TODO: swiftformat . --config .swiftformat"
 
 lint: ## Run swiftlint
-	@echo "TODO(rung 01+): swiftlint lint --config .swiftlint.yml"
+	@echo "TODO: swiftlint lint --config .swiftlint.yml"
 
-test: ## Build + run the test suite (run 'make bootstrap' first)
-	@echo "TODO(rung 03+): make bootstrap && swift test"
+test: ## Build + run the test suite on the iOS simulator (wired at the 'wire make test' rung)
+	@echo "TODO (wire-make-test rung): xcodebuild test -destination 'generic/platform=iOS Simulator'"
 
-bench: ## On-device latency harness -> JSON (rung 27)
-	@echo "TODO(rung 27): run on-device benchmark; emit device/iOS/thermal/run-count/warm-up JSON."
+bench: ## On-device latency harness -> JSON (the on-device bench rung)
+	@echo "TODO (on-device bench rung): run on-device benchmark; emit device/iOS/thermal/run-count/warm-up JSON."
+
+# The rungs badge is DERIVED, never typed. N and D use ONE counting rule (rung-00 counts on
+# both sides): N = number of rung-* tags, D = number of rung lines in ROADMAP.md. Computed in
+# one place so the two axes can never diverge (the 4/32-off-by-one bug).
+readme-sync: ## Rewrite the README rungs badge from git tags + ROADMAP (derived, idempotent)
+	@N=$$(git tag -l 'rung-*' | wc -l | tr -d ' '); \
+	D=$$(grep -c '^[0-9][0-9] ' docs/ROADMAP.md); \
+	sed -i '' -E "s|badge/rungs-[0-9]+%2F[0-9]+-|badge/rungs-$${N}%2F$${D}-|" README.md; \
+	echo "badge synced: rungs $$N/$$D  (N=$$N rung-* tags, D=$$D rung lines, same rule)"
+
+# Land a rung: DECLARE it in the tag map, LOCALLY. Commit the rung first, then:
+#   make land RUNG=NN
+# The badge self-counts this rung, so the tag is created BEFORE readme-sync (to make N right);
+# the amend that folds the badge in rewrites the SHA, so the tag is force-moved onto the final
+# commit and self-checked (rung-NN == HEAD). NO push here — push branch and tag together,
+# atomically, as the separate final step:  git push --atomic origin main rung-NN
+land: ## Land the current rung LOCALLY: tag rung-NN on HEAD + fold the derived badge in (RUNG=NN)
+	@test -n "$(RUNG)" || { echo "usage: make land RUNG=NN"; exit 1; }
+	git tag "rung-$(RUNG)" HEAD
+	@$(MAKE) --no-print-directory readme-sync
+	git add README.md
+	git commit --amend --no-edit
+	git tag -f "rung-$(RUNG)" HEAD
+	@test "$$(git rev-parse rung-$(RUNG))" = "$$(git rev-parse HEAD)" || { echo "ERROR: rung-$(RUNG) != HEAD"; exit 1; }
+	@echo "landed rung $(RUNG) LOCALLY: tag == HEAD, badge folded. Push atomically: git push --atomic origin main rung-$(RUNG)"

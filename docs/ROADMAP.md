@@ -3,7 +3,12 @@
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
 A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–36 are
-the build ladder. Rungs 00–03 are committed.
+the build ladder.
+
+Progress is not tracked in this file — **git tags are**: `git tag -l 'rung-*'` is the
+authoritative record of what landed (one tag per landing commit), and the README badge is
+derived from it (`make readme-sync`). This file is the plan; git is the progress. Land a rung
+with `make land RUNG=NN` so the tag is declared, not remembered.
 
 Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0002](adr/0002-litert-distribution.md) (LiteRT distribution),
@@ -22,23 +27,23 @@ a loop. Every decision is defensible by pointing at that sentence.
 ## Build model (explicit: bootstrap precedes build)
 
 The SPM `binaryTarget` mechanism is xcframework-only, so the two benchmark models are
-fetched by script, not by SPM. `swift build` **alone** does not yield a working app:
+fetched by script, not by SPM. `swift build` **alone** does not yield a working app, and the
+macOS host build fails on iOS-era stdlib (`Duration`) besides — verify on iOS:
 
 ```
-make bootstrap && swift build      # bootstrap fetches the pinned models + verifies checksums;
-                                   # SPM resolves the TensorFlowLiteC xcframework binaryTarget
+make bootstrap && xcodebuild build -destination 'generic/platform=iOS Simulator'
 ```
 
-CI (rung 31) runs `make bootstrap` before `swift test`. The README states this in one line.
+CI (the CI rung) runs `make bootstrap` before the iOS test build. The README states it in one line.
 
 ## The ladder (rungs 00–36)
 
 ```
-00 chore(repo): bootstrap toolchain, license, agent context          <- committed
-01 docs(readme): project overview — what it is, where it stands, what is decided  <- committed
-02 build(spm): Package.swift workspace + empty local module targets + thin app placeholder  <- committed
+00 chore(repo): bootstrap toolchain, license, agent context
+01 docs(readme): project overview — what it is, where it stands, what is decided
+02 build(spm): Package.swift workspace + empty local module targets + thin app placeholder
 03 feat(core): inference contract protocols (InferenceEngine, ModelDescriptor,
-               LatencySample, InferenceOutcome) — zero dependencies  <- committed
+               LatencySample, InferenceOutcome) — zero dependencies
 04 build(make): derive the README badge from rung tags; cite docs by stable component
                name, not rung number (numbers live only in this file); drop hand-typed
                progress state
@@ -91,9 +96,9 @@ CI (rung 31) runs `make bootstrap` before `swift test`. The README states this i
                the LiteRT vendoring step, InferlensCoreML — to a real target or ROADMAP
                rung; (c) the `rungs N/D` badge equals the derived pair, `rung-*` tags on
                ORIGIN over the ladder's rung count in this file, so an unpushed tag makes N
-               lag and fails here (the core.hooksPath trap again); (d) every rung this file
-               marks committed has a matching `rung-*` tag. LiteRT device-only contingency
-               documented in ADR-0002 if the sim slice is ever absent
+               lag and fails here (the core.hooksPath trap again); (d) every `rung-*` tag
+               names a real ladder rung in this file (no orphan tags). LiteRT device-only
+               contingency documented in ADR-0002 if the sim slice is ever absent
 32 perf(bench): make bench on-device harness emits JSON (device, iOS, thermal, run count,
                warm-up policy)
 33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side —
