@@ -9,7 +9,7 @@ measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-5%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-6%2F37-orange)](docs/ROADMAP.md)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 *These badges are pins, not scores. Swift 6.3, iOS 26, and Xcode 26 are toolchain

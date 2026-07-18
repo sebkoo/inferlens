@@ -32,6 +32,10 @@ let package = Package(
         .target(name: "InferlensFlags", dependencies: ["InferlensCore"]),
         .target(name: "InferlensUI", dependencies: ["InferlensCore"]),
 
+        // Test support (rung 05+), not a package product: the StubEngine and, from rung 06,
+        // the engine-agnostic conformance suite. Depends only on the contract, like an engine.
+        .target(name: "InferlensConformance", dependencies: ["InferlensCore"]),
+
         // Thin app placeholder — composition only. The real iOS app target lands at
         // rung 25; this exists now to exercise the app -> modules -> Core graph.
         .executableTarget(
@@ -43,6 +47,12 @@ let package = Package(
                 "InferlensCoreML",
                 "InferlensLiteRT",
             ]
+        ),
+
+        // Rung 05: the StubEngine's own smoke tests. Rung 06 adds the suite run against it.
+        .testTarget(
+            name: "InferlensConformanceTests",
+            dependencies: ["InferlensConformance", "InferlensCore"]
         ),
     ],
     swiftLanguageModes: [.v6]
