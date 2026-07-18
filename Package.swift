@@ -54,6 +54,15 @@ let package = Package(
             name: "InferlensConformanceTests",
             dependencies: ["InferlensConformance", "InferlensCore"]
         ),
+
+        // The Core ML engine's tests run the SAME engine-agnostic suite against the real engine —
+        // so this test target depends on InferlensConformance, while the InferlensCoreML LIBRARY
+        // above does not (the library depends only on InferlensCore + the Core ML framework). That
+        // asymmetry is the point: the suite lands in a test, never in the shipped engine.
+        .testTarget(
+            name: "InferlensCoreMLTests",
+            dependencies: ["InferlensCoreML", "InferlensConformance", "InferlensCore"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
