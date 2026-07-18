@@ -1,0 +1,25 @@
+# Build
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Fetched artifacts — NEVER committed (see docs/adr/0002, docs/research/MODEL_PROVENANCE.md)
+*.mlmodel
+*.mlmodelc
+*.mlpackage
+*.tflite
+*.xcframework
+*.xcframework.zip
+Vendor/
+
+# Bench output
+bench-results/
+
+# Local-only notes — NEVER committed
+NOTES.local.md
+
+# macOS
+.DS_Store

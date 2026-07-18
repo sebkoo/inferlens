@@ -1,0 +1,34 @@
+# SwiftLint configuration — Inferlens
+# Invariants live in CLAUDE.md. Where a rule can encode one it does; the rest are enforced
+# by review and by CI grep-lint (the exactly-one @unchecked Sendable check lands at rung 11).
+
+disabled_rules:
+  - todo            # TODO stubs are expected in the early ladder
+
+opt_in_rules:
+  - empty_count
+  - explicit_init
+  - first_where
+  - sorted_first_last
+  - unused_import
+
+line_length:
+  warning: 100
+  error: 120
+
+file_length:
+  warning: 400
+
+identifier_name:
+  min_length: 2
+
+excluded:
+  - .build
+  - Vendor
+
+custom_rules:
+  unchecked_sendable_reminder:
+    name: "Single @unchecked Sendable boundary"
+    regex: "@unchecked Sendable"
+    message: "Exactly one @unchecked Sendable is allowed — the LiteRT C-handle boundary (ADR-0001). Precise exactly-one enforcement is the CI grep-lint at rung 11."
+    severity: warning

@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+*.mlmodel      binary
+*.mlpackage    binary
+*.tflite       binary
+*.xcframework  binary
+*.png          binary
+*.gif          binary
+*.pdf          binary

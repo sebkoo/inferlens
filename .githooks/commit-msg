@@ -1,0 +1,24 @@
+#!/bin/sh
+# Reject AI attribution trailers in commit messages (ADR-0004; CLAUDE.md invariant 9).
+# Disclosure is a method (docs/prompts/, CLAUDE.md), not a per-commit disclaimer.
+msg_file="$1"
+fail=0
+
+if grep -Eiq 'co-authored-by.*claude' "$msg_file"; then
+  echo "commit-msg: 'Co-Authored-By: ...Claude' trailer is not allowed." >&2
+  fail=1
+fi
+if grep -Eiq 'generated with' "$msg_file"; then
+  echo "commit-msg: 'Generated with' trailer is not allowed." >&2
+  fail=1
+fi
+if grep -Fq '🤖' "$msg_file"; then
+  echo "commit-msg: robot-emoji trailer is not allowed." >&2
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "Remove it. AI involvement is disclosed as method in docs/prompts/ and CLAUDE.md (ADR-0004), not per-commit." >&2
+  exit 1
+fi
+exit 0
