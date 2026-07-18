@@ -2,7 +2,7 @@
 
 - Status: Accepted — 2026-07-17
 - Deciders: maintainer
-- Relates to: ROADMAP rungs 02–25; JD must-haves (protocol-oriented design, Core ML,
+- Relates to: the module-implementation ladder; JD must-haves (protocol-oriented design, Core ML,
   TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
 
 ## Context
@@ -78,7 +78,8 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
 - **Exactly one `@unchecked Sendable`** in the whole codebase — the LiteRT C-handle
   boundary. `TfLiteInterpreter*` is non-Sendable and the C API is not thread-safe; it is
   owned by an actor that serializes all access, wrapped at exactly one documented
-  boundary. Any other `@unchecked Sendable` fails CI lint (rung 12). **Named risk:**
+  boundary. Any other `@unchecked Sendable` fails the CI lint that enforces exactly-one
+  `@unchecked Sendable`. **Named risk:**
   correctness depends on the actor being the sole owner/serializer of the interpreter.
 
 ## Consequences
@@ -88,17 +89,18 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
 - Cross-engine work (the fallback chain, cross-model agreement measurement) lives *above*
   the engines — in the composition layer — never inside an engine.
 
-## A constraint the timing contract imposes (recorded at rung 03)
+## A constraint the timing contract imposes
 
 `LatencySample` splits a run into `load` / `preprocess` / `infer`, each measured separately,
 because the benchmark exists to show where the time goes. That split requires each engine to
 **own its preprocessing**, so that a boundary between `preprocess` and `infer` exists to time.
 
-Consequence for rung 05: Core ML's `VNCoreMLRequest` fuses resize/crop/normalize into the
-prediction, leaving no boundary to measure — so **rung 05 must drive `MLModel` directly, not
+Consequence for the Core ML engine: Core ML's `VNCoreMLRequest` fuses resize/crop/normalize
+into the prediction, leaving no boundary to measure — so **the Core ML engine must drive
+`MLModel` directly, not
 Vision.** If that proves wrong and preprocessing cannot be separated, `preprocess` collapses
-into `infer` and the README's Cold/Warm table loses a column. Written here at rung 03 (a
-sentence) rather than discovered at rung 05 (a rung).
+into `infer` and the README's Cold/Warm table loses a column. Written as a constraint now
+rather than discovered during Core ML implementation.
 
 ## Alternatives rejected
 

@@ -1,7 +1,7 @@
 # CLAUDE.md — architecture context and invariants
 
 This file is the fixed context every change is reviewed against. It is deliberately
-committed before any code (rung 00). If a change conflicts with an invariant here, the
+committed before any code. If a change conflicts with an invariant here, the
 change is wrong, not the invariant — raise it, do not silently work around it.
 
 Decisions of record: [docs/adr/0001](docs/adr/0001-module-boundaries.md) (module
@@ -37,7 +37,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
    boundary. `TfLiteInterpreter*` is non-Sendable and the C API is not thread-safe; it is
    owned by an actor that serializes all access, wrapped at exactly one documented
    boundary with a comment stating the invariant. Any other `@unchecked Sendable` fails
-   CI lint (rung 12).
+   the CI lint that enforces exactly-one `@unchecked Sendable`.
 3. **The fallback chain is a value**, not an `if`-ladder. `LiteRT → Core ML → remote` is
    data; degradation is surfaced in the UI, never silent.
 4. **UI states are an enum**, never booleans:
@@ -59,8 +59,8 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 
 ## Process
 
-- Conventional Commits. One rung, one concern; a rung touching two concerns is split.
-- Every rung is green: `make bootstrap && make lint && make test` pass.
+- Conventional Commits. One commit, one concern; a commit touching two concerns is split.
+- Every commit is green: `make bootstrap && make lint && make test` pass.
 - Benchmark honesty over polish: `LIMITATIONS.md` before any feature list; disclosed
   error bars, not badges.
 - **Never commit** interview-prep notes, JD text, or recruiter correspondence.
@@ -70,7 +70,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 
 No emoji headers. A badge stays only if a reader can check it against a file in the repo and see what it
 covers: the version pins and the license qualify; a CI-pass or coverage badge does not,
-and stays off the page until a real test run exists to link to (rung 27). What matters is
+and stays off the page until a real test run exists to link to. What matters is
 that each badge is verifiable and scoped — not how many there are. Banned words: revolutionary, seamless,
 blazing fast, cutting-edge, leverage, game-changing, robust, powerful, elegant, simply,
 effortlessly. No sentence that survives deleting the project name. Every capability claim

@@ -17,8 +17,8 @@ decisions recorded in [ADR-0001](docs/adr/0001-module-boundaries.md) and checkab
 [`.swift-version`](.swift-version) and [`.xcode-version`](.xcode-version) — they state
 what the repo targets, not what it has measured. There is no CI or coverage badge, on
 purpose: no test has run yet, so a green check would report a result that does not exist;
-those arrive at rung 27 with the first passing test. The rungs badge is the one number
-here that reports something measured — rung 3 of a 32-rung ladder.*
+those arrive when CI runs its first passing test. The rungs badge is the one number
+here that reports something measured — how many rungs have landed.*
 
 ## Contents
 
@@ -41,22 +41,22 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [benchmark scope](docs/adr/0003-benchmark-comparison-scope.md),
   [commit hygiene](docs/adr/0004-commit-hygiene.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
-  [32-rung plan](docs/ROADMAP.md).
+  [step-by-step plan](docs/ROADMAP.md).
 - The toolchain — version pins, a formatter and linter config, and a
   [Makefile](Makefile) harness shape.
 - Commit hygiene — a committed [`commit-msg` hook](.githooks/commit-msg) and a CI lint
   that rejects AI attribution trailers ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
 - The module skeleton — an SPM workspace of six empty packages plus a thin app
-  placeholder, compiling green under Swift 6 strict concurrency (rung 02); the targets
+  placeholder, compiling green under Swift 6 strict concurrency; the targets
   do nothing yet.
 
-**Design-stage (decided, written down, not built)** — each item names its rung in
+**Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
-- The inference contract and its conformance suite (rungs 03–04)
-- Core ML and TensorFlow Lite engines behind that one contract (rungs 06, 09–11)
-- The append-only SQL ledger and the NoSQL metadata store (rungs 14–15)
-- The fallback chain, the actor-isolated engine, and the SwiftUI state machine (rungs 17–19)
-- The signal-capture, export, and on-device benchmark harness (rungs 21–22, 28)
+- The inference contract (done) and its conformance suite (planned)
+- Core ML and TensorFlow Lite engines behind that one contract
+- The append-only SQL ledger and the NoSQL metadata store
+- The fallback chain, the actor-isolated engine, and the SwiftUI state machine
+- The signal-capture, export, and on-device benchmark harness
 
 ## What it does
 
@@ -81,24 +81,24 @@ A wrapper app calls an API. This one closes a loop.
 ```
 Decisions       [##########]  done — 4 ADRs + prior art + roadmap
 Foundation      [##########]  done — toolchain, license, hooks, CI skeleton
-Contract        [----------]  rungs 03–04
-Engines         [----------]  rungs 06, 09–11
-Store & flags   [----------]  rungs 14–16
-UI & loop       [----------]  rungs 17–22
-Benchmark       [----------]  rungs 28, 32
+Contract        [##########]  done — InferenceEngine + Sendable value types
+Engines         [----------]  Core ML and TensorFlow Lite behind one contract
+Store & flags   [----------]  append-only SQL ledger + NoSQL metadata
+UI & loop       [----------]  fallback chain, actor engine, SwiftUI states
+Benchmark       [----------]  on-device harness + the latency table
 ```
 
 The riskiest assumption is that Google's `TensorFlowLiteC` XCFramework ships an
 `ios-arm64_x86_64-simulator` slice and links under Swift 6.3 strict concurrency — the
-whole SPM-`binaryTarget` approach rests on it. Rung 09 reads the XCFramework's
-`Info.plist` and asserts that slice **before** any engine code exists (rung 11), so if the
+whole SPM-`binaryTarget` approach rests on it. The LiteRT vendoring step reads the XCFramework's
+`Info.plist` and asserts that slice **before** any engine code exists (`InferlensLiteRT`), so if the
 assumption is wrong the ladder goes red at the distribution step rather than deep inside
 an engine. See [ADR-0002](docs/adr/0002-litert-distribution.md).
 
 ## Tech stack
 
 A non-developer should be able to read the whole stack and its state here. `Status` is
-`live`, `pinned`, or the rung where it lands.
+`live`, `pinned`, `done`, or `planned`.
 
 | Layer | Choice | Version / pin | Status | Why this one |
 |---|---|---|---|---|
@@ -106,37 +106,37 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | UI | SwiftUI | iOS 26 SDK | pinned | views over an explicit state enum, no engine knowledge |
 | Min OS | iOS | 26 | pinned | no install base, so device coverage is [deliberately not a factor](docs/adr/0001-module-boundaries.md) |
 | Build | Xcode | 26 | pinned | highest stable toolchain; the betas would cost green CI |
-| Packaging | Swift Package Manager | — | rung 02 | six local packages plus one vendored binaryTarget |
-| Engine A | Core ML | MobileNetV2 FP16 | rung 06 | Apple's on-device runtime, at its native FP16 |
-| Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | rung 09 | [no first-party SPM package](docs/adr/0002-litert-distribution.md), so vendored by checksum |
-| SQL | SQLite | append-only ledger + migrations | rung 14 | the run ledger is an append-only log, like a Postgres event table |
-| NoSQL | document / KV store | model metadata + flag cache | rung 15 | schema-free model metadata and a cached flag document |
-| Concurrency | actors, async/await | strict-concurrency=complete | rung 11 | one [`@unchecked Sendable`](docs/adr/0001-module-boundaries.md) at the C handle, CI-linted |
-| Instrumentation | OSSignposter | — | rung 07 | signpost spans around load / preprocess / infer |
-| Flags | FeatureFlagProvider | local JSON provider | rung 16 | the seam a remote-config system drops into later |
-| CI | GitHub Actions | commit-hygiene live | rung 27 | the trailer lint runs today; build and test land with the code |
+| Packaging | Swift Package Manager | — | done | six local module packages |
+| Engine A | Core ML | MobileNetV2 FP16 | planned | Apple's on-device runtime, at its native FP16 |
+| Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | planned | [no first-party SPM package](docs/adr/0002-litert-distribution.md), so vendored by checksum |
+| SQL | SQLite | append-only ledger + migrations | planned | the run ledger is an append-only log, like a Postgres event table |
+| NoSQL | document / KV store | model metadata + flag cache | planned | schema-free model metadata and a cached flag document |
+| Concurrency | actors, async/await | strict-concurrency=complete | planned | one [`@unchecked Sendable`](docs/adr/0001-module-boundaries.md) at the C handle, CI-linted |
+| Instrumentation | OSSignposter | — | planned | signpost spans around load / preprocess / infer |
+| Flags | FeatureFlagProvider | local JSON provider | planned | the seam a remote-config system drops into later |
+| CI | GitHub Actions | commit-hygiene live | planned | the trailer lint runs today; build and test land with the code |
 | License | Apache-2.0 | — | live | the [patent grant](LICENSE) matters for ML |
 
 ## What the job asks for
 
-Capability, where it lives, and the rung that builds it. Almost every row is planned —
+Capability and where it lives. Almost every row is planned —
 stated plainly, not softened.
 
-| The job asks for | Where it lives | Rung |
-|---|---|---|
-| Swift | every module | rung 02+ |
-| SwiftUI | InferlensUI | rung 19 |
-| Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | rung 02 |
-| TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | rungs 09–11 |
-| Core ML | InferlensCoreML | rung 06 |
-| SQL | InferlensStore — append-only ledger + migrations | rung 14 |
-| NoSQL | InferlensStore — document / KV store | rung 15 |
-| async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change | rungs 11, 18 |
-| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | rungs 17, 19 |
-| latency & memory optimization | LatencyRecorder (p50/p95, warm-up discard), OSSignposter | rungs 07–08, 28 |
-| feature flags / remote config | FeatureFlagProvider + local JSON provider | rung 16 |
-| capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | rungs 21–22 |
-| production reliability, issues caught early | contract tests, CI, commit-hygiene lint, strict concurrency | rungs 04, 12, 27 |
+| The job asks for | Where it lives |
+|---|---|
+| Swift | every module |
+| SwiftUI | InferlensUI |
+| Swift Package Manager | workspace, 6 local packages, 1 binaryTarget |
+| TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) |
+| Core ML | InferlensCoreML |
+| SQL | InferlensStore — append-only ledger + migrations |
+| NoSQL | InferlensStore — document / KV store |
+| async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change |
+| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value |
+| latency & memory optimization | LatencyRecorder (p50/p95, warm-up discard), OSSignposter |
+| feature flags / remote config | FeatureFlagProvider + local JSON provider |
+| capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export |
+| production reliability, issues caught early | contract tests, CI, commit-hygiene lint, strict concurrency |
 
 This table is the contract. The commits are the receipt.
 
@@ -152,7 +152,7 @@ not report.
 | Core ML | — | — | — | — | — | — |
 | TensorFlow Lite | — | — | — | — | — | — |
 
-Filled by `make bench` at rung 28. The two models are matched only where matching is
+Filled by `make bench` on-device. The two models are matched only where matching is
 honest — see [Limitations](#limitations) and
 [ADR-0003](docs/adr/0003-benchmark-comparison-scope.md).
 
@@ -202,13 +202,13 @@ between engines a visible state. Measurement is the neighbour. The closed loop i
 - [ADR-0004 — commit hygiene](docs/adr/0004-commit-hygiene.md)
 - [Prior-art research](docs/research/PRIOR_ART.md) ·
   [Model provenance](docs/research/MODEL_PROVENANCE.md)
-- [The 32-rung roadmap](docs/ROADMAP.md)
+- [The roadmap](docs/ROADMAP.md)
 
 ## How this was built
 
 Built with an AI agent, with the method kept in the repo rather than in a trailer. The
-invariants and forbidden patterns are in [CLAUDE.md](CLAUDE.md) today; a reusable prompt
-per rung lands under `docs/prompts/` at rung 30; and the history carries no `Co-Authored-By`
+invariants and forbidden patterns are in [CLAUDE.md](CLAUDE.md) today; reusable prompts
+land under `docs/prompts/`; and the history carries no `Co-Authored-By`
 lines — a committed [hook](.githooks/commit-msg) and a CI lint keep them out
 ([ADR-0004](docs/adr/0004-commit-hygiene.md)). The disclosure is the method, not a
 disclaimer.
