@@ -1,0 +1,41 @@
+name: commit-hygiene
+
+# The check that actually runs today. Split out of the old combined ci.yml, which startup-failed on
+# every push since rung 00 (a YAML parse error — an unquoted single-line `run:` scalar with a
+# colon-space, "TODO(rung 26): sudo ..." — rejected the whole file, so NO job ran, this one included).
+# Rewritten clean: expression contexts go through `env:` and are read as shell vars (the GitHub-
+# recommended pattern), and every `run:` is a block scalar so no embedded colon can break the parse.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  trailers:
+    name: no AI attribution trailers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reject AI attribution trailers
+        env:
+          BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          # On a push, BEFORE is the previous tip -> check just the new commits. On a PR, the first
+          # push of a branch, or a force-push, BEFORE is empty or unfetched -> check from the root.
+          if [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            range="$(git rev-list --max-parents=0 HEAD | tail -n1)..$HEAD_SHA"
+          else
+            range="$BEFORE..$HEAD_SHA"
+          fi
+          echo "range: $range"
+          if git log --format='%B' "$range" | grep -Eiq 'co-authored-by.*claude|generated with|🤖'; then
+            echo "FAIL: an AI attribution trailer is present in the commit range." >&2
+            exit 1
+          fi
+          echo "ok: no AI attribution trailers in $range"

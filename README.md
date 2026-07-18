@@ -134,7 +134,7 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | Concurrency | actors, async/await | strict-concurrency=complete | planned | one [`@unchecked Sendable`](docs/adr/0001-module-boundaries.md) at the C handle, CI-linted |
 | Instrumentation | OSSignposter | — | planned | signpost spans around load / preprocess / infer |
 | Flags | FeatureFlagProvider | local JSON provider | planned | the seam a remote-config system drops into later |
-| CI | GitHub Actions | commit-hygiene live | planned | the trailer lint runs today; build and test land with the code |
+| CI | GitHub Actions | commit-hygiene (trailer lint) | live | trailer lint runs on push from `fix(ci)` forward; build + test deferred to rung 26 |
 | License | Apache-2.0 | — | live | the [patent grant](LICENSE) matters for ML |
 
 ## What the job asks for
