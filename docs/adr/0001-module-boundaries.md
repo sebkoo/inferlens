@@ -2,7 +2,7 @@
 
 - Status: Accepted — 2026-07-17
 - Deciders: maintainer
-- Relates to: ROADMAP rungs 01–24; JD must-haves (protocol-oriented design, Core ML,
+- Relates to: ROADMAP rungs 02–25; JD must-haves (protocol-oriented design, Core ML,
   TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
 
 ## Context
@@ -78,7 +78,7 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
 - **Exactly one `@unchecked Sendable`** in the whole codebase — the LiteRT C-handle
   boundary. `TfLiteInterpreter*` is non-Sendable and the C API is not thread-safe; it is
   owned by an actor that serializes all access, wrapped at exactly one documented
-  boundary. Any other `@unchecked Sendable` fails CI lint (rung 11). **Named risk:**
+  boundary. Any other `@unchecked Sendable` fails CI lint (rung 12). **Named risk:**
   correctness depends on the actor being the sole owner/serializer of the interpreter.
 
 ## Consequences

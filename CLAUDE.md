@@ -37,7 +37,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
    boundary. `TfLiteInterpreter*` is non-Sendable and the C API is not thread-safe; it is
    owned by an actor that serializes all access, wrapped at exactly one documented
    boundary with a comment stating the invariant. Any other `@unchecked Sendable` fails
-   CI lint (rung 11).
+   CI lint (rung 12).
 3. **The fallback chain is a value**, not an `if`-ladder. `LiteRT → Core ML → remote` is
    data; degradation is surfaced in the UI, never silent.
 4. **UI states are an enum**, never booleans:
@@ -68,7 +68,10 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 
 ## Anti-slop (treat as build failures in docs)
 
-No emoji headers. At most four badges, all true. Banned words: revolutionary, seamless,
+No emoji headers. A badge stays only if a reader can check it against a file in the repo and see what it
+covers: the version pins and the license qualify; a CI-pass or coverage badge does not,
+and stays off the page until a real test run exists to link to (rung 27). What matters is
+that each badge is verifiable and scoped — not how many there are. Banned words: revolutionary, seamless,
 blazing fast, cutting-edge, leverage, game-changing, robust, powerful, elegant, simply,
 effortlessly. No sentence that survives deleting the project name. Every capability claim
 links to the file that implements it. No "Features" list of nouns — show the state machine.

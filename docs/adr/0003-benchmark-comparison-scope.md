@@ -2,7 +2,7 @@
 
 - Status: Accepted — 2026-07-17
 - Deciders: maintainer
-- Relates to: ROADMAP rungs 04, 05, 10, 12, 28; the README headline.
+- Relates to: ROADMAP rungs 05, 06, 11, 13, 29; the README headline.
 
 This ADR exists for the alternative it **rejects**. `MODEL_PROVENANCE.md` answers "which
 bytes, from where"; `BENCHMARK_METHOD.md` answers "how the numbers were produced"; this
@@ -76,10 +76,10 @@ in precision (Apple FP16 vs Google FP32), and Core ML execution precision depend
 chosen compute unit (the ANE runs FP16). The result is an ecosystem comparison, not a
 controlled runtime isolation; the README headline is scoped accordingly.
 
-## Consequence for cross-model agreement (rung 12)
+## Consequence for cross-model agreement (rung 13)
 
 The two models have **different weights** (independently trained). Disagreement on a
-golden image is therefore **data, not a bug**. Rung 12 *measures* top-1 agreement over a
+golden image is therefore **data, not a bug**. Rung 13 *measures* top-1 agreement over a
 golden set **frozen before measurement** — never curated until it agrees, because that
 gate would protect nothing — and **publishes** the rate (e.g. "Apple and Google
 MobileNetV2 agree on top-1 for N/50 golden images"). Any gate is a loose sanity floor to
