@@ -1,9 +1,12 @@
+<div align="center">
+
 # Inferlens
 
-Point an iPhone at something and it names what it sees, on-device, then writes down how
-long that took. The same picture runs through two inference engines behind one interface,
-and every run is logged — so the app that classifies images is also the harness that
-measures which engine to ship.
+**Measure on-device inference on your own iPhone — not a vendor's published number.**
+
+An iPhone app that names what it sees without sending the photo anywhere, runs the same
+picture through two engines, and logs how long each took — so the app that classifies
+images is also the harness that measures which engine to ship.
 
 [![Swift](https://img.shields.io/badge/Swift-6.3-F05138?logo=swift&logoColor=white)](.swift-version)
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
@@ -11,6 +14,8 @@ measures which engine to ship.
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 [![Progress](https://img.shields.io/badge/rungs-9%2F37-orange)](docs/ROADMAP.md)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
+
+</div>
 
 *These badges are pins, not scores. Swift 6.3, iOS 26, and Xcode 26 are toolchain
 decisions recorded in [ADR-0001](docs/adr/0001-module-boundaries.md) and checkable in
@@ -27,7 +32,7 @@ here that reports something measured — how many rungs have landed.*
 [What the job asks for](#what-the-job-asks-for) ·
 [Core ML vs TensorFlow Lite](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) ·
 [The state machine](#the-state-machine) · [Limitations](#limitations) ·
-[vs MLPerf Mobile](#vs-mlperf-mobile) · [Decisions](#decisions) ·
+[vs MLPerf Mobile](#vs-mlperf-mobile) · [FAQ](#faq) · [Decisions](#decisions) ·
 [How this was built](#how-this-was-built) · [License](#license)
 
 ## Start here
@@ -35,6 +40,22 @@ here that reports something measured — how many rungs have landed.*
 Two lists, so no one has to guess which half of the repo they are reading.
 
 **Running on `main` today:**
+- The inference contract and its conformance suite —
+  [`InferenceEngine`](Sources/InferlensCore/InferenceEngine.swift) plus
+  [`assertConformsToContract`](Sources/InferlensConformance/AssertConformsToContract.swift), an
+  engine-agnostic suite proven to have teeth: it passes a conforming
+  [`StubEngine`](Sources/InferlensConformance/StubEngine.swift) and deliberately
+  [fails a broken one](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift).
+- The first real engine —
+  [`CoreMLEngine`](Sources/InferlensCoreML/CoreMLEngine.swift), an actor over Apple's FP16
+  MobileNetV2 that drives `MLModel` directly so preprocess and infer time apart. It passes that same
+  suite against the real model on the simulator
+  ([the conformance test](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift)) — shape
+  validated; Neural Engine warm-up and real latency are device-only (see [Limitations](#limitations)).
+- The model pipeline — a checksum-pinned MobileNetV2 fetched by
+  [`make bootstrap`](scripts/fetch-models.sh), never committed
+  ([ADR-0002](docs/adr/0002-litert-distribution.md),
+  [provenance](docs/research/MODEL_PROVENANCE.md)).
 - The decision record — four ADRs
   ([module boundaries](docs/adr/0001-module-boundaries.md),
   [LiteRT distribution](docs/adr/0002-litert-distribution.md),
@@ -42,21 +63,20 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [commit hygiene](docs/adr/0004-commit-hygiene.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
-- The toolchain — version pins, a formatter and linter config, and a
-  [Makefile](Makefile) harness shape.
-- Commit hygiene — a committed [`commit-msg` hook](.githooks/commit-msg) and a CI lint
-  that rejects AI attribution trailers ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
-- The module skeleton — an SPM workspace of six empty packages plus a thin app
-  placeholder, compiling green under Swift 6 strict concurrency; the targets
-  do nothing yet.
+- The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
+  [`commit-msg` hook](.githooks/commit-msg) that rejects AI-attribution trailers
+  ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
+- The module skeleton — an SPM workspace of six local packages plus a thin app placeholder, green
+  under Swift 6 strict concurrency; `InferlensCore`, `InferlensCoreML`, and the conformance module
+  now carry code, while the store, flags, UI, and LiteRT packages are still skeletons.
 
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
-- The inference contract (done) and its conformance suite (planned)
-- Core ML and TensorFlow Lite engines behind that one contract
+- The TensorFlow Lite engine behind that same contract — a vendored xcframework driven through its C API
 - The append-only SQL ledger and the NoSQL metadata store
-- The fallback chain, the actor-isolated engine, and the SwiftUI state machine
-- The signal-capture, export, and on-device benchmark harness
+- The `LatencyRecorder` (p50/p95, warm-up discard) and OSSignposter spans around load / preprocess / infer
+- The fallback chain, cancel-on-input-change, and the SwiftUI state machine
+- Signal capture, NDJSON export, and the on-device benchmark harness
 
 ## What it does
 
@@ -81,8 +101,8 @@ A wrapper app calls an API. This one closes a loop.
 ```
 Decisions       [##########]  done — 4 ADRs + prior art + roadmap
 Foundation      [##########]  done — toolchain, license, hooks, CI skeleton
-Contract        [##########]  done — InferenceEngine + Sendable value types
-Engines         [----------]  Core ML and TensorFlow Lite behind one contract
+Contract        [##########]  done — InferenceEngine + conformance suite, teeth-tested
+Engines         [#####-----]  Core ML live, conformance-tested on the sim; TensorFlow Lite next
 Store & flags   [----------]  append-only SQL ledger + NoSQL metadata
 UI & loop       [----------]  fallback chain, actor engine, SwiftUI states
 Benchmark       [----------]  on-device harness + the latency table
@@ -107,7 +127,7 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | Min OS | iOS | 26 | pinned | no install base, so device coverage is [deliberately not a factor](docs/adr/0001-module-boundaries.md) |
 | Build | Xcode | 26 | pinned | highest stable toolchain; the betas would cost green CI |
 | Packaging | Swift Package Manager | — | done | six local module packages |
-| Engine A | Core ML | MobileNetV2 FP16 | planned | Apple's on-device runtime, at its native FP16 |
+| Engine A | Core ML | MobileNetV2 FP16 | live | Apple's on-device runtime, at its native FP16 |
 | Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | planned | [no first-party SPM package](docs/adr/0002-litert-distribution.md), so vendored by checksum |
 | SQL | SQLite | append-only ledger + migrations | planned | the run ledger is an append-only log, like a Postgres event table |
 | NoSQL | document / KV store | model metadata + flag cache | planned | schema-free model metadata and a cached flag document |
@@ -122,21 +142,21 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 Capability and where it lives. Almost every row is planned —
 stated plainly, not softened.
 
-| The job asks for | Where it lives |
-|---|---|
-| Swift | every module |
-| SwiftUI | InferlensUI |
-| Swift Package Manager | workspace, 6 local packages, 1 binaryTarget |
-| TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) |
-| Core ML | InferlensCoreML |
-| SQL | InferlensStore — append-only ledger + migrations |
-| NoSQL | InferlensStore — document / KV store |
-| async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change |
-| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value |
-| latency & memory optimization | LatencyRecorder (p50/p95, warm-up discard), OSSignposter |
-| feature flags / remote config | FeatureFlagProvider + local JSON provider |
-| capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export |
-| production reliability, issues caught early | contract tests, CI, commit-hygiene lint, strict concurrency |
+| The job asks for | Where it lives | Evidence |
+|---|---|---|
+| Swift | every module | live |
+| SwiftUI | InferlensUI | planned |
+| Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
+| TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | planned · [ADR-0002](docs/adr/0002-litert-distribution.md) |
+| Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
+| SQL | InferlensStore — append-only ledger + migrations | planned |
+| NoSQL | InferlensStore — document / KV store | planned |
+| async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift), partial |
+| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | planned · [ADR-0001](docs/adr/0001-module-boundaries.md) |
+| latency & memory optimization | LatencyRecorder (p50/p95, warm-up discard), OSSignposter | planned |
+| feature flags / remote config | FeatureFlagProvider + local JSON provider | planned |
+| capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | planned |
+| production reliability, issues caught early | contract tests, CI, commit-hygiene lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live |
 
 This table is the contract. The commits are the receipt.
 
@@ -193,6 +213,28 @@ benchmark scores across devices, and it is the closest neighbour to this work. I
 does something adjacent, not larger: it closes an evaluation loop around the numbers — a
 per-run ledger, a thumbs signal, NDJSON export to offline eval — and makes the fallback
 between engines a visible state. Measurement is the neighbour. The closed loop is the point.
+
+## FAQ
+
+**Is this an App Store app?** No — it is a code and benchmark artifact. A reviewer reads the source;
+nobody installs it, so device coverage is deliberately
+[out of scope](docs/adr/0001-module-boundaries.md).
+
+**Why build both Core ML and TensorFlow Lite?** The question the repo exists to answer is which is
+faster on iOS, and a comparison needs both sides, each at its ecosystem's native precision. The
+fallback chain (TensorFlow Lite → Core ML → remote) needs both too. Why these two vendor artifacts and
+not a fake-controlled FP32/FP32 pair is
+[ADR-0003](docs/adr/0003-benchmark-comparison-scope.md).
+
+**Can I run it without the model?** No. [`make bootstrap`](scripts/fetch-models.sh) fetches the
+checksum-pinned MobileNetV2 into `Vendor/Models/` (git-ignored); a plain `swift build` alone does not
+yield a working engine ([provenance](docs/research/MODEL_PROVENANCE.md)).
+
+**What does "Inferlens" mean?** Inference plus lens — a lens you point at your own device to measure
+its on-device inference, rather than trusting a vendor's published number.
+
+**How was it built?** Agent-directed, with the method kept in the repo, not in a commit trailer — see
+[How this was built](#how-this-was-built).
 
 ## Decisions
 
