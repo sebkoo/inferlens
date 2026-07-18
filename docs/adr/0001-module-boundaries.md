@@ -88,6 +88,18 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
 - Cross-engine work (the fallback chain, cross-model agreement measurement) lives *above*
   the engines — in the composition layer — never inside an engine.
 
+## A constraint the timing contract imposes (recorded at rung 03)
+
+`LatencySample` splits a run into `load` / `preprocess` / `infer`, each measured separately,
+because the benchmark exists to show where the time goes. That split requires each engine to
+**own its preprocessing**, so that a boundary between `preprocess` and `infer` exists to time.
+
+Consequence for rung 05: Core ML's `VNCoreMLRequest` fuses resize/crop/normalize into the
+prediction, leaving no boundary to measure — so **rung 05 must drive `MLModel` directly, not
+Vision.** If that proves wrong and preprocessing cannot be separated, `preprocess` collapses
+into `infer` and the README's Cold/Warm table loses a column. Written here at rung 03 (a
+sentence) rather than discovered at rung 05 (a rung).
+
 ## Alternatives rejected
 
 - **One app target, no packages** — fails to make boundaries legible; the JD map would be

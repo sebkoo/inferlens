@@ -3,7 +3,7 @@
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
 A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–32 are
-the build ladder. Rungs 00–02 are committed.
+the build ladder. Rungs 00–03 are committed.
 
 Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0002](adr/0002-litert-distribution.md) (LiteRT distribution),
@@ -38,7 +38,7 @@ CI (rung 27) runs `make bootstrap` before `swift test`. The README states this i
 01 docs(readme): project overview — what it is, where it stands, what is decided  <- committed
 02 build(spm): Package.swift workspace + empty local module targets + thin app placeholder  <- committed
 03 feat(core): inference contract protocols (InferenceEngine, ModelDescriptor,
-               LatencySample, InferenceOutcome) — zero dependencies
+               LatencySample, InferenceOutcome) — zero dependencies  <- committed
 04 test(core): contract conformance suite every engine must pass (engine-agnostic)
 05 chore(models): pin Apple MobileNetV2 (FP16 .mlmodel, native) + Google MobileNetV2
                (FP32 .tflite, default) by source URL + checksum in MODEL_PROVENANCE.md;
@@ -70,8 +70,12 @@ CI (rung 27) runs `make bootstrap` before `swift test`. The README states this i
 24 feat(flags): EntitlementProvider seam + AlwaysEntitled stub; paywall flag OFF
 25 feat(app): thin app target composes the modules — the one MVP screen
 26 test(store): migration + append-only invariant tests
-27 build(ci): GitHub Actions — make bootstrap, then build, swiftformat --lint, swiftlint,
-               swift test; commit-hygiene trailer lint already active from commit #1
+27 build(ci): GitHub Actions — make bootstrap, then swiftformat --lint, swiftlint, and
+               build+test on the iOS simulator via
+               `xcodebuild -destination 'generic/platform=iOS Simulator'` — never
+               `swift build`/`swift test` on the host (the host build was green only for as
+               long as it was meaningless — empty targets; iOS-era stdlib such as `Duration`
+               breaks it, discovered at rung 03). Commit-hygiene trailer lint from commit #1
                (ADR-0004); a doc-reference lint — every `rung NN` citation under docs/,
                README.md, and CLAUDE.md must resolve to an existing ROADMAP rung with a
                matching title, AND every 7–40-char hex commit SHA cited in docs/ or
