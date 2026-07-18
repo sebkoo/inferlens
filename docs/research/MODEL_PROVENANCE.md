@@ -13,8 +13,14 @@ not a controlled variable.
 
 | Side | Artifact | Source | Precision (native) | ~Size | Checksum |
 |------|----------|--------|--------------------|-------|----------|
-| Core ML | `MobileNetV2FP16.mlmodel` | `https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel` | FP16 (Apple's recommended baseline) | 12.4 MB | pinned on fetch |
-| TFLite | `mobilenet_v2` float32 `.tflite` | Google-hosted (`download.tensorflow.org` / Kaggle Models) — exact URL verified on fetch | FP32 (Google's default float model) | ~11 MB | pinned on fetch |
+| Core ML | `MobileNetV2FP16.mlmodel` | `https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel` | FP16 (Apple's recommended baseline) | 12,393,551 B (~12.4 MB) | `sha256:c76832208ff4c936365f0f2609f7b77f7f1a6caf62b0b429056d5ad7e48635ad` |
+| TFLite | `mobilenet_v2` float32 `.tflite` | Google-hosted (`download.tensorflow.org` / Kaggle Models) — exact URL verified on fetch | FP32 (Google's default float model) | ~11 MB | deferred to rung 15 (pinned when the LiteRT engine lands) |
+
+*The Apple `.mlmodel` URL was HEAD-checked live and its sha256 computed 2026-07-18 (200 OK,
+12,393,551 bytes, Core ML protobuf). `make bootstrap` re-verifies this sha256 on every fetch and
+fails loudly on mismatch, so a silently-changed upstream breaks the build rather than slipping in.
+The Google `.tflite` is deferred to rung 15, where the LiteRT path is built — pinning it now would
+be speculative.*
 
 ## Notes
 
@@ -42,6 +48,7 @@ not a controlled variable.
 
 ## Open input (approved deferral)
 
-The exact Google `.tflite` download URL is verified when the models are vendored. The **precision
-(Google FP32 default) is decided now**; only the literal URL and the two checksums are
-pinned then. This is the single deferred literal in the model pipeline.
+The exact Google `.tflite` download URL is verified when the LiteRT engine lands (rung 15). The
+**precision (Google FP32 default) is decided now**; only that literal URL and its checksum are
+pinned then. The Apple `.mlmodel` is already pinned (see the table); this is the single remaining
+deferred literal in the model pipeline.

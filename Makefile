@@ -8,9 +8,10 @@ help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
 
-bootstrap: ## Wire git hooks; fetch pinned models; resolve the LiteRT xcframework
+bootstrap: ## Wire git hooks; fetch checksum-pinned models; resolve the LiteRT xcframework
 	@git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks && echo "hooks: core.hooksPath -> .githooks" || true
-	@echo "TODO (model-vendoring rung): fetch checksum-pinned models into Vendor/ and resolve the binaryTarget. See docs/research/MODEL_PROVENANCE.md."
+	@bash scripts/fetch-models.sh
+	@echo "TODO (LiteRT vendoring step): resolve the TensorFlowLiteC xcframework binaryTarget. See docs/adr/0002-litert-distribution.md."
 
 format: ## Run swiftformat
 	@echo "TODO: swiftformat . --config .swiftformat"
