@@ -9,7 +9,7 @@ measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-1%2F32-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-2%2F32-orange)](docs/ROADMAP.md)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 *These badges are pins, not scores. Swift 6.3, iOS 26, and Xcode 26 are toolchain
@@ -18,7 +18,7 @@ decisions recorded in [ADR-0001](docs/adr/0001-module-boundaries.md) and checkab
 what the repo targets, not what it has measured. There is no CI or coverage badge, on
 purpose: no test has run yet, so a green check would report a result that does not exist;
 those arrive at rung 27 with the first passing test. The rungs badge is the one number
-here that reports something measured — rung 1 of a 32-rung ladder.*
+here that reports something measured — rung 2 of a 32-rung ladder.*
 
 ## Contents
 
@@ -46,7 +46,9 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [Makefile](Makefile) harness shape.
 - Commit hygiene — a committed [`commit-msg` hook](.githooks/commit-msg) and a CI lint
   that rejects AI attribution trailers ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
-- That is all. Nothing compiles yet — by design; see the bootstrap commit's message.
+- The module skeleton — an SPM workspace of six empty packages plus a thin app
+  placeholder, compiling green under Swift 6 strict concurrency (rung 02); the targets
+  do nothing yet.
 
 **Design-stage (decided, written down, not built)** — each item names its rung in
 [the roadmap](docs/ROADMAP.md):

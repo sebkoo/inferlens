@@ -3,7 +3,7 @@
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
 A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–32 are
-the build ladder. Rungs 00 and 01 are committed.
+the build ladder. Rungs 00–02 are committed.
 
 Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0002](adr/0002-litert-distribution.md) (LiteRT distribution),
@@ -34,9 +34,9 @@ CI (rung 27) runs `make bootstrap` before `swift test`. The README states this i
 ## The ladder (rungs 00–32)
 
 ```
-00 chore(repo): bootstrap toolchain, license, agent context          <- committed (db1056c)
+00 chore(repo): bootstrap toolchain, license, agent context          <- committed
 01 docs(readme): project overview — what it is, where it stands, what is decided  <- committed
-02 build(spm): Package.swift workspace + empty local module targets + thin app placeholder
+02 build(spm): Package.swift workspace + empty local module targets + thin app placeholder  <- committed
 03 feat(core): inference contract protocols (InferenceEngine, ModelDescriptor,
                LatencySample, InferenceOutcome) — zero dependencies
 04 test(core): contract conformance suite every engine must pass (engine-agnostic)
@@ -78,7 +78,9 @@ CI (rung 27) runs `make bootstrap` before `swift test`. The README states this i
                README.md must resolve via `git rev-parse --verify <sha>^{commit}`; else CI
                fails (a rung citation or a SHA that was true when written rots silently
                after a renumber or a rebase — the same one-way-dependency class this repo
-               lints for in modules, in prose).
+               lints for in modules, in prose). The `rungs N/32` badge is linted too,
+               not hand-maintained: N must equal the count of ladder rungs (01–32) marked
+               committed in this file, and 32 the ladder's rung count, else CI fails.
                LiteRT device-only contingency documented in ADR-0002 if the sim slice is
                ever absent
 28 perf(bench): make bench on-device harness emits JSON (device, iOS, thermal, run count,
