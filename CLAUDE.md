@@ -90,10 +90,15 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 
 ## Anti-slop (treat as build failures in docs)
 
-No emoji headers. A badge stays only if a reader can check it against a file in the repo and see what it
-covers: the version pins and the license qualify; a CI-pass or coverage badge does not,
-and stays off the page until a real test run exists to link to. What matters is
-that each badge is verifiable and scoped — not how many there are. Banned words: revolutionary, seamless,
+No emoji headers. A badge stays only if it is **verifiable and scoped** — a reader can click through to a file in the
+repo and check exactly what it covers (that is the test, not how many badges there are). A per-workflow
+badge qualifies: `commit-hygiene | passing` names its own scope and links to
+[its workflow](.github/workflows/commit-hygiene.yml), so a reader sees precisely what it lints — as do
+the version pins and the license. A generic `CI | passing` or a coverage badge does not: the label
+implies build/test coverage the check does not measure, so it stays off the page until that coverage
+actually runs (rung 26). This precises the principle, it does not loosen it — recorded like the
+invariant-1/2 corrections: the earlier blanket "a CI-pass badge does not qualify" over-restricted
+"verifiable and scoped," and a badge that names its own scope is exactly what the principle is for. Banned words: revolutionary, seamless,
 blazing fast, cutting-edge, leverage, game-changing, robust, powerful, elegant, simply,
 effortlessly. No sentence that survives deleting the project name. Every capability claim
 links to the file that implements it. No "Features" list of nouns — show the state machine.
