@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-11%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-12%2F37-orange)](docs/ROADMAP.md)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 </div>
@@ -266,10 +266,12 @@ got built: the human hand-writes the biasable part of the measurement — the pe
 cold/warm split, the warm-up discard — while the mechanical per-engine clock brackets are agent-written
 and human-reviewed (invariant 1, relaxed and recorded at rung 15).
 
-**Prompt engineering — partial.** A written prompt drove every rung, but the method is not yet a
-committed artifact: `docs/prompts/` is empty. The prompts lived in session handoffs; committing them is
-[planned](docs/ROADMAP.md) and starts at rung 12 rather than being backfilled, since reconstructed
-prompts would not be the ones that ran.
+**Prompt engineering — working.** The driving prompt is now a committed artifact from rung 15 forward —
+[`docs/prompts/rung-15-litert-engine.md`](docs/prompts/rung-15-litert-engine.md) is the first, and it
+records both the instruction and where reality falsified it (the "one `@unchecked Sendable`" the prompt
+assumed became zero; an `isolated deinit` crashed and became RAII — [ADR-0005](docs/adr/0005-litert-engine-concurrency.md)).
+Earlier rungs' prompts lived in session handoffs and are **not** reconstructed: a backfilled prompt
+would not be the one that ran, and inventing it would be the fabrication this repo bans.
 
 **Harness engineering — partial.** What works is teeth-tested: the fetch script
 [refuses a model whose sha256 does not match its pin](scripts/fetch-models.sh), the conformance suite
