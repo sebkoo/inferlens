@@ -136,7 +136,8 @@ public actor CoreMLEngine: InferenceEngine {
     public func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
         guard let ready else { throw InferenceError.modelLoadFailed }
 
-        // --- Timing split. HAND-WRITTEN, per CLAUDE.md invariant 1 — read this at review. Two
+        // --- Timing split. Measurement brackets — agent-written, human-reviewed per invariant 1
+        // (rung 10; relabelled at rung 15, the prior "hand-written" label being unverified). Two
         // clock reads bracket the two phases the engine owns; there is no cleverness here and
         // nothing is aggregated. This is the raw per-run signal, not the benchmark: percentile
         // aggregation and warm-up discard belong to the LatencyRecorder, hand-written there.
