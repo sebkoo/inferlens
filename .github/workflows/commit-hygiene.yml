@@ -3,6 +3,8 @@ name: commit-hygiene
 # The check that actually runs today. Split out of the old combined ci.yml, which startup-failed on
 # every push since rung 00 (a YAML parse error — an unquoted single-line `run:` scalar with a
 # colon-space, "TODO(rung 26): sudo ..." — rejected the whole file, so NO job ran, this one included).
+# (That "rung 26" is a HISTORICAL QUOTE of the broken ci.yml's echo, not a ladder reference — do NOT
+#  "correct" it: the CI build+test gate is rung 31 in ROADMAP. It records the exact string that broke.)
 # Rewritten clean: expression contexts go through `env:` and are read as shell vars (the GitHub-
 # recommended pattern), and every `run:` is a block scalar so no embedded colon can break the parse.
 

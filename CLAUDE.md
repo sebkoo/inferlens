@@ -107,7 +107,7 @@ badge qualifies: `commit-hygiene | passing` names its own scope and links to
 [its workflow](.github/workflows/commit-hygiene.yml), so a reader sees precisely what it lints — as do
 the version pins and the license. A generic `CI | passing` or a coverage badge does not: the label
 implies build/test coverage the check does not measure, so it stays off the page until that coverage
-actually runs (rung 26). This precises the principle, it does not loosen it — recorded like the
+actually runs (rung 31). This precises the principle, it does not loosen it — recorded like the
 invariant-1/2 corrections: the earlier blanket "a CI-pass badge does not qualify" over-restricted
 "verifiable and scoped," and a badge that names its own scope is exactly what the principle is for. Banned words: revolutionary, seamless,
 blazing fast, cutting-edge, leverage, game-changing, robust, powerful, elegant, simply,

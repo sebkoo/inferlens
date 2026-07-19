@@ -1,7 +1,7 @@
 name: build
 
-# Deferred to rung 26. Manual dispatch only — it never runs on push, so it never reports red on every
-# commit (the failure mode that kept the whole Actions tab red under the old ci.yml). rung 26 wires it
+# Deferred to rung 31. Manual dispatch only — it never runs on push, so it never reports red on every
+# commit (the failure mode that kept the whole Actions tab red under the old ci.yml). rung 31 wires it
 # to push, once the runner selects Xcode 26 and can boot an iOS 26 simulator. Until then `make test`
 # has no iOS 26 sim on the default hosted runner, and LiteRT does not exist until rung 15.
 on:
@@ -10,16 +10,16 @@ on:
 jobs:
   build-test:
     name: build + test (iOS 26 simulator)
-    runs-on: macos-15   # rung 26: pin a runner image that ships Xcode 26 / Swift 6.3
+    runs-on: macos-15   # rung 31: pin a runner image that ships Xcode 26 / Swift 6.3
     steps:
       - uses: actions/checkout@v4
 
       # Block scalar deliberately: the single-line form of this echo (an unquoted `run:` with the
-      # colon-space in "26): sudo ...") is exactly what startup-failed ci.yml. rung 26 replaces the
+      # colon-space in "31): sudo ...") is exactly what startup-failed ci.yml. rung 31 replaces the
       # echo with the real `sudo xcode-select`.
       - name: Select toolchain
         run: |
-          echo "TODO(rung 26): sudo xcode-select -s /Applications/Xcode_26.app  # Swift 6.3"
+          echo "TODO(rung 31): sudo xcode-select -s /Applications/Xcode_26.app  # Swift 6.3"
 
       - name: Bootstrap (fetch checksum-pinned models; resolve LiteRT xcframework)
         run: make bootstrap

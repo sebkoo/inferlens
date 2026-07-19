@@ -25,7 +25,7 @@ what the repo targets, not what it has measured. Two report something measured: 
 badge (how many rungs have landed) and the commit-hygiene badge — a scoped workflow badge that
 links to [its workflow](.github/workflows/commit-hygiene.yml) and reports exactly that the
 AI-trailer lint passes on every push, so a reader can click through and check what it covers.
-There is still no generic CI or coverage badge: build and test do not run in CI until rung 26,
+There is still no generic CI or coverage badge: build and test do not run in CI until rung 31,
 so a `CI | passing` badge would imply coverage that does not exist.*
 
 ## Contents
@@ -147,7 +147,7 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | Concurrency | actors, async/await | strict-concurrency=complete | live | both engines are actors; LiteRT's C handle stays on-actor at [zero `@unchecked Sendable`](docs/adr/0005-litert-engine-concurrency.md) |
 | Instrumentation | OSSignposter | — | planned | signpost spans around load / preprocess / infer |
 | Flags | FeatureFlagProvider | local JSON provider | planned | the seam a remote-config system drops into later |
-| CI | GitHub Actions | commit-hygiene (trailer lint) | live | trailer lint runs on push from `fix(ci)` forward; build + test deferred to rung 26 |
+| CI | GitHub Actions | commit-hygiene (trailer lint) | live | trailer lint runs on push from `fix(ci)` forward; build + test deferred to rung 31 |
 | License | Apache-2.0 | — | live | the [patent grant](LICENSE) matters for ML |
 
 ## What the job asks for
@@ -169,7 +169,7 @@ stated plainly, not softened.
 | latency & memory optimization | LatencyRecorder (p50/p95 over cold/warm), OSSignposter spans | recorder [built + property-tested](Tests/InferlensBenchTests/LatencyRecorderTests.swift); Cold/Warm table + OSSignposter planned |
 | feature flags / remote config | FeatureFlagProvider + local JSON provider | planned |
 | capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | planned |
-| production reliability, issues caught early | contract tests, the commit-hygiene CI lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live; build/test CI is rung 26 |
+| production reliability, issues caught early | contract tests, the commit-hygiene CI lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live; build/test CI is rung 31 |
 
 This table is the contract. The commits are the receipt.
 
@@ -298,7 +298,7 @@ covering the extracted xcframework (fail-closed at each); the conformance suite
 [commit-msg hook](.githooks/commit-msg) keep the ladder and its trailers honest. Two rung-15 checks were
 run **once, by hand, and are not in CI** — the `LiteRTEngine` survived a 5× run-tests-until-failure loop
 and an AddressSanitizer pass; one-off verifications, not standing gates. The gate that should be
-standing is not: CI runs the commit-hygiene lint only, and build + test wait for rung 26 — so nothing
+standing is not: CI runs the commit-hygiene lint only, and build + test wait for rung 31 — so nothing
 automated compiles or runs the suite on a push. That gap is the self-correction below.
 
 **Loop engineering — split.** The developer loop — prompt → context → harness → review-at-a-gate →
@@ -315,7 +315,7 @@ whole file: zero jobs ran on all 15 pushes, commit-hygiene included, while the R
 already live. The harness never surfaced it; a human reading the Actions tab did. Fixed in
 [`fix(ci)` 17ec057](https://github.com/sebkoo/inferlens/commit/17ec057) — the repo's
 [first green CI run](https://github.com/sebkoo/inferlens/actions/runs/29658770457) — a validated
-commit-hygiene workflow that runs on every push, with build and test deferred to rung 26. Recorded
+commit-hygiene workflow that runs on every push, with build and test deferred to rung 31. Recorded
 here because a method that only reports its wins is not one you can trust.
 
 The disclosure is the method, not a per-commit disclaimer

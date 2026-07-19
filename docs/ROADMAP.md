@@ -146,6 +146,28 @@ failing test and a destination with no available simulator, and confirm each exi
 distinguishable from a pass. An unexercised contract is a claim, not a guarantee. Lands as a check
 with the CI rung; until then it is a manual step in the landing checklist.
 
+## Harness backlog — a cross-document pointer check (recorded now)
+
+claims-audit catches forbidden phrasings and dead shas, but not cross-document POINTERS: a `rung N`
+that names no rung in this ladder, a `#anchor` that no heading generates, a repo file path that has
+moved. Same breakage as a dead sha — a well-formed pointer to nothing — a different regex. Motivating
+case: the CI build+test gate is rung 31 here, yet eleven prose sites (`.github/workflows/build.yml`,
+`CLAUDE.md`, `README.md`) had drifted to "rung 26" — the ledger-export rung — and nothing caught it.
+Add this check with the CI rung; until then it is a manual landing step, beside the no-simulator teeth
+test above.
+
+## Correction of record — the CI build+test gate is rung 31, not 26
+
+This ladder is the index; prose is downstream of it. The CI build+test gate is **rung 31**
+(`build(ci)` above); rung 26 is the ledger export. Repo prose had said "rung 26" for the CI gate in
+eleven places, now corrected in the tracked tree by the `docs: correct the CI rung reference` commit
+(the historical quote in `commit-hygiene.yml` is marked and deliberately left — it records the string
+that actually broke). Two already-pushed commits — `4e12860` (claims-audit) and `37fbc1e`
+(test-clean) — cite "rung 26" for the CI gate in their bodies and cannot be amended without
+force-pushing shared history, which costs more than it buys; the correct number is recorded here
+instead. From here, rung numbers are read from this ladder at the point of writing, never carried over
+from conversation. Recorded like the invariant-1, invariant-2 and RAII corrections.
+
 ## Riskiest assumption (tested at rung 13, before any engine logic)
 
 That Google's `TensorFlowLiteC.xcframework`, once re-zipped and pinned, contains an
