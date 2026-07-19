@@ -118,6 +118,23 @@ engine-lands-isolated vs enforce-the-boundary (15/16); state-enum vs screen-wiri
 (23/24); signal vs export (25/26); CI vs on-device bench (31/32); each doc cluster its own
 rung. The README is created at rung 01 and completed at rung 36 — not created twice.
 
+## Harness backlog — the per-rung claims audit (recorded at rung 12)
+
+Rung 12's real cost was not the `LatencyRecorder`; it was tracking one false claim ("the
+aggregation is hand-written") across twelve sites. Three were invisible to a working-tree
+`grep -r` and cost most of the passes:
+
+- a claim inside a **commit message** (`git log`, not the tree)
+- a **dead-sha reference** — alive locally via a backup branch, but 404 on origin once a
+  rebase orphaned the sha it named
+- stale text a **rebase resurrected** from an old commit *after* the sweep had already passed
+
+So a per-rung **claims audit**, keyed on the rung's subject-claim, must sweep all three
+surfaces — the working tree, `git log --format=%B`, and dead-sha references (short-sha strings
+that a rebase can orphan) — not just `grep -r`. It lands as a lint with the CI rung; until
+then it is a manual step in the landing checklist. This is a derived-vs-declared check like the
+others (a claim is "declared" in the subject and must hold everywhere it is "restated").
+
 ## Riskiest assumption (tested at rung 13, before any engine logic)
 
 That Google's `TensorFlowLiteC.xcframework`, once re-zipped and pinned, contains an
