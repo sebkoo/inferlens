@@ -148,7 +148,7 @@ Adjacent to this ADR's two concurrency corrections, rung 15 surfaced a third. Th
 this session**, but the original invariant 1 forbade agent-authored timing code, and the engine comment
 falsely labelled them "hand-written." Rather than ship a false label (or pretend a human wrote them),
 the maintainer **relaxed invariant 1 to split trust**: the biasable aggregation (percentiles, cold/warm,
-warm-up-run discard — the `LatencyRecorder`, rung 12) was to stay hand-written (interim — **superseded at
+the warm-up policy — the `LatencyRecorder`, rung 12) was to stay hand-written (interim — **superseded at
 rung 12**; see "Timing authorship, settled at rung 12" below); the mechanical per-run brackets
 are **agent-written, human-reviewed** — the maintainer reviews the compute-call-alone boundary before it
 lands. Both engines' bracket comments now say exactly that; neither claims human authorship the agent did.

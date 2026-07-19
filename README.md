@@ -62,6 +62,10 @@ Two lists, so no one has to guess which half of the repo they are reading.
   conformance suite on the simulator
   ([the conformance test](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift)); real
   latency is the device-only rung-32 bench.
+- The latency aggregation — [`LatencyRecorder`](Sources/InferlensBench/LatencyRecorder.swift): p50/p95
+  over cold and warm runs by nearest-rank, pinned by 10 property tests
+  ([the spec](Tests/InferlensBenchTests/LatencyRecorderTests.swift)). It aggregates the numbers; the
+  Cold/Warm table it fills is **still empty** — those figures come from the device bench (rung 32).
 - The model pipeline — a checksum-pinned MobileNetV2 fetched by
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
@@ -83,7 +87,7 @@ Two lists, so no one has to guess which half of the repo they are reading.
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
 - The append-only SQL ledger and the NoSQL metadata store
-- The `LatencyRecorder` (p50/p95, warm-up discard) and OSSignposter spans around load / preprocess / infer
+- OSSignposter spans around load / preprocess / infer
 - The fallback chain, cancel-on-input-change, and the SwiftUI state machine
 - Signal capture, NDJSON export, and the on-device benchmark harness
 
@@ -162,10 +166,10 @@ stated plainly, not softened.
 | NoSQL | InferlensStore — document / KV store | planned |
 | async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift), partial |
 | AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | planned · [ADR-0001](docs/adr/0001-module-boundaries.md) |
-| latency & memory optimization | LatencyRecorder (p50/p95, warm-up discard), OSSignposter | planned |
+| latency & memory optimization | LatencyRecorder (p50/p95 over cold/warm), OSSignposter spans | recorder [built + property-tested](Tests/InferlensBenchTests/LatencyRecorderTests.swift); Cold/Warm table + OSSignposter planned |
 | feature flags / remote config | FeatureFlagProvider + local JSON provider | planned |
 | capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | planned |
-| production reliability, issues caught early | contract tests, CI, commit-hygiene lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live |
+| production reliability, issues caught early | contract tests, the commit-hygiene CI lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live; build/test CI is rung 26 |
 
 This table is the contract. The commits are the receipt.
 
