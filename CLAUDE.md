@@ -89,8 +89,13 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 ## Process
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
-- Every commit is green: `make bootstrap && make lint && make test` pass — with one recorded
-  exception: a **spec-first RED commit** on a trust-critical path (invariant 1), marked RED in its
+- Every commit is green: `make bootstrap` plus the simulator suite via `bash scripts/test-clean.sh`
+  (a fresh `-derivedDataPath` per run, 26 tests) pass. `make lint` and `make test` are still stubs that
+  echo a TODO and check nothing, so they are NOT the green bar — naming them would be the same "empty
+  target readable as a pass" this repo guards against elsewhere. test-clean is run as the script, not as
+  `make test`, because `make` collapses its 0/1/2 exit-code contract (findings/could-not-run) to a bare 2;
+  wiring swiftformat/swiftlint into `make lint` and a contract-preserving `make test` is a ROADMAP
+  Harness-backlog item. One recorded exception: a **spec-first RED commit** on a trust-critical path (invariant 1), marked RED in its
   message, whose green pair lands in the **same push** and is never pushed alone. The pair proves the
   spec preceded the implementation (rung 12: the RED half of the pair → the green aggregation) — it is evidence of
   order, not of authorship, and the red half is never pushed by itself.

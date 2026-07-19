@@ -156,6 +156,16 @@ case: the CI build+test gate is rung 31 here, yet eleven prose sites (`.github/w
 Add this check with the CI rung; until then it is a manual landing step, beside the no-simulator teeth
 test above.
 
+## Harness backlog — wire swiftformat/swiftlint, and a contract-preserving make test (recorded now)
+
+`make lint` and `make test` are stubs that echo a TODO and exit 0 — they check nothing, so they are not
+part of the green bar (CLAUDE.md's Process now names `bash scripts/test-clean.sh` as the real runner).
+Wire `swiftformat --lint` and `swiftlint` into `make lint`, and repoint `make test` at a runner that
+preserves test-clean's 0/1/2 exit-code contract — a naive `test: test-clean` would route the suite
+through `make`, which collapses a recipe failure to a bare 2 and erases the fired-vs-could-not-run
+distinction. Lands with the CI rung; until then the green bar rests on test-clean run as the script, plus
+the standing commit-hygiene and claims-audit gates.
+
 ## Correction of record — the CI build+test gate is rung 31, not 26
 
 This ladder is the index; prose is downstream of it. The CI build+test gate is **rung 31**
