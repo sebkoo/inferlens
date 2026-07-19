@@ -42,7 +42,9 @@ metal.vendored_frameworks  = 'Frameworks/TensorFlowLiteCMetal.xcframework'
 
 So the bytes we want — `TensorFlowLiteC.xcframework` — are Google's own released
 binary, hosted at a stable `dl.google.com/tflite-release/...` URL. The pod adds nothing
-to those bytes but a Podfile entry.
+to those bytes but a Podfile entry. (The podspec quoted here is 2.14.0, current when this
+ADR was written; the pinned, shipped version is **2.17.0** — the latest stable C-API
+release, read from `pod spec cat TensorFlowLiteC`. See "Slice check — evidence".)
 
 ## Decision
 
@@ -116,30 +118,49 @@ outputs of executing the named, decided procedure.
   missing, the LiteRT vendoring step goes red before any engine logic (`InferlensLiteRT`)
   exists.
 
-## Slice check — evidence (2026-07-17)
+## Slice check — evidence (shipped bytes, 2026-07-18)
 
-Artifact inspected: `github.com/kewlbear/TensorFlowLiteC/releases/download/0.0.20250619/TensorFlowLiteC.xcframework.zip` (tag `0.0.20250619`).
+The pinned artifact is **TensorFlowLiteC 2.17.0** — the latest stable release of the C-API
+pod (`pod spec cat TensorFlowLiteC`, cross-checked against the CocoaPods CDN version list;
+the C pod skipped 2.15/2.16 and, like the Swift pod, froze at 2.17.0). This is the newest
+available, chosen because the runtime version is a benchmarked variable.
 
-Root listing — `ls -1` of the unzipped `TensorFlowLiteC.xcframework/`, verbatim:
+`scripts/vendor-litert.sh` fetched Google's released `dl.google.com/tflite-release/...`
+2.17.0 archive, verified its sha256, extracted `TensorFlowLiteC.xcframework`, and asserted
+its slices from `Info.plist` (`AvailableLibraries`) **before any linking** — the first gate.
+Verbatim result:
 
 ```
-Info.plist
-ios-arm64
-ios-arm64_x86_64-simulator
-PrivacyInfo.xcprivacy
+litert: slice ok — ios-arm64
+litert: slice ok — ios-arm64_x86_64-simulator
 ```
 
-Finding: the `ios-arm64_x86_64-simulator` slice is present (it includes the Apple Silicon
-simulator), so the project's single riskiest assumption is **falsified for this repackage**.
+Both required slices are present in the exact bytes this repo self-hosts — not a third
+party's repackage. The project's single riskiest assumption is **falsified for the shipped
+artifact**.
 
-Scope of this evidence: the check was run against **kewlbear's repackage, not the
-`dl.google.com/tflite-release/...` archive this repo will self-host**. kewlbear repackages
-Google's released bytes and does not add slices, so our artifact *should* be identical —
-but "should" is precisely what this ADR exists to remove. The LiteRT vendoring step
-therefore still reads the
-`Info.plist` (`AvailableLibraries`) of **our own** re-zipped xcframework before
-extract/zip/host. Today's check made the assumption cheap to falsify; it did not verify the
-bytes we will ship.
+Beyond the slice assertion, a throwaway SPM spike wired the extracted xcframework as a
+`binaryTarget` and proved it links and runs under Swift 6.3 `-strict-concurrency=complete`:
+
+- simulator (iPhone 17 Pro, iOS 26.1): `xcodebuild test` SUCCEEDED; the C symbol
+  `TfLiteVersion()` ran and returned `2.17.0`; zero strict-concurrency diagnostics.
+- device slice (`generic/platform=iOS`): `build-for-testing` SUCCEEDED; `_TfLiteVersion`
+  links into the `ios-arm64` (device) test bundle. Not run — no device was connected.
+
+The framework is a **static** framework (Mach-O `MH_OBJECT`), so a consumer links `libc++`
+(`InferlensLiteRT` will declare `.linkedLibrary("c++")`); there is no runtime dylib to load,
+so there is no framework-load state to model — only model load can fail.
+
+Provenance of the shipped release:
+
+- upstream `.tar.gz` sha256 `9667b476015f136e5b332ce040e12822c4ac6d5c58947882ddc809cdff0fb99e` (80,242,958 bytes)
+- re-zipped single-xcframework checksum, the `binaryTarget(checksum:)` pin:
+  `05e47987466a7bab29bc68910bf510c59a2d129812c7fbf1219eaabdced646f9` (34,506,670 bytes)
+- release asset: `github.com/sebkoo/inferlens/releases/download/litert-2.17.0/TensorFlowLiteC.xcframework.zip`
+
+An earlier 2026-07-17 check against kewlbear's `0.0.20250619` repackage made the assumption
+cheap to falsify before this repo self-hosted anything; the check above supersedes it by
+verifying the bytes actually shipped.
 
 ## Alternatives rejected
 
