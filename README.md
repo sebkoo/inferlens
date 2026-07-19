@@ -31,7 +31,7 @@ so a `CI | passing` badge would imply coverage that does not exist.*
 ## Contents
 
 [Start here](#start-here) · [What it does](#what-it-does) ·
-[Where it stands](#where-it-stands) · [Tech stack](#tech-stack) ·
+[Where this project is](#where-this-project-is) · [Tech stack](#tech-stack) ·
 [What the job asks for](#what-the-job-asks-for) ·
 [Core ML vs TensorFlow Lite](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) ·
 [The state machine](#the-state-machine) · [Limitations](#limitations) ·
@@ -109,17 +109,64 @@ run → ledger → signal → export → evaluate → pick a better engine → r
 
 A wrapper app calls an API. This one closes a loop.
 
-## Where it stands
+## Where this project is
 
-```
-Decisions       [##########]  done — 4 ADRs + prior art + roadmap
-Foundation      [##########]  done — toolchain, license, hooks, CI skeleton
-Contract        [##########]  done — InferenceEngine + conformance suite, teeth-tested
-Engines         [########--]  Core ML + TensorFlow Lite both conformance-tested on the sim; device latency unproven until the on-device bench (rung 32)
-Store & flags   [----------]  append-only SQL ledger + NoSQL metadata
-UI & loop       [----------]  fallback chain, actor engine, SwiftUI states
-Benchmark       [----------]  on-device harness + the latency table
-```
+Six phases, in the order each depends on the one before it — the shape of the work, not the
+rung-by-rung detail, which [the roadmap](docs/ROADMAP.md) is the single source of truth for. Every
+phase marked built points to the file that backs it; a phase only partly done says what is finished
+and what is not, in the same breath.
+
+**Foundation — the rules the code is held to, written down before the code, so "correct" is settled up
+front and everything after can be checked against it.** *Built.* The [invariants](CLAUDE.md) and
+[module boundaries](docs/adr/0001-module-boundaries.md) are committed,
+[commit hygiene](docs/adr/0004-commit-hygiene.md) is held by a [git hook](.githooks/commit-msg), and one
+contract — [`InferenceEngine`](Sources/InferlensCore/InferenceEngine.swift) — is what every engine must
+satisfy; the [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) is proven
+to bite by [failing a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift).
+
+**Supply chain — how third-party code and models get in without being trusted blindly, so any result
+traces back to exact, verified bytes.** *Built.* The two models are
+[fetched by checksum and never committed](scripts/fetch-models.sh)
+([provenance](docs/research/MODEL_PROVENANCE.md)); Google's TensorFlow Lite runtime is a checksum-pinned
+binary dependency ([why, and why not CocoaPods](docs/adr/0002-litert-distribution.md);
+[re-vendoring](scripts/vendor-litert.sh)), refused on a mismatch — and a
+[smoke test](Tests/InferlensLiteRTTests/LiteRTBinaryTargetSmokeTests.swift) shows the pinned binary
+actually loads and runs, so "vendored without trusting it" is checkable, not merely stated.
+
+**Engines — the two runtimes being compared, each meeting the one contract, so the comparison is
+like-for-like.** *Built on the simulator; device latency unmeasured.* Apple's
+[Core ML engine](Sources/InferlensCoreML/CoreMLEngine.swift) and Google's
+[TensorFlow Lite engine](Sources/InferlensLiteRT/LiteRTEngine.swift) each pass the same suite on the iOS
+simulator ([Core ML](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift),
+[TensorFlow Lite](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift)); their behavior is
+verified, but their speed on a real device has not been measured.
+
+**Measurement — how the comparison becomes a number that survives scrutiny.** *Partly built — the
+recorder exists, the numbers do not.* The part that turns raw timings into p50/p95 over cold and warm
+runs is [built and property-tested](Sources/InferlensBench/LatencyRecorder.swift)
+([the spec](Tests/InferlensBenchTests/LatencyRecorderTests.swift)), with the choices that could bias a
+benchmark — which percentile, where cold ends, what is discarded — decided and written at the code; but
+the [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) is still empty,
+because the on-device benchmark has not run.
+
+**Product loop — run, record, capture a signal, export, evaluate: the loop the whole project exists to
+close.** *Design-stage, not built.* The [ledger](Sources/InferlensStore/InferlensStore.swift), the
+[screen](Sources/InferlensUI/InferlensUI.swift), and the
+[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are three-line skeletons, and nothing yet
+carries a run through to a recorded thumbs signal and an export. The top of this page describes what this
+loop will do; today it is a plan.
+
+**Hardening — the standing gates that keep the claims honest.** *Partial — two gates run by hand;
+automated build+test is not wired.* The [commit-hygiene check](.github/workflows/commit-hygiene.yml) runs
+on every push; [`claims-audit`](scripts/claims-audit.sh) fails a stale claim or a commit reference dead
+on the remote, and [`test-clean`](scripts/test-clean.sh) forces a fresh build directory each run so a
+cached pass cannot be mistaken for a real one — but those two run by hand. The gate that would build the
+app and run the tests automatically on every push is [rung 31 on the roadmap](docs/ROADMAP.md) and
+is not done; until it is, nothing automated compiles or tests the code on a push.
+
+Thirteen of the roadmap's thirty-seven rungs have landed — [`make readme-sync`](Makefile) derives the
+badge from the count of `rung-*` git tags over the ladder's rung lines, so the figure is checkable, not
+typed. These six phases group those rungs so the shape is legible without reading the ladder.
 
 The riskiest assumption is that Google's `TensorFlowLiteC` XCFramework ships an
 `ios-arm64_x86_64-simulator` slice and links under Swift 6.3 strict concurrency — the
