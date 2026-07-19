@@ -89,12 +89,15 @@ let package = Package(
             dependencies: ["InferlensCoreML", "InferlensConformance", "InferlensCore"]
         ),
 
-        // The LiteRT supply-chain smoke test: proves the vendored TensorFlowLiteC binaryTarget —
-        // fetched from the live release URL, checksum-verified, linked (static + libc++) — actually
-        // runs. NOT engine conformance; that lands with LiteRTEngine (the actor over the C handle).
+        // The LiteRT tests: the supply-chain smoke test (the vendored TensorFlowLiteC binaryTarget —
+        // fetched from the live release URL, checksum-verified, linked static + libc++ — actually runs)
+        // AND, from rung 15, the engine-agnostic conformance suite run against the real LiteRTEngine —
+        // so this test target also depends on InferlensConformance + InferlensCore, while the
+        // InferlensLiteRT LIBRARY depends only on InferlensCore + TensorFlowLiteC. That asymmetry is the
+        // point: the suite lands in a test, never in the shipped engine.
         .testTarget(
             name: "InferlensLiteRTTests",
-            dependencies: ["InferlensLiteRT"]
+            dependencies: ["InferlensLiteRT", "InferlensConformance", "InferlensCore"]
         ),
     ],
     swiftLanguageModes: [.v6]

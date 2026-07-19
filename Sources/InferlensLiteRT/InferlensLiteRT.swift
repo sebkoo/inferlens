@@ -1,9 +1,9 @@
-// InferlensLiteRT — the TensorFlow Lite implementation of the contract. This rung wires the vendored
-// TensorFlowLiteC binaryTarget (ADR-0002) and proves the supply chain runs: a minimal call to the C
-// runtime's version symbol, nothing more. The engine itself — a LiteRTEngine actor owning the
-// non-Sendable TfLiteInterpreter* C handle behind the repo's ONE reserved @unchecked Sendable
-// boundary, conforming to InferenceEngine — is the LiteRTEngine rung, not this one. There is zero
-// @unchecked Sendable here.
+// InferlensLiteRT — the TensorFlow Lite implementation of the contract, in two files. This file's
+// `LiteRTRuntime` is the supply-chain smoke surface: a minimal call to the C runtime's version symbol
+// that proves the vendored TensorFlowLiteC binaryTarget (ADR-0002) resolved, linked, and runs.
+// `LiteRTEngine` (sibling file) is the actor over the `TfLiteInterpreter*` C handle that conforms to
+// InferenceEngine. The handle is non-Sendable and the C API is not thread-safe, but every C call is
+// synchronous and on-actor, so the whole module needs ZERO @unchecked Sendable (ADR-0005).
 //
 // TensorFlowLiteC is a STATIC framework (Mach-O MH_OBJECT); Package.swift links libc++ on this target
 // so its C++ runtime symbols resolve. Depends, like every engine, only on InferlensCore — plus its
