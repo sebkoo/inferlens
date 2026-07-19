@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-.PHONY: help bootstrap format lint test bench readme-sync land
+.PHONY: help bootstrap format lint test bench claims-audit readme-sync land
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -24,6 +24,12 @@ test: ## Build + run the test suite on the iOS simulator (wired at the 'wire mak
 
 bench: ## On-device latency harness -> JSON (the on-device bench rung)
 	@echo "TODO (on-device bench rung): run on-device benchmark; emit device/iOS/thermal/run-count/warm-up JSON."
+
+# Per-rung claims audit (docs/ROADMAP.md "Harness backlog"): a tree grep misses two of the three
+# surfaces rung 12 got burned by — a claim in a commit MESSAGE and a DEAD-SHA orphaned on origin.
+# CLAIM='<regex>' adds this rung's own subject-claim to the built-in forbidden list.
+claims-audit: ## Sweep tree + unpushed messages + dead-origin shas for a stale claim (CLAIM='<regex>' optional)
+	@bash scripts/claims-audit.sh "$(CLAIM)"
 
 # The rungs badge is DERIVED, never typed. N and D use ONE counting rule (rung-00 counts on
 # both sides): N = number of rung-* tags, D = number of rung lines in ROADMAP.md. Computed in
