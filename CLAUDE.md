@@ -43,7 +43,10 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
    necessity. The design instead keeps every C call synchronous and on-actor (the actor
    serializes all access) and frees the handle in an `isolated deinit` (SE-0371). The type
    system does **not** enforce this — triviality defeats the region check — so the on-actor
-   discipline is manual and documented at the Invoke site. A second `@unchecked Sendable`, or
+   discipline is manual and documented at the Invoke site. Cleanup is RAII, not a `deinit`: an
+   `isolated deinit` crashed on deferred teardown and a nonisolated actor `deinit` cannot even read the
+   non-Sendable handles, so a private wrapper class frees them synchronously via ARC at refcount zero —
+   a second empirical correction, recorded in ADR-0005, still zero `@unchecked`. A second `@unchecked Sendable`, or
    one away from that boundary, fails the CI lint (rung 16), which enforces **at most one**.
    Evidence, the fork, and the verbatim probe table:
    [ADR-0005](docs/adr/0005-litert-engine-concurrency.md). This premise was corrected by

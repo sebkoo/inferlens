@@ -18,9 +18,9 @@ writing `LiteRTEngine`, that premise was tested rather than assumed. It is false
 - **On-actor Invoke.** Every C call — `TfLiteInterpreterGetInputTensor`,
   `TfLiteTensorCopyFromBuffer`, `TfLiteInterpreterInvoke`, `TfLiteTensorCopyToBuffer` — runs
   synchronously inside the actor, with no suspension between reading the handle and `Invoke`
-  returning. The handle never crosses an isolation boundary during use. Cleanup runs in an
-  `isolated deinit` (SE-0371). This matches invariant 2's own words verbatim: "owned by an
-  actor that serializes all access."
+  returning. The handle never crosses an isolation boundary during use. This matches invariant 2's own
+  words verbatim: "owned by an actor that serializes all access." (Cleanup is a separate story that the
+  compile probes got wrong at runtime — see "Cleanup" below.)
 - **Off-actor Invoke.** The blocking `Invoke` runs on a `Task.detached`, so the actor's
   executor stays free during the ~10–30 ms inference.
 
@@ -48,8 +48,8 @@ requirement.
 | Probe | Design | Result |
 |---|---|---|
 | T1 | `OpaquePointer` where `Sendable` is required | FAILS (unavailable) — the only hard fact |
-| T4 | actor stores handle; **nonisolated** `deinit` calls `…Delete` | COMPILES, 0 diag |
-| T5 / T5b | **`isolated deinit`** (SE-0371) calls `…Delete` | COMPILES, 0 diag |
+| T4 | actor stores handle; **nonisolated** `deinit` calls `…Delete` | COMPILES on host `swiftc` — but the package/iOS build REJECTS it (see Cleanup) |
+| T5 / T5b | **`isolated deinit`** (SE-0371) calls `…Delete` | COMPILES, 0 diag — but crashes at RUNTIME (see Cleanup) |
 | T6a / T6e / T6ff | off-actor Invoke, handle in an `@unchecked Sendable` box | COMPILES — box *sufficient* |
 | T6b / T6c / T6d / T6f | off-actor Invoke, **no box** (bare ptr and class handle) | COMPILES, 0 diag — box *not necessary* |
 | T6g | bare ptr, fire-and-forget, reused after | COMPILES, 0 diag |
@@ -94,6 +94,52 @@ most one."
   load), it may introduce the single `@unchecked Sendable` box at that boundary — deliberately,
   with its own justification, and with explicit serialization to close the reentrancy race — and
   the lint still passes.
+
+## Cleanup — a second empirical correction (isolated deinit → RAII)
+
+The compile probes (T5/T5b) said `isolated deinit` was fine. Runtime said otherwise. Freeing the C
+handles in an `isolated deinit` shipped, then `InferlensLiteRTTests` crashed:
+
+```
+xctest malloc: *** error for object 0x…: pointer being freed was not allocated
+Failing tests: LiteRTEngineConformanceTests.testDescriptorReadableWithoutLoading()
+```
+
+The crashing test makes no C calls of its own: `isolated deinit` defers the free onto the actor's
+executor, and that asynchronous teardown raced the test bundle's process shutdown. Two facts then boxed
+the fix in:
+
+- `isolated deinit` is out — the deferred free *is* the bug.
+- A nonisolated actor `deinit` cannot even READ a non-Sendable stored property. The package build
+  rejects `deinit { …(interpreter) }` for `interpreter: OpaquePointer?` with "cannot access property …
+  with a non-Sendable type … from nonisolated deinit." (A host-only `swiftc` probe had wrongly suggested
+  otherwise — the package build under the iOS SDK is the authority, not a host typecheck.)
+
+So cleanup uses **RAII**: a private `final class Handles` owns the two handles and frees them in its own
+plain, synchronous `deinit`. A non-actor class `deinit` may read its own non-Sendable stored properties
+freely; the actor merely holds the `Handles`, and ARC runs that `deinit` when the actor is deallocated —
+deterministic, synchronous, and race-free (refcount zero, so nothing can hold the actor). This keeps
+**zero `@unchecked Sendable` and zero unsafe annotations**. (`nonisolated(unsafe)` on the stored handles,
+or a single `@unchecked Sendable` box — which invariant 2 now permits — both compile too; RAII was
+chosen because it keeps the unsafe-annotation count at zero.)
+
+**Lesson — the compile authority is the package/iOS build, not host `swiftc`.** Probe T4 (a host
+typecheck) said a nonisolated actor `deinit` reading the handles was fine; the package build under the
+iOS SDK rejected it outright. Host-only probes are a fast first look, never the final word — deinit
+isolation and concurrency rules must be confirmed in the actual `xcodebuild` build before they are
+trusted. This ADR's earlier probe table (T4/T5) was written from host typechecks; both rows are now
+annotated with what the package build actually did.
+
+Verified before shipping:
+
+- `-run-tests-until-failure -test-iterations 5`: 5/5 green, the original crashing order preserved
+  (`testDescriptorReadableWithoutLoading` runs right after the model-loading tests), zero `malloc`/crash
+  lines.
+- `-enableAddressSanitizer YES`: TEST SUCCEEDED, no ASan report — no double-free, no use-after-free. So
+  the fix is memory-clean, not merely reordered.
+- A forced load failure on garbage bytes (`testLoadFailsCleanlyOnBadModelBytes`) passes under ASan: the
+  `loadModel` error paths free what they created without ever storing it, so a later `deinit` (handles
+  `nil`) frees nothing — the single-free property, proven not just argued.
 
 ## Alternatives rejected
 
