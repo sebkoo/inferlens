@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-.PHONY: help bootstrap format lint test bench claims-audit test-clean readme-sync land
+.PHONY: help bootstrap format lint test bench claims-audit test-clean anchor-check readme-sync land
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -36,6 +36,12 @@ claims-audit: ## Sweep tree + unpushed messages + dead-origin shas for a stale c
 # path is printed. Simulator suite only; device-only latency is the bench rung.
 test-clean: ## Build+test on the iOS sim with a fresh -derivedDataPath per run (no stale-artifact reuse)
 	@bash scripts/test-clean.sh
+
+# anchor-check: every in-page (#anchor) link in the Markdown resolves to a real, unique heading — the
+# anchor half of the cross-document-pointer gap (a broken anchor 200s and scrolls nowhere). Slugs are
+# derived GitHub's way. CI calls the script directly for the 0/1/2 contract; make collapses failures to 2.
+anchor-check: ## Check every in-page Markdown anchor resolves to a unique heading (slug-derived)
+	@bash scripts/anchor-check.sh
 
 # The rungs badge is DERIVED, never typed. N and D use ONE counting rule (rung-00 counts on
 # both sides): N = number of rung-* tags, D = number of rung lines in ROADMAP.md. Computed in
