@@ -135,6 +135,17 @@ that a rebase can orphan) — not just `grep -r`. It lands as a lint with the CI
 then it is a manual step in the landing checklist. This is a derived-vs-declared check like the
 others (a claim is "declared" in the subject and must hold everywhere it is "restated").
 
+## Harness backlog — test-clean's exit-code contract is unexercised (recorded now)
+
+`make test-clean` carries the same exit-code contract as the claims audit — 0 tests passed, 1
+tests ran and failed, 2 the harness could not run (no simulator, or the build never reached test
+execution) — so a pass and a never-ran can never share an exit. But only the exit-0 path has been
+exercised: the green two-run proof drove neither the failing-test path (exit 1) nor the
+no-simulator path (exit 2). Teeth-test both the way the claims audit was — force a deliberately
+failing test and a destination with no available simulator, and confirm each exit is
+distinguishable from a pass. An unexercised contract is a claim, not a guarantee. Lands as a check
+with the CI rung; until then it is a manual step in the landing checklist.
+
 ## Riskiest assumption (tested at rung 13, before any engine logic)
 
 That Google's `TensorFlowLiteC.xcframework`, once re-zipped and pinned, contains an

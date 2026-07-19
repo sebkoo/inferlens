@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-.PHONY: help bootstrap format lint test bench claims-audit readme-sync land
+.PHONY: help bootstrap format lint test bench claims-audit test-clean readme-sync land
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -30,6 +30,12 @@ bench: ## On-device latency harness -> JSON (the on-device bench rung)
 # CLAIM='<regex>' adds this rung's own subject-claim to the built-in forbidden list.
 claims-audit: ## Sweep tree + unpushed messages + dead-origin shas for a stale claim (CLAIM='<regex>' optional)
 	@bash scripts/claims-audit.sh "$(CLAIM)"
+
+# test-clean uses a FRESH -derivedDataPath every run (a fresh mktemp dir), so xcodebuild cannot report a
+# stale result out of a reused DerivedData — it did, twice this session (a spurious TEST SUCCEEDED). The
+# path is printed. Simulator suite only; device-only latency is the bench rung.
+test-clean: ## Build+test on the iOS sim with a fresh -derivedDataPath per run (no stale-artifact reuse)
+	@bash scripts/test-clean.sh
 
 # The rungs badge is DERIVED, never typed. N and D use ONE counting rule (rung-00 counts on
 # both sides): N = number of rung-* tags, D = number of rung lines in ROADMAP.md. Computed in
