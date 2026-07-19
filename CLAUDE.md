@@ -31,9 +31,17 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 
 ## Invariants (forbidden patterns)
 
-1. **No agent-authored timing code.** `LatencyRecorder` and the measurement path are
-   hand-written and hand-reviewed. Warm-up runs are discarded and the discard is
-   documented. Never generate or auto-edit the timing path unreviewed.
+1. **Timing code — split trust (relaxed at rung 15, recorded).** Two tiers, different rules.
+   The biasable aggregation — the `LatencyRecorder`'s percentiles, the cold/warm split, and
+   warm-up-run discard, where a hidden choice would skew the benchmark — stays **hand-written
+   and hand-reviewed** (rung 12, not yet landed). The per-engine `classify()` measurement
+   brackets — the `ContinuousClock` reads bracketing preprocess and the compute call — are **agent-written,
+   human-reviewed**: mechanical, reviewed at the diff for the boundary (the compute call ALONE
+   in `infer`; all data-prep in `preprocess`; `inferEnd` immediately after the call, before
+   reading output; the load-time warm-up excluded, in `loadModel`). A comment may never label
+   agent-written brackets "hand-written." This relaxes the original "no agent-authored timing
+   code" — a recorded decision (like the CI miss, the invariant-2 correction, and the RAII
+   correction); see [ADR-0005](docs/adr/0005-litert-engine-concurrency.md).
 2. **At most one `@unchecked Sendable`** in the whole codebase — at the LiteRT C-handle
    boundary, and only if a design requires it. It is a ceiling, not a target: under Swift
    6.3 the shipped on-actor `LiteRTEngine` requires **zero**. `TfLiteInterpreter*` is a

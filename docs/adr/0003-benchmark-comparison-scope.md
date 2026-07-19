@@ -76,6 +76,19 @@ in precision (Apple FP16 vs Google FP32), and Core ML execution precision depend
 chosen compute unit (the ANE runs FP16). The result is an ecosystem comparison, not a
 controlled runtime isolation; the README headline is scoped accordingly.
 
+## The infer span is comparable, not perfectly symmetric
+
+The preprocess/infer boundary is drawn **identically** for both engines at the API level:
+all data marshalling into the runtime's input container lives in `preprocess`, the compute
+call alone in `infer`, `inferEnd` immediately after the call and before reading output. But
+the two APIs expose different amounts of *internal* marshalling. LiteRT's
+`TfLiteTensorCopyFromBuffer` is explicit and counted as `preprocess`, whereas Core ML's
+`prediction()` performs input conversion and output wrapping **inside** the call. Core ML's
+`infer` span is therefore inherently a little more inclusive — slightly to Core ML's
+disadvantage. This cannot be removed without instrumenting inside a closed API, so it is
+**disclosed, not corrected**: the `infer` spans are comparable, not perfectly symmetric.
+Recorded in LIMITATIONS (the README Limitations section today; `LIMITATIONS.md` at rung 33).
+
 ## Consequence for cross-model agreement
 
 The two models have **different weights** (independently trained). Disagreement on a
@@ -86,3 +99,8 @@ gate would protect nothing — and **publishes** the rate (e.g. "Apple and Googl
 MobileNetV2 agree on top-1 for N/50 golden images"). Any gate is a loose sanity floor to
 catch a broken preprocessing pipeline; the actual number is always published, in the
 README and BENCHMARK_METHOD.md.
+
+**Cross-model label alignment** — LiteRT emits `[1, 1001]` (index 0 background, 1..1000
+ImageNet, index-labelled) vs Core ML's 1000 string-labelled output — is reconciled here at
+rung 17. See [MODEL_PROVENANCE.md](../research/MODEL_PROVENANCE.md). Deferred-and-recorded,
+not deferred-and-hoped: top-1 agreement cannot be computed until the two label spaces map.

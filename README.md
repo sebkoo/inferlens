@@ -201,6 +201,12 @@ Read these before the plan.
   is FP32 — and Core ML may execute at FP16 on the Neural Engine regardless. The precision
   gap is a property of each ecosystem, reported rather than hidden
   ([ADR-0003](docs/adr/0003-benchmark-comparison-scope.md)).
+- **The `infer` spans are comparable, not perfectly symmetric.** Both engines draw the
+  preprocess/infer boundary the same way at the API level (data marshalling in `preprocess`, the
+  compute call alone in `infer`), but the APIs expose different internal marshalling: LiteRT's input
+  copy is explicit and counted as `preprocess`, while Core ML's `prediction()` includes input
+  conversion and output wrapping inside the call — so Core ML's `infer` is inherently a little more
+  inclusive. Disclosed, not removed ([ADR-0003](docs/adr/0003-benchmark-comparison-scope.md)).
 - One architecture (MobileNetV2), one task (image classification).
 - The remote fallback is a stub; there is no server.
 - No App Store build — this is a code and benchmark artifact, not a shipping app.
@@ -256,8 +262,9 @@ proves it. Where a claim outran its evidence, the weaker truth is written here.
 **Context engineering — working.** [CLAUDE.md](CLAUDE.md), the four [ADRs](docs/adr), and the
 [roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
 fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
-got built: the human hand-writes the latency measurement path and the agent writes only the failing
-spec — the boundary [ADR-0001](docs/adr/0001-module-boundaries.md) draws.
+got built: the human hand-writes the biasable part of the measurement — the percentile aggregation, the
+cold/warm split, the warm-up discard — while the mechanical per-engine clock brackets are agent-written
+and human-reviewed (invariant 1, relaxed and recorded at rung 15).
 
 **Prompt engineering — partial.** A written prompt drove every rung, but the method is not yet a
 committed artifact: `docs/prompts/` is empty. The prompts lived in session handoffs; committing them is
