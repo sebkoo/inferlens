@@ -20,6 +20,7 @@ let package = Package(
         .library(name: "InferlensStore", targets: ["InferlensStore"]),
         .library(name: "InferlensFlags", targets: ["InferlensFlags"]),
         .library(name: "InferlensUI", targets: ["InferlensUI"]),
+        .library(name: "InferlensBench", targets: ["InferlensBench"]),
     ],
     targets: [
         // The contract. Zero dependencies, enforced here and by review.
@@ -45,6 +46,13 @@ let package = Package(
         .target(name: "InferlensStore", dependencies: ["InferlensCore"]),
         .target(name: "InferlensFlags", dependencies: ["InferlensCore"]),
         .target(name: "InferlensUI", dependencies: ["InferlensCore"]),
+
+        // Benchmark aggregation (rung 12): the LatencyRecorder (p50/p95 over cold/warm) turns a
+        // session's LatencySamples into the README's Cold/Warm table. Depends on the contract's
+        // timing value types only, never an engine — aggregation lives ABOVE the engines (ADR-0001,
+        // amended 6 -> 7 modules). The aggregation is agent-written, maintainer-decided (CLAUDE.md
+        // invariant 1, third correction).
+        .target(name: "InferlensBench", dependencies: ["InferlensCore"]),
 
         // The vendored TensorFlow Lite C runtime: Google's released TensorFlowLiteC.xcframework
         // 2.17.0, re-zipped single-xcframework and self-hosted as this repo's own GitHub release
@@ -98,6 +106,14 @@ let package = Package(
         .testTarget(
             name: "InferlensLiteRTTests",
             dependencies: ["InferlensLiteRT", "InferlensConformance", "InferlensCore"]
+        ),
+
+        // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on
+        // InferlensBench + InferlensCore only — NOT Conformance; this is a value-aggregation spec,
+        // not an engine-conformance run.
+        .testTarget(
+            name: "InferlensBenchTests",
+            dependencies: ["InferlensBench", "InferlensCore"]
         ),
     ],
     swiftLanguageModes: [.v6]

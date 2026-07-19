@@ -1,6 +1,6 @@
 # ADR-0001: Module boundaries
 
-- Status: Accepted — 2026-07-17
+- Status: Accepted — 2026-07-17 (amended 2026-07-18: module set 6 → 7, added InferlensBench at rung 12)
 - Deciders: maintainer
 - Relates to: the module-implementation ladder; JD must-haves (protocol-oriented design, Core ML,
   TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
@@ -27,8 +27,14 @@ Local SPM packages; the app target is thin (composition only).
 - **InferlensFlags** — `FeatureFlagProvider` + local JSON provider; `EntitlementProvider`
   seam.
 - **InferlensUI** — SwiftUI views + the `InferenceState` machine; no engine knowledge.
+- **InferlensBench** — benchmark aggregation: `LatencyRecorder` turns a session's
+  `LatencySample`s into the p50/p95 Cold/Warm summary the README table reports. It is
+  computation OVER Core's timing value types, not a type or the contract, so it lives above
+  Core rather than in it (Core stays zero-dependency, value-types-only); the aggregation is
+  agent-written, maintainer-decided per CLAUDE.md invariant 1 (third correction). Added at rung 12
+  — the module set grew 6 → 7.
 
-**Dependency direction (one way):** `app → {UI, Store, Flags, CoreML, LiteRT} → Core`.
+**Dependency direction (one way):** `app → {UI, Store, Flags, CoreML, LiteRT, Bench} → Core`.
 Core depends on nothing. Engines never depend on each other. UI depends on Core's value
 types and the engine *protocol*, never a concrete engine. A CI dependency-lint fails any
 arrow that points back toward an engine or into Core.
@@ -43,6 +49,7 @@ arrow that points back toward an engine or into Core.
 | InferlensStore | SQL (append-only ledger + migrations) **and** NoSQL (doc/KV) |
 | InferlensFlags | feature-flag / remote-config seam; entitlement seam |
 | InferlensUI | SwiftUI; explicit state machine |
+| InferlensBench | latency optimization; the p50/p95 benchmark that fills the README table |
 | app target | composition; Swift 6 strict concurrency; actor isolation |
 
 ## The equivalence argument (an interviewer will ask)
