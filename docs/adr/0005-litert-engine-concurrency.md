@@ -148,12 +148,39 @@ Adjacent to this ADR's two concurrency corrections, rung 15 surfaced a third. Th
 this session**, but the original invariant 1 forbade agent-authored timing code, and the engine comment
 falsely labelled them "hand-written." Rather than ship a false label (or pretend a human wrote them),
 the maintainer **relaxed invariant 1 to split trust**: the biasable aggregation (percentiles, cold/warm,
-warm-up-run discard — the `LatencyRecorder`, rung 12) stays hand-written; the mechanical per-run brackets
+warm-up-run discard — the `LatencyRecorder`, rung 12) was to stay hand-written (interim — **superseded at
+rung 12**; see "Timing authorship, settled at rung 12" below); the mechanical per-run brackets
 are **agent-written, human-reviewed** — the maintainer reviews the compute-call-alone boundary before it
 lands. Both engines' bracket comments now say exactly that; neither claims human authorship the agent did.
 `CoreMLEngine`'s rung-10 brackets carried the same false "hand-written" label; git blame shows only the
 committer (the maintainer), not the keystroke author, and human authorship was not confirmed, so they are
 relabelled "agent-written, human-reviewed" too. See CLAUDE.md invariant 1.
+
+## Timing authorship, settled at rung 12 — the aggregation is agent-written too
+
+The rung-15 split trust above believed one more thing that rung 12 falsified.
+
+- **Believed (rung 15).** The biasable aggregation — the `LatencyRecorder`'s percentiles, the cold/warm
+  split, the warm-up policy — would **stay hand-written** by the maintainer, because a hidden choice there
+  would skew the benchmark and only a human hand should make it.
+- **Falsified (rung 12).** When the aggregation was built, the maintainer **decided and ratified** the
+  biasable choices but did **not** hand-author the code — the agent wrote it to those decisions and the
+  maintainer reviewed it. Calling it "hand-written" would have been the same false label this ADR already
+  corrected for the brackets. The red→green pair (the RED half → the green aggregation) proves the spec
+  preceded the implementation — **order, not authorship**.
+- **Resulting rule (invariant 1, settled).** The whole measurement path — brackets AND aggregation — is
+  **agent-written, human-decided, human-reviewed**. The biasable choices are **decided by the maintainer,
+  documented in a comment at the code**, and **no agent may introduce or change one without an explicit
+  recorded ratification**.
+- **The three choices ratified at rung 12** (documented at the code in `LatencyRecorder.swift`):
+  (a) percentile = **nearest-rank in integer arithmetic** — `rank = ceil(p*N/100)` written `(p*N+99)/100`,
+  1-indexed, clamped `1...N`; integer on purpose, because binary-float `ceil(0.95*20.0)` can land on 20.0
+  and misreport p95 == max (the bug `testP95IsNearestRankNotMax` guards);
+  (b) **cold = the first run after a model load**, its `total` carrying the load cost (loadDuration +
+  compute); every later run is warm;
+  (c) **the recorder discards nothing** — the engine's one throwaway `Invoke` in `loadModel` is the only
+  warm-up; the cold run is **reported in the cold bucket, not dropped**, because cold start is a real,
+  user-visible cost and dropping slow early samples would flatter the benchmark.
 
 ## Alternatives rejected
 

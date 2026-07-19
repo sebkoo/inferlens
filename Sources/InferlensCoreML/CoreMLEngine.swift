@@ -140,7 +140,7 @@ public actor CoreMLEngine: InferenceEngine {
         // (rung 10; relabelled at rung 15, the prior "hand-written" label being unverified). Two
         // clock reads bracket the two phases the engine owns; there is no cleverness here and
         // nothing is aggregated. This is the raw per-run signal, not the benchmark: percentile
-        // aggregation and warm-up discard belong to the LatencyRecorder, hand-written there.
+        // aggregation and the cold/warm split belong to the LatencyRecorder (agent-written, maintainer-decided).
         //   preprocess = raw bytes → the model's native input (resize + BGRA pixel buffer + feature
         //                provider)
         //   infer      = the prediction call, alone

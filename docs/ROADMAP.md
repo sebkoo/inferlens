@@ -59,8 +59,8 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
                make bootstrap fetches them (verify Google .tflite URL here)
 10 feat(coreml): CoreMLEngine over the fetched FP16 .mlmodel, conforms to the contract
 11 perf(coreml): OSSignposter spans around load / preprocess / infer
-12 feat(bench): LatencyRecorder — p50/p95, warm-up discard (HAND-WRITTEN, hand-reviewed;
-               discard policy documented; never agent-generated)
+12 feat(bench): LatencyRecorder — p50/p95 over cold/warm (agent-written, maintainer-decided;
+               nearest-rank + no-discard policy ratified and documented at the code)
 13 build(litert): produce & publish the vendored TensorFlowLiteC.xcframework release —
                extract from the dl.google.com archive; read Info.plist AvailableLibraries
                and ASSERT ios-arm64_x86_64-simulator FIRST; re-zip; tag GitHub release

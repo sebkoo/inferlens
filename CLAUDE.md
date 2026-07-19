@@ -31,17 +31,24 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 
 ## Invariants (forbidden patterns)
 
-1. **Timing code — split trust (relaxed at rung 15, recorded).** Two tiers, different rules.
-   The biasable aggregation — the `LatencyRecorder`'s percentiles, the cold/warm split, and
-   warm-up-run discard, where a hidden choice would skew the benchmark — stays **hand-written
-   and hand-reviewed** (rung 12, not yet landed). The per-engine `classify()` measurement
-   brackets — the `ContinuousClock` reads bracketing preprocess and the compute call — are **agent-written,
-   human-reviewed**: mechanical, reviewed at the diff for the boundary (the compute call ALONE
-   in `infer`; all data-prep in `preprocess`; `inferEnd` immediately after the call, before
-   reading output; the load-time warm-up excluded, in `loadModel`). A comment may never label
-   agent-written brackets "hand-written." This relaxes the original "no agent-authored timing
-   code" — a recorded decision (like the CI miss, the invariant-2 correction, and the RAII
-   correction); see [ADR-0005](docs/adr/0005-litert-engine-concurrency.md).
+1. **Timing code — agent-written, human-decided, human-reviewed (third correction, rung 12).**
+   The whole measurement path — the per-engine `classify()` brackets AND the `LatencyRecorder`
+   aggregation — is **agent-written and human-reviewed**. The **biasable choices** — the percentile
+   definition, the cold/warm boundary, and the warm-up policy, where a hidden choice would skew the
+   benchmark — are **decided by the maintainer**, **documented in a comment at the code**, and **no
+   agent may introduce or change a biasable choice without an explicit recorded ratification**. The
+   per-engine brackets are reviewed at the diff for the boundary (the compute call ALONE in `infer`;
+   all data-prep in `preprocess`; `inferEnd` immediately after the call, before reading output; the
+   load-time warm-up excluded, in `loadModel`). At rung 12 the aggregation's three choices were
+   ratified: (a) percentile = nearest-rank in integer arithmetic — floating `ceil` can land on the max
+   and misreport p95; (b) cold = the first run after a load, its `total` carrying the load cost; (c) the
+   recorder discards nothing — the cold run is reported in the cold bucket, not dropped. A comment may
+   never label agent-written code "hand-written." This is the **third** recorded correction to this
+   invariant: the original "no agent-authored timing code" became split trust at rung 15 (the biasable
+   aggregation to stay hand-written), and rung 12 corrected that in turn — the maintainer decides and
+   ratifies the biasable choices but does not hand-author the code, so the earlier "hand-written"
+   framing was falsified. Recorded like the CI miss, the invariant-2 correction, and the RAII
+   correction; see [ADR-0005](docs/adr/0005-litert-engine-concurrency.md).
 2. **At most one `@unchecked Sendable`** in the whole codebase — at the LiteRT C-handle
    boundary, and only if a design requires it. It is a ceiling, not a target: under Swift
    6.3 the shipped on-actor `LiteRTEngine` requires **zero**. `TfLiteInterpreter*` is a
@@ -82,7 +89,11 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 ## Process
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
-- Every commit is green: `make bootstrap && make lint && make test` pass.
+- Every commit is green: `make bootstrap && make lint && make test` pass — with one recorded
+  exception: a **spec-first RED commit** on a trust-critical path (invariant 1), marked RED in its
+  message, whose green pair lands in the **same push** and is never pushed alone. The pair proves the
+  spec preceded the implementation (rung 12: the RED half of the pair → the green aggregation) — it is evidence of
+  order, not of authorship, and the red half is never pushed by itself.
 - Benchmark honesty over polish: `LIMITATIONS.md` before any feature list; disclosed
   error bars, not badges.
 - **Never commit** interview-prep notes, JD text, or recruiter correspondence.

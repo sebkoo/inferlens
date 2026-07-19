@@ -70,17 +70,21 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
 
 ## Invariants (forbidden-pattern list; mirrored in CLAUDE.md)
 
-- **No agent-authored timing code.** `LatencyRecorder` is hand-written and hand-reviewed;
-  warm-up runs are discarded and the discard is documented.
+- **Timing code — agent-written, human-decided, human-reviewed.** The measurement path (the
+  per-engine brackets and the `LatencyRecorder` aggregation) is agent-written and human-reviewed;
+  the biasable choices are maintainer-decided and documented at the code, and none may change
+  without a recorded ratification (CLAUDE.md invariant 1, third correction). The recorder discards
+  nothing — the cold run is reported, not dropped.
 - **The fallback chain is a value**, not an `if`-ladder.
 - **UI states are an enum:** `idle | loadingModel | warming | inferring |
   success(degraded:) | failed(retryable:)`.
-- **Exactly one `@unchecked Sendable`** in the whole codebase — the LiteRT C-handle
-  boundary. `TfLiteInterpreter*` is non-Sendable and the C API is not thread-safe; it is
-  owned by an actor that serializes all access, wrapped at exactly one documented
-  boundary. Any other `@unchecked Sendable` fails the CI lint that enforces exactly-one
-  `@unchecked Sendable`. **Named risk:**
-  correctness depends on the actor being the sole owner/serializer of the interpreter.
+- **At most one `@unchecked Sendable`** in the whole codebase — reserved for the LiteRT
+  C-handle boundary, and only if a design requires it. It is a ceiling, not a quota: the
+  shipped on-actor `LiteRTEngine` requires **zero** (the actor serializes every synchronous C
+  call; `TfLiteInterpreter*` is a non-Sendable, non-thread-safe handle — ADR-0005). A second
+  `@unchecked Sendable`, or one away from that boundary, fails the CI lint that enforces **at
+  most one**. **Named risk:** correctness depends on the actor being the sole owner/serializer
+  of the interpreter.
 
 ## Consequences
 

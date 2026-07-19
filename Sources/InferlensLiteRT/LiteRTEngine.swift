@@ -185,8 +185,8 @@ public actor LiteRTEngine: InferenceEngine {
 
         // --- Timing split. Measurement brackets — agent-written, human-reviewed per invariant 1
         // (rung 15): the ContinuousClock reads bracketing preprocess and the compute call. Percentile
-        // aggregation, the cold/warm split, and warm-up-run discard belong to the LatencyRecorder
-        // (rung 12), hand-written there; this is only the raw per-run signal.
+        // aggregation, the cold/warm split, and the warm-up policy belong to the LatencyRecorder
+        // (rung 12), agent-written and maintainer-decided there; this is only the raw per-run signal.
         //   preprocess = raw bytes → the model's native input (resize + RGB + normalize + tensor copy)
         //   infer      = TfLiteInterpreterInvoke, ALONE
         //

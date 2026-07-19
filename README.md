@@ -271,9 +271,10 @@ proves it. Where a claim outran its evidence, the weaker truth is written here.
 **Context engineering — working.** [CLAUDE.md](CLAUDE.md), the four [ADRs](docs/adr), and the
 [roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
 fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
-got built: the human hand-writes the biasable part of the measurement — the percentile aggregation, the
-cold/warm split, the warm-up discard — while the mechanical per-engine clock brackets are agent-written
-and human-reviewed (invariant 1, relaxed and recorded at rung 15).
+got built: the whole measurement path — the per-engine clock brackets and the percentile aggregation —
+is agent-written and human-reviewed, while the biasable choices (the percentile definition, the cold/warm
+boundary, the warm-up policy) are decided and ratified by the maintainer and documented at the code
+(invariant 1, corrected a third time at rung 12).
 
 **Prompt engineering — working.** The driving prompt is now a committed artifact from rung 15 forward —
 [`docs/prompts/rung-15-litert-engine.md`](docs/prompts/rung-15-litert-engine.md) is the first, and it
