@@ -8,10 +8,10 @@ help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS=":.*?## "}{printf "  %-14s %s\n", $$1, $$2}'
 
-bootstrap: ## Wire git hooks; fetch checksum-pinned models; resolve the LiteRT xcframework
+bootstrap: ## Wire git hooks; fetch checksum-pinned models (the LiteRT xcframework is an SPM binaryTarget, resolved at build)
 	@git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks && echo "hooks: core.hooksPath -> .githooks" || true
 	@bash scripts/fetch-models.sh
-	@echo "TODO (LiteRT vendoring step): resolve the TensorFlowLiteC xcframework binaryTarget. See docs/adr/0002-litert-distribution.md."
+	@echo "litert: TensorFlowLiteC is a checksum-pinned SPM binaryTarget (ADR-0002); SPM fetches + verifies it at build — no bootstrap step. Re-vendor a version bump with scripts/vendor-litert.sh."
 
 format: ## Run swiftformat
 	@echo "TODO: swiftformat . --config .swiftformat"

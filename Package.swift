@@ -6,7 +6,8 @@ import PackageDescription
 // InferlensCore depending on nothing. See docs/adr/0001-module-boundaries.md.
 //
 // Rung 02 (build(spm)): the skeleton only — every target is empty and compiles. Contract
-// protocols land at rung 03; the vendored LiteRT binaryTarget at rung 09.
+// protocols land at rung 03; the vendored TensorFlowLiteC binaryTarget lands with the LiteRT
+// vendoring step (ADR-0002), wired below.
 let package = Package(
     name: "Inferlens",
     platforms: [
@@ -27,10 +28,34 @@ let package = Package(
         // Engines, stores, flags, UI: each depends only on the contract, never on
         // each other. Cross-engine work (fallback, agreement) lives above them.
         .target(name: "InferlensCoreML", dependencies: ["InferlensCore"]),
-        .target(name: "InferlensLiteRT", dependencies: ["InferlensCore"]),
+        .target(
+            name: "InferlensLiteRT",
+            dependencies: [
+                "InferlensCore",
+                // The vendored TensorFlow Lite C runtime, checksum-pinned below.
+                "TensorFlowLiteC",
+            ],
+            linkerSettings: [
+                // TensorFlowLiteC is a STATIC framework (Mach-O MH_OBJECT); its C++ runtime symbols
+                // must be satisfied at link time, or the consumer fails with undefined std::__1
+                // symbols. This setting propagates to every product that links InferlensLiteRT.
+                .linkedLibrary("c++"),
+            ]
+        ),
         .target(name: "InferlensStore", dependencies: ["InferlensCore"]),
         .target(name: "InferlensFlags", dependencies: ["InferlensCore"]),
         .target(name: "InferlensUI", dependencies: ["InferlensCore"]),
+
+        // The vendored TensorFlow Lite C runtime: Google's released TensorFlowLiteC.xcframework
+        // 2.17.0, re-zipped single-xcframework and self-hosted as this repo's own GitHub release
+        // asset, pinned by checksum (ADR-0002; produced by scripts/vendor-litert.sh). SPM fetches and
+        // checksum-verifies it at build — there is no make-bootstrap step for the runtime. Only
+        // InferlensLiteRT depends on it; the engine over its C API lands at the LiteRTEngine rung.
+        .binaryTarget(
+            name: "TensorFlowLiteC",
+            url: "https://github.com/sebkoo/inferlens/releases/download/litert-2.17.0/TensorFlowLiteC.xcframework.zip",
+            checksum: "05e47987466a7bab29bc68910bf510c59a2d129812c7fbf1219eaabdced646f9"
+        ),
 
         // Test support (rung 05+), not a package product: the StubEngine and, from rung 06,
         // the engine-agnostic conformance suite. Depends only on the contract, like an engine.
@@ -62,6 +87,14 @@ let package = Package(
         .testTarget(
             name: "InferlensCoreMLTests",
             dependencies: ["InferlensCoreML", "InferlensConformance", "InferlensCore"]
+        ),
+
+        // The LiteRT supply-chain smoke test: proves the vendored TensorFlowLiteC binaryTarget —
+        // fetched from the live release URL, checksum-verified, linked (static + libc++) — actually
+        // runs. NOT engine conformance; that lands with LiteRTEngine (the actor over the C handle).
+        .testTarget(
+            name: "InferlensLiteRTTests",
+            dependencies: ["InferlensLiteRT"]
         ),
     ],
     swiftLanguageModes: [.v6]
