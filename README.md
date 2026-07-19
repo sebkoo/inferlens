@@ -248,12 +248,46 @@ its on-device inference, rather than trusting a vendor's published number.
 
 ## How this was built
 
-Built with an AI agent, with the method kept in the repo rather than in a trailer. The
-invariants and forbidden patterns are in [CLAUDE.md](CLAUDE.md) today; reusable prompts
-land under `docs/prompts/`; and the history carries no `Co-Authored-By`
-lines — a committed [hook](.githooks/commit-msg) and a CI lint keep them out
-([ADR-0004](docs/adr/0004-commit-hygiene.md)). The disclosure is the method, not a
-disclaimer.
+Built with an AI agent, with the method kept in the repo rather than in a commit trailer. Four
+pillars, each with a plain verdict — `working`, `partial`, or `design-stage` — and the artifact that
+proves it. Where a claim outran its evidence, the weaker truth is written here.
+
+**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the four [ADRs](docs/adr), and the
+[roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
+fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
+got built: the human hand-writes the latency measurement path and the agent writes only the failing
+spec — the boundary [ADR-0001](docs/adr/0001-module-boundaries.md) draws.
+
+**Prompt engineering — partial.** A written prompt drove every rung, but the method is not yet a
+committed artifact: `docs/prompts/` is empty. The prompts lived in session handoffs; committing them is
+[planned](docs/ROADMAP.md) and starts at rung 12 rather than being backfilled, since reconstructed
+prompts would not be the ones that ran.
+
+**Harness engineering — partial.** What works is teeth-tested: the fetch script
+[refuses a model whose sha256 does not match its pin](scripts/fetch-models.sh), the conformance suite
+[fails a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift)
+(`testSuiteFailsOnUnsortedClassifications`), and [`make land` / `make readme-sync`](Makefile) plus the
+[commit-msg hook](.githooks/commit-msg) keep the rung ladder and its commit trailers honest. What did
+not work is the self-correction below.
+
+**Loop engineering — split.** The developer loop — prompt → context → harness → review-at-a-gate →
+land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
+export → evaluate — is design-stage: [Store](Sources/InferlensStore/InferlensStore.swift),
+[UI](Sources/InferlensUI/InferlensUI.swift), and [Flags](Sources/InferlensFlags/InferlensFlags.swift)
+are three-line skeletons and no eval-loop doc exists yet. The loop the top of this README describes is
+the plan, not the built state.
+
+**The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
+at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the
+whole file: zero jobs ran on all 15 pushes, commit-hygiene included, while the README implied it was
+already live. The harness never surfaced it; a human reading the Actions tab did. Fixed in
+[`fix(ci)` 17ec057](https://github.com/sebkoo/inferlens/commit/17ec057) — the repo's
+[first green CI run](https://github.com/sebkoo/inferlens/actions/runs/29658770457) — a validated
+commit-hygiene workflow that runs on every push, with build and test deferred to rung 26. Recorded
+here because a method that only reports its wins is not one you can trust.
+
+The disclosure is the method, not a per-commit disclaimer
+([ADR-0004](docs/adr/0004-commit-hygiene.md)).
 
 ## License
 
