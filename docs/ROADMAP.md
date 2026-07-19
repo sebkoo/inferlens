@@ -67,8 +67,9 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
 14 build(litert): declare binaryTarget(url:checksum:) + simulator link smoke test
 15 feat(litert): LiteRTEngine over the C API — actor-isolated, ONE @unchecked Sendable
                boundary (required to compile under strict concurrency); uses FP32 .tflite
-16 ci(litert): document the Sendable boundary + CI lint enforcing exactly-one
-               @unchecked-Sendable + a strict-concurrency data-race test
+16 ci(litert): document the Sendable boundary + CI lint enforcing AT MOST ONE
+               @unchecked-Sendable (the on-actor rung-15 engine ships ZERO; ADR-0005)
+               + a strict-concurrency data-race test
 17 feat(bench): measure & PUBLISH cross-model top-1 agreement on a FROZEN golden set
                (different weights → disagreement is data, not a gate; ADR-0003)
 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)

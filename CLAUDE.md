@@ -6,7 +6,8 @@ change is wrong, not the invariant — raise it, do not silently work around it.
 
 Decisions of record: [docs/adr/0001](docs/adr/0001-module-boundaries.md) (module
 boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
-[0003](docs/adr/0003-benchmark-comparison-scope.md) (benchmark scope). Plan:
+[0003](docs/adr/0003-benchmark-comparison-scope.md) (benchmark scope),
+[0005](docs/adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -33,11 +34,21 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 1. **No agent-authored timing code.** `LatencyRecorder` and the measurement path are
    hand-written and hand-reviewed. Warm-up runs are discarded and the discard is
    documented. Never generate or auto-edit the timing path unreviewed.
-2. **Exactly one `@unchecked Sendable`** in the whole codebase — the LiteRT C-handle
-   boundary. `TfLiteInterpreter*` is non-Sendable and the C API is not thread-safe; it is
-   owned by an actor that serializes all access, wrapped at exactly one documented
-   boundary with a comment stating the invariant. Any other `@unchecked Sendable` fails
-   the CI lint that enforces exactly-one `@unchecked Sendable`.
+2. **At most one `@unchecked Sendable`** in the whole codebase — at the LiteRT C-handle
+   boundary, and only if a design requires it. It is a ceiling, not a target: under Swift
+   6.3 the shipped on-actor `LiteRTEngine` requires **zero**. `TfLiteInterpreter*` is a
+   non-Sendable, non-thread-safe C handle, but `OpaquePointer` is a trivial value and
+   `Task.detached` takes a `sending` closure, so region-based isolation would let the handle
+   cross a boundary with no box — a wrapper is a deliberate off-actor choice, not a compiler
+   necessity. The design instead keeps every C call synchronous and on-actor (the actor
+   serializes all access) and frees the handle in an `isolated deinit` (SE-0371). The type
+   system does **not** enforce this — triviality defeats the region check — so the on-actor
+   discipline is manual and documented at the Invoke site. A second `@unchecked Sendable`, or
+   one away from that boundary, fails the CI lint (rung 16), which enforces **at most one**.
+   Evidence, the fork, and the verbatim probe table:
+   [ADR-0005](docs/adr/0005-litert-engine-concurrency.md). This premise was corrected by
+   experiment, like the CI miss in the README — the earlier "exactly one, required to compile"
+   was falsified by the probes in ADR-0005.
 3. **The fallback chain is a value**, not an `if`-ladder. `LiteRT → Core ML → remote` is
    data; degradation is surfaced in the UI, never silent.
 4. **UI states are an enum**, never booleans:

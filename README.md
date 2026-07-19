@@ -242,6 +242,7 @@ its on-device inference, rather than trusting a vendor's published number.
 - [ADR-0002 — LiteRT distribution](docs/adr/0002-litert-distribution.md)
 - [ADR-0003 — benchmark comparison scope](docs/adr/0003-benchmark-comparison-scope.md)
 - [ADR-0004 — commit hygiene](docs/adr/0004-commit-hygiene.md)
+- [ADR-0005 — LiteRT engine concurrency](docs/adr/0005-litert-engine-concurrency.md)
 - [Prior-art research](docs/research/PRIOR_ART.md) ·
   [Model provenance](docs/research/MODEL_PROVENANCE.md)
 - [The roadmap](docs/ROADMAP.md)

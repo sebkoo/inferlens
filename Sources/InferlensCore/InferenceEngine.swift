@@ -7,8 +7,9 @@
 // Every type is a `Sendable` value (a struct or enum over stdlib primitives) except
 // `InferenceEngine` itself, which is a `Sendable` reference — each implementation is an
 // actor that owns loaded model state. The values that cross that actor boundary
-// (`ImageBuffer` in, `InferenceOutcome` out) are already safe, which is the whole premise
-// rung 11 leans on when it makes its single `@unchecked Sendable` argument at the C handle.
+// (`ImageBuffer` in, `InferenceOutcome` out) are already safe, which is the whole premise the
+// LiteRT engine leans on: its `TfLiteInterpreter*` handle stays inside the actor and every C
+// call is synchronous and on-actor, so it needs no `@unchecked Sendable` at all (ADR-0005).
 //
 // This is a contract, not an implementation. Rung 04's conformance suite checks the
 // engine-output invariants against every engine; a construction invariant it never sees

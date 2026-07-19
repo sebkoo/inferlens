@@ -13,9 +13,9 @@
 // Cold/Warm table can carry a preprocess column.
 //
 // Actor isolation: `MLModel` is a non-`Sendable` class; it lives inside the actor and never leaves
-// it, so this engine needs no `@unchecked Sendable`. The repo reserves its single one for the
-// LiteRT C handle. `descriptor` is a `nonisolated let` — synchronously readable metadata, the same
-// shape as `StubEngine`.
+// it, so this engine needs no `@unchecked Sendable`. The LiteRT engine keeps its C handle inside
+// its actor the same way, so the repo uses zero `@unchecked Sendable` (ADR-0005). `descriptor` is
+// a `nonisolated let` — synchronously readable metadata, the same shape as `StubEngine`.
 //
 // Nothing about the model is baked in as a literal: the input feature name, the pixel size the
 // model requires, and the probabilities-output name are all read from the loaded model's
