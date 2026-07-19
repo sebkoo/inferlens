@@ -13,17 +13,20 @@ images is also the harness that measures which engine to ship.
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 [![Progress](https://img.shields.io/badge/rungs-12%2F37-orange)](docs/ROADMAP.md)
+[![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 </div>
 
-*These badges are pins, not scores. Swift 6.3, iOS 26, and Xcode 26 are toolchain
+*Most of these badges are pins, not scores. Swift 6.3, iOS 26, and Xcode 26 are toolchain
 decisions recorded in [ADR-0001](docs/adr/0001-module-boundaries.md) and checkable in
 [`.swift-version`](.swift-version) and [`.xcode-version`](.xcode-version) — they state
-what the repo targets, not what it has measured. There is no CI or coverage badge, on
-purpose: no test has run yet, so a green check would report a result that does not exist;
-those arrive when CI runs its first passing test. The rungs badge is the one number
-here that reports something measured — how many rungs have landed.*
+what the repo targets, not what it has measured. Two report something measured: the rungs
+badge (how many rungs have landed) and the commit-hygiene badge — a scoped workflow badge that
+links to [its workflow](.github/workflows/commit-hygiene.yml) and reports exactly that the
+AI-trailer lint passes on every push, so a reader can click through and check what it covers.
+There is still no generic CI or coverage badge: build and test do not run in CI until rung 26,
+so a `CI | passing` badge would imply coverage that does not exist.*
 
 ## Contents
 
@@ -52,6 +55,13 @@ Two lists, so no one has to guess which half of the repo they are reading.
   suite against the real model on the simulator
   ([the conformance test](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift)) — shape
   validated; Neural Engine warm-up and real latency are device-only (see [Limitations](#limitations)).
+- The second real engine —
+  [`LiteRTEngine`](Sources/InferlensLiteRT/LiteRTEngine.swift), an actor over Google's FP32
+  MobileNetV2 through the vendored `TensorFlowLiteC` C API — on-actor, RAII cleanup, and **zero**
+  `@unchecked Sendable` ([ADR-0005](docs/adr/0005-litert-engine-concurrency.md)). It passes the same
+  conformance suite on the simulator
+  ([the conformance test](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift)); real
+  latency is the device-only rung-32 bench.
 - The model pipeline — a checksum-pinned MobileNetV2 fetched by
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
@@ -67,12 +77,11 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [`commit-msg` hook](.githooks/commit-msg) that rejects AI-attribution trailers
   ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
 - The module skeleton — an SPM workspace of six local packages plus a thin app placeholder, green
-  under Swift 6 strict concurrency; `InferlensCore`, `InferlensCoreML`, and the conformance module
-  now carry code, while the store, flags, UI, and LiteRT packages are still skeletons.
+  under Swift 6 strict concurrency; `InferlensCore`, `InferlensCoreML`, `InferlensLiteRT`, and the
+  conformance module now carry code, while the store, flags, and UI packages are still skeletons.
 
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
-- The TensorFlow Lite engine behind that same contract — a vendored xcframework driven through its C API
 - The append-only SQL ledger and the NoSQL metadata store
 - The `LatencyRecorder` (p50/p95, warm-up discard) and OSSignposter spans around load / preprocess / infer
 - The fallback chain, cancel-on-input-change, and the SwiftUI state machine
@@ -102,7 +111,7 @@ A wrapper app calls an API. This one closes a loop.
 Decisions       [##########]  done — 4 ADRs + prior art + roadmap
 Foundation      [##########]  done — toolchain, license, hooks, CI skeleton
 Contract        [##########]  done — InferenceEngine + conformance suite, teeth-tested
-Engines         [#####-----]  Core ML live, conformance-tested on the sim; TensorFlow Lite next
+Engines         [########--]  Core ML + TensorFlow Lite both conformance-tested on the sim; device latency unproven until the on-device bench (rung 32)
 Store & flags   [----------]  append-only SQL ledger + NoSQL metadata
 UI & loop       [----------]  fallback chain, actor engine, SwiftUI states
 Benchmark       [----------]  on-device harness + the latency table
@@ -128,10 +137,10 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | Build | Xcode | 26 | pinned | highest stable toolchain; the betas would cost green CI |
 | Packaging | Swift Package Manager | — | done | six local module packages |
 | Engine A | Core ML | MobileNetV2 FP16 | live | Apple's on-device runtime, at its native FP16 |
-| Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | planned | [no first-party SPM package](docs/adr/0002-litert-distribution.md), so vendored by checksum |
+| Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | live | Google's runtime at native FP32; [vendored by checksum](docs/adr/0002-litert-distribution.md), no first-party SPM package |
 | SQL | SQLite | append-only ledger + migrations | planned | the run ledger is an append-only log, like a Postgres event table |
 | NoSQL | document / KV store | model metadata + flag cache | planned | schema-free model metadata and a cached flag document |
-| Concurrency | actors, async/await | strict-concurrency=complete | planned | one [`@unchecked Sendable`](docs/adr/0001-module-boundaries.md) at the C handle, CI-linted |
+| Concurrency | actors, async/await | strict-concurrency=complete | live | both engines are actors; LiteRT's C handle stays on-actor at [zero `@unchecked Sendable`](docs/adr/0005-litert-engine-concurrency.md) |
 | Instrumentation | OSSignposter | — | planned | signpost spans around load / preprocess / infer |
 | Flags | FeatureFlagProvider | local JSON provider | planned | the seam a remote-config system drops into later |
 | CI | GitHub Actions | commit-hygiene (trailer lint) | live | trailer lint runs on push from `fix(ci)` forward; build + test deferred to rung 26 |
@@ -147,7 +156,7 @@ stated plainly, not softened.
 | Swift | every module | live |
 | SwiftUI | InferlensUI | planned |
 | Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
-| TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | planned · [ADR-0002](docs/adr/0002-litert-distribution.md) |
+| TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | [conformance test passes](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift) on the sim; device latency is the rung-32 bench |
 | Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
 | SQL | InferlensStore — append-only ledger + migrations | planned |
 | NoSQL | InferlensStore — document / KV store | planned |
@@ -273,19 +282,27 @@ assumed became zero; an `isolated deinit` crashed and became RAII — [ADR-0005]
 Earlier rungs' prompts lived in session handoffs and are **not** reconstructed: a backfilled prompt
 would not be the one that ran, and inventing it would be the fabrication this repo bans.
 
-**Harness engineering — partial.** What works is teeth-tested: the fetch script
-[refuses a model whose sha256 does not match its pin](scripts/fetch-models.sh), the conformance suite
+**Harness engineering — partial.** The standing, committed gates are teeth-tested: the checksum gate
+refuses a mismatched pin — [`fetch-models.sh`](scripts/fetch-models.sh) on a model's sha256 and
+[`vendor-litert.sh`](scripts/vendor-litert.sh) on the LiteRT archive's, with the `binaryTarget` checksum
+covering the extracted xcframework (fail-closed at each); the conformance suite
 [fails a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift)
-(`testSuiteFailsOnUnsortedClassifications`), and [`make land` / `make readme-sync`](Makefile) plus the
-[commit-msg hook](.githooks/commit-msg) keep the rung ladder and its commit trailers honest. What did
-not work is the self-correction below.
+(`testSuiteFailsOnUnsortedClassifications`) and bad model bytes
+[fail to load cleanly](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift)
+(`testLoadFailsCleanlyOnBadModelBytes`); and [`make land` / `make readme-sync`](Makefile) plus the
+[commit-msg hook](.githooks/commit-msg) keep the ladder and its trailers honest. Two rung-15 checks were
+run **once, by hand, and are not in CI** — the `LiteRTEngine` survived a 5× run-tests-until-failure loop
+and an AddressSanitizer pass; one-off verifications, not standing gates. The gate that should be
+standing is not: CI runs the commit-hygiene lint only, and build + test wait for rung 26 — so nothing
+automated compiles or runs the suite on a push. That gap is the self-correction below.
 
 **Loop engineering — split.** The developer loop — prompt → context → harness → review-at-a-gate →
 land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
 export → evaluate — is design-stage: [Store](Sources/InferlensStore/InferlensStore.swift),
 [UI](Sources/InferlensUI/InferlensUI.swift), and [Flags](Sources/InferlensFlags/InferlensFlags.swift)
 are three-line skeletons and no eval-loop doc exists yet. The loop the top of this README describes is
-the plan, not the built state.
+the plan, not the built state; the first screen to wire run → state → signal end to end is a planned
+rung ([roadmap](docs/ROADMAP.md), 23–25).
 
 **The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
 at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the
