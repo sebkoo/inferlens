@@ -267,7 +267,7 @@ produced them yet.
 loop is not closed: nothing picks an image, no engine runs behind these screens, and no ledger row is
 written. What is built is the state machine that decides which of the five the screen shows, and the
 views that draw them — which is precisely why all five can be rendered today, from values typed by
-hand. A screenshot reads as "this works" to a non-developer, so it is worth saying plainly: this is a
+hand. A screenshot reads as "this works," so it is worth saying plainly: this is a
 picture of a design, not evidence of a run. The [state machine](#the-state-machine) below is the part
 that is real.
 
@@ -293,8 +293,7 @@ string. What governs them is [ADR-0007](docs/adr/0007-readme-media.md).
 
 ## Tech stack
 
-A non-developer should be able to read the whole stack and its state here. `Status` is
-`live`, `pinned`, `done`, or `planned`.
+`Status` is `live`, `pinned`, `done`, or `planned`.
 
 | Layer | Choice | Version / pin | Status | Why this one |
 |---|---|---|---|---|

@@ -18,8 +18,8 @@ There are zero media files in this repo today. That is exactly why the policy is
 the cost of deciding is zero while nothing is at stake, and it will not be zero the first time a
 screenshot exists and the question is whether *this* one is fine.
 
-The pressure this policy exists to resist is specific. A screenshot reads as **"this works"** to a
-non-developer, and it beats the prose next to it every time. This README currently says, in careful
+The pressure this policy exists to resist is specific. A screenshot reads as **"this works,"** and it
+beats the prose next to it every time. This README currently says, in careful
 sentences, that two steps of the product loop exist and do not touch each other; one picture of a
 result screen would overwrite all of that in a reader's head. The repo's whole method is that a claim
 points at the artifact that backs it. An image is a claim whose backing is invisible, so it needs
