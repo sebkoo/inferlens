@@ -229,15 +229,45 @@ through `make`, which collapses a recipe failure to a bare 2 and erases the fire
 distinction. Lands with the CI rung; until then the green bar rests on test-clean run as the script, plus
 the standing commit-hygiene and claims-audit gates.
 
-## Harness backlog — teeth-test commit-hygiene with a planted trailer (recorded now)
+## Harness backlog — teeth-test the commit-hygiene WORKFLOW with a planted trailer (recorded now)
 
-Three of the four standing gates — claims-audit, anchor-check, test-clean — are teeth-tested by planting
-the failure each catches. commit-hygiene (the AI-attribution-trailer lint that runs on every push, plus the
-committed commit-msg hook) is NOT: no test plants a trailer and confirms rejection, so the README harness
-pillar says three are teeth-tested, not four. Add one — plant a commit message carrying an AI trailer,
-confirm the hook and the CI lint reject it, then remove it, the same standard the other three met. Until
-then the fourth gate is long-standing, not proven. Beside the no-simulator and cross-document-pointer items
-above.
+This item asked for a teeth test of "commit-hygiene (the AI-attribution-trailer lint that runs on every
+push, plus the committed commit-msg hook)" as one gate. Doing it showed they are **two** gates, and the
+test only covered one.
+
+The **`commit-msg` hook** is now teeth-tested: a message carrying a planted `Co-Authored-By: …Claude`
+trailer is rejected with exit 1 and its own explanatory message, then removed. Done.
+
+The **CI workflow** (`.github/workflows/commit-hygiene.yml`) is NOT. It greps the pushed commit range for
+`co-authored-by.*claude|generated with|🤖` — different code, in a different place, running on a different
+machine from the hook — and nothing has forced it to refuse a planted trailer. The hook's result is not
+evidence for the workflow, so the README now counts **five** standing gates, four teeth-tested, rather than
+folding the two together to reach "four of four."
+
+To close it: push a branch whose head commit carries a planted trailer, confirm the workflow run fails,
+delete the branch. It cannot be done by amending `main` — the hook would reject the commit locally before
+it could ever reach CI, which is itself worth noting as evidence the two gates are independent.
+
+One already-pushed commit records the superseded count in its own subject: `ba23aed` ("the harness pillar
+is working — four standing gates, three teeth-tested this session"). It is reachable on origin and cannot
+be amended without rewriting shared history, so the corrected count is recorded here and on the README
+instead — the same disposition as `37fbc1e` above and the rung 26 → 31 correction below. This is the
+commit-message surface the rung-12 claims audit was built for: a `grep -r` over the working tree would
+never have seen it.
+
+## Harness backlog — the exit-code contract is exercised for test-clean only (recorded now)
+
+The three script gates share one exit-code contract: 0 clean, 1 findings, 2 the gate could not run. Only
+`test-clean`'s has been driven down every path (see the correction of record above), and doing so found a
+real bug — so this is not a theoretical gap.
+
+`claims-audit` and `anchor-check` both have a findings path (exit 1) that has been teeth-tested, and both
+have a could-not-run branch (`claims-audit.sh:40`, `anchor-check.sh:32` and `:84`) that **nothing has ever
+forced**. An unexercised could-not-run branch is the same hazard as the one just fixed: if it silently
+returns 0 or 1, a gate that never ran becomes indistinguishable from a gate that passed. Force each — a
+non-git working directory, and whatever internal failure line 40 guards — and confirm the exit is 2 and
+distinguishable from both a pass and a finding. Lands as a check with the CI rung; until then it is a
+manual step in the landing checklist, beside the workflow teeth test above.
 
 ## Correction of record — the CI build+test gate is rung 31, not 26
 

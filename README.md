@@ -405,22 +405,37 @@ assumed became zero; an `isolated deinit` crashed and became RAII — [ADR-0005]
 Earlier rungs' prompts lived in session handoffs and are **not** reconstructed: a backfilled prompt
 would not be the one that ran, and inventing it would be the fabrication this repo bans.
 
-**Harness engineering — working.** Four standing gates. Three landed this session, each teeth-tested by
-planting the exact failure it exists to catch: [claims-audit](scripts/claims-audit.sh) a stale claim or a
-short-sha dead on origin, [anchor-check](scripts/anchor-check.sh) an in-page link to a heading that does
-not exist, and [test-clean](scripts/test-clean.sh) a stale pass — it runs the suite on a fresh
-`-derivedDataPath` against a pinned simulator, so a cached result cannot be taken for a real one. These
-three share one exit-code contract — 0 clean, 1 findings, 2 could not run — and CI invokes them as
-`bash scripts/…`, never `make`, because `make` flattens any recipe failure to a bare 2. The fourth,
-[commit-hygiene](.github/workflows/commit-hygiene.yml), predates this session and is the one gate that
-runs on every push, rejecting AI-attribution trailers; its teeth-test is not recorded, so this does not
-claim one. Alongside them the supply-chain checksum gates ([`fetch-models.sh`](scripts/fetch-models.sh),
+**Harness engineering — working.** Five standing gates, four of them teeth-tested by planting the exact
+failure each exists to catch. The count is five rather than four because AI-attribution trailers are
+caught by **two separate mechanisms**, and only one of them has been made to fail on purpose:
+
+| Gate | Runs | Catches | Teeth-tested |
+|---|---|---|---|
+| [claims-audit](scripts/claims-audit.sh) | by hand | a stale claim, or a short sha dead on origin | yes |
+| [anchor-check](scripts/anchor-check.sh) | by hand | an in-page link to a heading that does not exist | yes |
+| [test-clean](scripts/test-clean.sh) | by hand | a stale pass — fresh `-derivedDataPath`, pinned simulator | yes |
+| [`commit-msg` hook](.githooks/commit-msg) | locally, at commit | an AI-attribution trailer | yes — a planted `Co-Authored-By` is rejected, exit 1 |
+| [commit-hygiene CI](.github/workflows/commit-hygiene.yml) | remotely, on push | an AI-attribution trailer, over the pushed range | **no** — it runs, but nothing has forced it to refuse a planted trailer |
+
+The last row is the point of splitting them. The hook and the workflow are different code in different
+places, and the probe that proved the hook rejects a trailer says nothing about the workflow. Calling this
+"four of four" would mean crediting one mechanism's result to another — the same overclaim the rest of this
+page exists to avoid — so it is five gates, four teeth-tested, until the workflow is exercised too
+([backlog](docs/ROADMAP.md)).
+
+The three script gates share one exit-code contract — 0 clean, 1 findings, 2 could not run — and CI
+invokes them as `bash scripts/…`, never `make`, because `make` flattens any recipe failure to a bare 2.
+That contract is itself only partly exercised: `test-clean`'s has now been driven down
+[all four of its paths](docs/ROADMAP.md), which is how a build failure was found returning 1 ("tests ran
+and failed") for a run in which no test executed; `claims-audit` and `anchor-check` have been made to
+report findings but never to hit their could-not-run branch.
+
+Alongside the five, the supply-chain checksum gates ([`fetch-models.sh`](scripts/fetch-models.sh),
 [`vendor-litert.sh`](scripts/vendor-litert.sh)) fail closed on a mismatched pin, and the conformance suite
 [fails a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift). Not
 automated: only commit-hygiene runs on push; the three script gates are maintainer-run until
 [rung 31](docs/ROADMAP.md) wires build+test into CI — the gates are the harness, CI is where it runs, and
-only the second is unfinished. Before this session one gate stood; now four do, and the three added this
-session were each made to fail on purpose before being trusted.
+only the second is unfinished. Before this session one gate stood; now five do.
 
 **Loop engineering — still split.** The developer loop — prompt → context → harness → review-at-a-gate
 → land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
