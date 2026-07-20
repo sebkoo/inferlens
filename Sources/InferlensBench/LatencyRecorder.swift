@@ -19,42 +19,12 @@ import InferlensCore
 
 // MARK: - Summary (what the recorder produces)
 
-/// p50 and p95 of one measured quantity across a set of runs.
-///
-/// Both are real observed durations, not interpolated. The convention the aggregation must satisfy —
-/// pinned exactly by `LatencyRecorderTests` — is nearest-rank: sort ascending, 1-indexed rank
-/// `ceil(p/100 * N)` clamped to `1...N`, take that sample. It always returns a run that actually
-/// happened (no synthetic value between two runs), which is the honest thing to report for a latency
-/// SLO, and `p50 <= p95` holds for any input.
-public struct Percentiles: Sendable {
-    public let p50: Duration
-    public let p95: Duration
-}
-
-/// p50/p95 across the three timed quantities of one load class (cold or warm), plus how many runs
-/// the statistics were computed over. The count travels with the percentiles on purpose: a p95 over
-/// 3 runs and over 300 are different claims (it feeds `make bench`'s run-count field, and it is how
-/// the spec proves the cold warm-up run was excluded from the warm count).
-///
-/// `RunTiming.compute` (preprocess + infer) is intentionally NOT a fourth field: for a warm run it
-/// equals `total`, and the preprocess/infer split already exposes its parts, so aggregating it again
-/// would double-report the same time rather than add signal. It is subsumed, not silently dropped.
-public struct TimingBreakdown: Sendable {
-    public let preprocess: Percentiles
-    public let infer: Percentiles
-    /// Whole-run total per `LatencySample.total`: cold totals include model load, warm totals do not.
-    public let total: Percentiles
-    public let sampleCount: Int
-}
-
-/// The aggregated latency of one benchmark session, split by load class. A bucket is `nil` when no
-/// sample of that class was recorded (warm-only or cold-only input is valid); the README table reads
-/// `cold?.total` and `warm?.total`. The cold run is the load-paying warm-up, so it never pools into
-/// the warm statistics — cold and warm are computed independently.
-public struct LatencySummary: Sendable {
-    public let cold: TimingBreakdown?
-    public let warm: TimingBreakdown?
-}
+// `Percentiles`, `TimingBreakdown` and `LatencySummary` are Core value types — see
+// `InferlensCore/LatencySummary.swift`. They were defined here until the screen had to
+// name a summary it must never compute: `InferlensUI` depends on Core alone, so the types moved down
+// and the arithmetic stayed put (ADR-0008). Nothing about the aggregation changed with them — not
+// the percentile definition, not the cold/warm boundary, not the warm-up policy. This file is still
+// the only place in the repo where a percentile is computed, which is what invariant 1 requires.
 
 // MARK: - Failure
 
