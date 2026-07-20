@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-13%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-14%2F37-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -66,27 +66,38 @@ Two lists, so no one has to guess which half of the repo they are reading.
   over cold and warm runs by nearest-rank, pinned by 10 property tests
   ([the spec](Tests/InferlensBenchTests/LatencyRecorderTests.swift)). It aggregates the numbers; the
   Cold/Warm table it fills is **still empty** — those figures come from the device bench (rung 32).
+- The run ledger — [`RunLedger`](Sources/InferlensStore/RunLedger.swift), an append-only SQLite log
+  with versioned migrations, over the SDK's own SQLite3 system module (no package dependency).
+  Append-only is enforced by triggers in the database **file**, not by a comment: a
+  [test opens its own connection from outside the module](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift)
+  and confirms an `UPDATE` and a `DELETE` are refused. Every row carries its device and iOS version,
+  by `CHECK` constraint (invariant 7), and a fallback survives into the row (invariant 3) —
+  [ADR-0006](docs/adr/0006-run-ledger-storage.md). Nothing writes to it yet: no screen and no app
+  composition exist to feed it a run.
 - The model pipeline — a checksum-pinned MobileNetV2 fetched by
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
   [provenance](docs/research/MODEL_PROVENANCE.md)).
-- The decision record — four ADRs
+- The decision record — six ADRs
   ([module boundaries](docs/adr/0001-module-boundaries.md),
   [LiteRT distribution](docs/adr/0002-litert-distribution.md),
   [benchmark scope](docs/adr/0003-benchmark-comparison-scope.md),
-  [commit hygiene](docs/adr/0004-commit-hygiene.md)), the
+  [commit hygiene](docs/adr/0004-commit-hygiene.md),
+  [LiteRT engine concurrency](docs/adr/0005-litert-engine-concurrency.md),
+  [run ledger storage](docs/adr/0006-run-ledger-storage.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
 - The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
   [`commit-msg` hook](.githooks/commit-msg) that rejects AI-attribution trailers
   ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
 - The module skeleton — an SPM workspace of six local packages plus a thin app placeholder, green
-  under Swift 6 strict concurrency; `InferlensCore`, `InferlensCoreML`, `InferlensLiteRT`, and the
-  conformance module now carry code, while the store, flags, and UI packages are still skeletons.
+  under Swift 6 strict concurrency; `InferlensCore`, `InferlensCoreML`, `InferlensLiteRT`,
+  `InferlensStore`, and the conformance module now carry code, while the flags and UI packages are
+  still skeletons.
 
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
-- The append-only SQL ledger and the NoSQL metadata store
+- The NoSQL metadata and flag-cache store
 - OSSignposter spans around load / preprocess / infer
 - The fallback chain, cancel-on-input-change, and the SwiftUI state machine
 - Signal capture, NDJSON export, and the on-device benchmark harness
@@ -150,11 +161,16 @@ the [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-fast
 because the on-device benchmark has not run.
 
 **Product loop — run, record, capture a signal, export, evaluate: the loop the whole project exists to
-close.** *Design-stage, not built.* The [ledger](Sources/InferlensStore/InferlensStore.swift), the
-[screen](Sources/InferlensUI/InferlensUI.swift), and the
-[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are three-line skeletons, and nothing yet
-carries a run through to a recorded thumbs signal and an export. The top of this page describes what this
-loop will do; today it is a plan.
+close.** *One step built, the loop not closed.* The `ledger` step exists: an
+[append-only SQLite log](Sources/InferlensStore/RunLedger.swift) that records a run's engine, model,
+cold/warm latency split, outcome, degradations, and the device and iOS version behind them — with
+append-only held by database triggers a
+[test proves from outside the module](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift), not by
+convention ([ADR-0006](docs/adr/0006-run-ledger-storage.md)). Nothing writes to it yet, and that is the
+honest state: the [screen](Sources/InferlensUI/InferlensUI.swift) and the
+[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are still three-line skeletons, no app
+composes a run into a ledger row, and neither the thumbs signal nor the export exists. A store with no
+producer is a step, not a loop.
 
 **Hardening — the standing gates that keep the claims honest.** *Partial — two gates run by hand;
 automated build+test is not wired.* The [commit-hygiene check](.github/workflows/commit-hygiene.yml) runs
@@ -203,8 +219,8 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side — Apple FP16 vs Google FP32 — reported prominently; different weights; warm-up policy; run counts; thermal state) + LIMITATIONS.md
 - [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, add the 20s GIF, publish docs/ via GitHub Pages (the README itself lands at rung 01)
 
-**Product loop** — 0/13 landed
-- [ ] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
+**Product loop** — 1/13 landed
+- [x] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
 - [ ] 19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
 - [ ] 20 feat(flags): FeatureFlagProvider protocol + local JSON provider
 - [ ] 23 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
@@ -243,7 +259,7 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | Packaging | Swift Package Manager | — | done | six local module packages |
 | Engine A | Core ML | MobileNetV2 FP16 | live | Apple's on-device runtime, at its native FP16 |
 | Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | live | Google's runtime at native FP32; [vendored by checksum](docs/adr/0002-litert-distribution.md), no first-party SPM package |
-| SQL | SQLite | append-only ledger + migrations | planned | the run ledger is an append-only log, like a Postgres event table |
+| SQL | SQLite | SDK system module, schema v1 | live | the run ledger is an append-only log, like a Postgres event table; [append-only by trigger](docs/adr/0006-run-ledger-storage.md), no package dependency |
 | NoSQL | document / KV store | model metadata + flag cache | planned | schema-free model metadata and a cached flag document |
 | Concurrency | actors, async/await | strict-concurrency=complete | live | both engines are actors; LiteRT's C handle stays on-actor at [zero `@unchecked Sendable`](docs/adr/0005-litert-engine-concurrency.md) |
 | Instrumentation | OSSignposter | — | planned | signpost spans around load / preprocess / infer |
@@ -263,7 +279,7 @@ stated plainly, not softened.
 | Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
 | TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | [conformance test passes](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift) on the sim; device latency is the rung-32 bench |
 | Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
-| SQL | InferlensStore — append-only ledger + migrations | planned |
+| SQL | InferlensStore — append-only ledger + migrations | [round trip + trigger teeth pass](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift) on the sim; nothing writes to it yet |
 | NoSQL | InferlensStore — document / KV store | planned |
 | async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift), partial |
 | AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | planned · [ADR-0001](docs/adr/0001-module-boundaries.md) |
@@ -363,6 +379,7 @@ its on-device inference, rather than trusting a vendor's published number.
 - [ADR-0003 — benchmark comparison scope](docs/adr/0003-benchmark-comparison-scope.md)
 - [ADR-0004 — commit hygiene](docs/adr/0004-commit-hygiene.md)
 - [ADR-0005 — LiteRT engine concurrency](docs/adr/0005-litert-engine-concurrency.md)
+- [ADR-0006 — run ledger storage](docs/adr/0006-run-ledger-storage.md)
 - [Prior-art research](docs/research/PRIOR_ART.md) ·
   [Model provenance](docs/research/MODEL_PROVENANCE.md)
 - [The roadmap](docs/ROADMAP.md)
@@ -373,7 +390,7 @@ Built with an AI agent, with the method kept in the repo rather than in a commit
 pillars, each with a plain verdict — `working`, `partial`, or `design-stage` — and the artifact that
 proves it. Where a claim outran its evidence, the weaker truth is written here.
 
-**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the four [ADRs](docs/adr), and the
+**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the six [ADRs](docs/adr), and the
 [roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
 fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
 got built: the whole measurement path — the per-engine clock brackets and the percentile aggregation —
@@ -405,13 +422,15 @@ automated: only commit-hygiene runs on push; the three script gates are maintain
 only the second is unfinished. Before this session one gate stood; now four do, and the three added this
 session were each made to fail on purpose before being trusted.
 
-**Loop engineering — split.** The developer loop — prompt → context → harness → review-at-a-gate →
-land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
-export → evaluate — is design-stage: [Store](Sources/InferlensStore/InferlensStore.swift),
-[UI](Sources/InferlensUI/InferlensUI.swift), and [Flags](Sources/InferlensFlags/InferlensFlags.swift)
-are three-line skeletons and no eval-loop doc exists yet. The loop the top of this README describes is
-the plan, not the built state; the first screen to wire run → state → signal end to end is a planned
-rung ([roadmap](docs/ROADMAP.md), 23–25).
+**Loop engineering — still split.** The developer loop — prompt → context → harness → review-at-a-gate
+→ land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
+export → evaluate — is not closed, and one landed step does not close it. The `ledger` step is now real
+([`RunLedger`](Sources/InferlensStore/RunLedger.swift), append-only by database trigger, proven from
+outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)) — but nothing writes to it:
+[UI](Sources/InferlensUI/InferlensUI.swift) and [Flags](Sources/InferlensFlags/InferlensFlags.swift) are
+still three-line skeletons, no app composes a run into a row, and signal, export, and the eval-loop doc
+do not exist. This line stays split until a run reaches the ledger end to end; a store with no producer
+is a step, not a loop.
 
 **The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
 at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the

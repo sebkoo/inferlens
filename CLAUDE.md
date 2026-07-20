@@ -7,7 +7,8 @@ change is wrong, not the invariant — raise it, do not silently work around it.
 Decisions of record: [docs/adr/0001](docs/adr/0001-module-boundaries.md) (module
 boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0003](docs/adr/0003-benchmark-comparison-scope.md) (benchmark scope),
-[0005](docs/adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency). Plan:
+[0005](docs/adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency),
+[0006](docs/adr/0006-run-ledger-storage.md) (run ledger storage). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis

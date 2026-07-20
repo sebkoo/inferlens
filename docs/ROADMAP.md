@@ -13,7 +13,9 @@ with `make land RUNG=NN` so the tag is declared, not remembered.
 Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0002](adr/0002-litert-distribution.md) (LiteRT distribution),
 [ADR-0003](adr/0003-benchmark-comparison-scope.md) (benchmark scope),
-[ADR-0004](adr/0004-commit-hygiene.md) (commit hygiene).
+[ADR-0004](adr/0004-commit-hygiene.md) (commit hygiene),
+[ADR-0005](adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency),
+[ADR-0006](adr/0006-run-ledger-storage.md) (run ledger storage).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 

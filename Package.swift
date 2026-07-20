@@ -108,6 +108,16 @@ let package = Package(
             dependencies: ["InferlensLiteRT", "InferlensConformance", "InferlensCore"]
         ),
 
+        // The run ledger's smoke test: the schema migrates, a run round-trips through SQLite, and
+        // the append-only triggers refuse an UPDATE and a DELETE. Depends on InferlensStore +
+        // InferlensCore only — a ledger is persistence over the contract's value types, not an
+        // engine, so Conformance has no place here. The migration and append-only INVARIANT suite
+        // is its own ladder rung; this target is where it will land.
+        .testTarget(
+            name: "InferlensStoreTests",
+            dependencies: ["InferlensStore", "InferlensCore"]
+        ),
+
         // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on
         // InferlensBench + InferlensCore only — NOT Conformance; this is a value-aggregation spec,
         // not an engine-conformance run.
