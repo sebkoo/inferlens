@@ -118,6 +118,21 @@ engine-lands-isolated vs enforce-the-boundary (15/16); state-enum vs screen-wiri
 (23/24); signal vs export (25/26); CI vs on-device bench (31/32); each doc cluster its own
 rung. The README is created at rung 01 and completed at rung 36 — not created twice.
 
+## Phase map (groups the ladder into the six README phases; make readme-sync reads it)
+
+`make readme-sync` reads the lines below plus the `rung-*` tags to regenerate the README rung-status
+block — edit the grouping HERE, never in the README. Every rung 00–36 belongs to exactly one phase, and
+readme-sync fails loud if this map and the ladder ever disagree.
+
+<!-- phase-map:start -->
+- Foundation: 00 01 02 03 04 05 06 07 08
+- Supply chain: 09 13 14
+- Engines: 10 11 15 16 21 22
+- Measurement: 12 17 32 33 36
+- Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35
+- Hardening: 31
+<!-- phase-map:end -->
+
 ## Harness backlog — the per-rung claims audit (recorded at rung 12)
 
 Rung 12's real cost was not the `LatencyRecorder`; it was tracking one false claim ("the

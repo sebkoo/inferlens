@@ -46,11 +46,13 @@ anchor-check: ## Check every in-page Markdown anchor resolves to a unique headin
 # The rungs badge is DERIVED, never typed. N and D use ONE counting rule (rung-00 counts on
 # both sides): N = number of rung-* tags, D = number of rung lines in ROADMAP.md. Computed in
 # one place so the two axes can never diverge (the 4/32-off-by-one bug).
-readme-sync: ## Rewrite the README rungs badge from git tags + ROADMAP (derived, idempotent)
+readme-sync: ## Rewrite the README rungs badge + per-rung status block from git tags + ROADMAP (derived, idempotent)
 	@N=$$(git tag -l 'rung-*' | wc -l | tr -d ' '); \
 	D=$$(grep -c '^[0-9][0-9] ' docs/ROADMAP.md); \
 	sed -i '' -E "s|badge/rungs-[0-9]+%2F[0-9]+-|badge/rungs-$${N}%2F$${D}-|" README.md; \
-	echo "badge synced: rungs $$N/$$D  (N=$$N rung-* tags, D=$$D rung lines, same rule)"
+	echo "badge synced: rungs $$N/$$D  (N=$$N rung-* tags, D=$$D rung lines, same rule)"; \
+	bash scripts/gen-rung-status.sh; \
+	echo "rung-status block synced from ROADMAP ladder + phase map + rung-* tags"
 
 # Land a rung: DECLARE it in the tag map, LOCALLY. Commit the rung first, then:
 #   make land RUNG=NN
