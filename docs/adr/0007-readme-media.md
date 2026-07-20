@@ -1,6 +1,11 @@
 # ADR-0007: README media — screenshots committed under a byte ceiling, video never committed
 
-- Status: Accepted — 2026-07-20
+- Status: Accepted — 2026-07-20; **amended twice the same day, both at first use**, because a policy
+  written before any image existed met its first five images. (1) Decision 1: screenshots are a
+  generated build product, not a hand capture — the preview canvas could not render and silently
+  reported the wrong OS. (2) Decision 3: a set of images carries one caption under two conditions, not
+  one caption per image — five identical disclosures read as boilerplate and boilerplate is skipped.
+  Both are recorded in the believed / falsified / resulting-rule form this repo uses for corrections.
 - Deciders: maintainer
 - Relates to: CLAUDE.md invariant 6 (no large binaries in git) — **made precise here**, not excepted;
   invariant 7 (every number carries its device + iOS version); the anti-slop rule that a badge stays
@@ -48,6 +53,35 @@ their size, deliberately:
 - `.gif` is included because a GIF of a screen recording **is** video — the container is an image
   format, the content is not, and an extension-shaped loophole is how the first 8 MB file gets in.
 - An extension check needs no decoder and cannot be argued with at review time.
+
+**Second correction — screenshots are GENERATED, not hand-captured.** Same shape as the first, found
+the same way: by trying to use the rule.
+
+- **Believed:** a screenshot is captured by a human from Xcode's preview canvas, and the caption
+  records the device and OS that person read off the selector.
+- **Falsified by:** the canvas not working and then lying. Xcode cannot render previews in this
+  package at all — the executable target `InferlensApp` wants `ENABLE_DEBUG_DYLIB=YES`, which SPM does
+  not cleanly expose — and when it was driven anyway the selector read iPhone 17 Pro / **iOS 26.0**
+  while the scheme said **26.1**. The caption drafted from the scheme would have asserted 26.1 over
+  pixels drawn on 26.0: an invariant-7 violation printed onto a picture, where it is far harder to
+  correct than prose. Any process whose final step is a human retyping a device name off a UI has this
+  failure available to it.
+- **Resulting rule:** the images are a **build product**. They are rendered by
+  [`StateScreenshotTests`](../../Tests/InferlensUITests/StateScreenshotTests.swift) on the pinned
+  simulator and regenerated with `bash scripts/gen-screenshots.sh`. The device and OS in the caption
+  are read from the process that drew the pixels and written to `docs/media/capture-manifest.txt`,
+  which is committed beside the images and is the file the caption is written **from**. Nothing is
+  retyped.
+
+That makes the ceilings in Decision 2 a rule about a build product rather than about a screenshot,
+which is a widening, not a contradiction — and the test asserts them at the moment each file is
+written, so an oversized image fails the suite before it can reach the gate. The generator is
+deliberately not a gate and carries no 0/1/2 contract: a generator that also reported "clean" would be
+judging its own output.
+
+Committing the output rather than treating it as ephemeral is the deliberate half. A README that
+depends on files nobody has is worse than a README with no images, and an image referenced but absent
+is a broken claim in the most visible place in the repo.
 
 **Accepted cost, stated plainly:** an attachment URL lives outside the repo. It is not
 checksum-pinned, it can rot, and a fork does not carry it. That is tolerable only because of
@@ -107,6 +141,22 @@ Three rules:
    not cover: prose can be corrected in place, but an image showing a screen that no longer exists is
    indistinguishable from a current one unless it says which commit it came from.
 
+   **A consequence that trips a gate, named so nobody treats it as a failure.** A caption citing a
+   commit that is in the same push makes [`claims-audit`](../../scripts/claims-audit.sh) exit 1 before
+   that push: its dead-sha check asks whether the sha is reachable from `origin/main`, and it is not
+   yet. The finding is *true* when it fires, so the gate is not wrong and must not be loosened. The
+   resolution is the push itself — after it, the sha resolves and the gate returns clean, which is the
+   run that counts. Any first-time image whose caption names its own view-code commit has this
+   property. Confirmed on this ADR's own first use: exit 1 before the push naming `da3c81a`, clean
+   after.
+
+   **Which commit, settled.** The sha names the commit that produced the **view code**, not the commit
+   that added the image file. The claim a caption makes is "this is what the code at this sha
+   renders" — so it must point at the code, which is the thing a reader can check out and re-render.
+   The image's own commit says only when someone got around to capturing it, which answers a question
+   nobody asked. A consequence worth stating: the two are never the same commit, because the image
+   cannot exist until after the code does.
+
 3. **A SwiftUI preview is not a run, and must say so.** Any image rendered from a preview or from
    constructed values carries this sentence verbatim in its caption:
 
@@ -118,6 +168,30 @@ Three rules:
    can be produced today, before any engine has ever run behind that screen. The sentence is
    mandatory and verbatim so that a reader never has to infer which kind of image they are looking
    at, and so the disclaimer cannot be softened by whoever is posting.
+
+   **First correction — one set-level caption, not one per image.** Recorded in the shape this repo
+   records corrections, because it is the same shape as the invariant-1, -2 and -4 corrections: a rule
+   written before the thing it governs existed, falsified the first time it was used.
+
+   - **Believed:** every image carries the sentence in its own caption. Written when there were zero
+     images, where "every image" and "the image" were the same case.
+   - **Falsified by:** rendering the first set of five. Literal compliance puts five identical
+     sentences in five adjacent cells, and a sentence repeated five times in a row reads as
+     boilerplate — which is skipped. The rule would have been satisfied to the letter while defeating
+     its entire purpose, which is that a reader cannot mistake a preview for a run. A disclosure
+     nobody reads is decoration, and decoration presented as a safeguard is the failure this repo
+     keeps catching elsewhere.
+   - **Resulting rule:** images presented as a **set** carry **one** caption covering the set, under
+     two conditions, both of which exist to stop the exemption being abused:
+     1. It sits **visually adjacent** to the images — immediately above or below them. Never a
+        footnote, never a link, never below a fold or a scroll.
+     2. It **names its own scope inside the sentence** ("all five of these are rendered from
+        fabricated values…"), so it cannot be misread as describing only the nearest image.
+
+   A single image is still a set of one and carries its own caption. The per-image obligations of
+   rule 2 — device, iOS version, sha — collapse into the set caption only when they are identical
+   across the set; an image shot on different hardware or a different commit leaves the set and
+   captions itself.
 
 **And the rule the other three exist to serve: no claim in this repo may rest on a media file.**
 Media illustrates a claim the text already makes and already backs with a link to a file, a test, or

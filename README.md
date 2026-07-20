@@ -31,7 +31,8 @@ so a `CI | passing` badge would imply coverage that does not exist.*
 ## Contents
 
 [Start here](#start-here) · [What it does](#what-it-does) ·
-[Where this project is](#where-this-project-is) · [Tech stack](#tech-stack) ·
+[Where this project is](#where-this-project-is) ·
+[What the screen looks like](#what-the-screen-looks-like) · [Tech stack](#tech-stack) ·
 [What the job asks for](#what-the-job-asks-for) ·
 [Core ML vs TensorFlow Lite](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) ·
 [The state machine](#the-state-machine) · [Limitations](#limitations) ·
@@ -256,6 +257,34 @@ whole SPM-`binaryTarget` approach rests on it. The LiteRT vendoring step reads t
 `Info.plist` and asserts that slice **before** any engine code exists (`InferlensLiteRT`), so if the
 assumption is wrong the ladder goes red at the distribution step rather than deep inside
 an engine. See [ADR-0002](docs/adr/0002-litert-distribution.md).
+
+## What the screen looks like
+
+These are the five states the screen can be in, rendered from fabricated values, because no run has
+produced them yet.
+
+**Read that against the paragraph above, because the pictures will try to overwrite it.** The product
+loop is not closed: nothing picks an image, no engine runs behind these screens, and no ledger row is
+written. What is built is the state machine that decides which of the five the screen shows, and the
+views that draw them — which is precisely why all five can be rendered today, from values typed by
+hand. A screenshot reads as "this works" to a non-developer, so it is worth saying plainly: this is a
+picture of a design, not evidence of a run. The [state machine](#the-state-machine) below is the part
+that is real.
+
+| Nothing chosen | Loading the model | Classifying | Answered, degraded | Failed, retryable |
+|---|---|---|---|---|
+| <img src="docs/media/state-01-idle.png" width="150" alt="The idle screen, reading: Choose a photo to classify."> | <img src="docs/media/state-02-loading-model.png" width="150" alt="A spinner reading: Loading model…"> | <img src="docs/media/state-03-inferring.png" width="150" alt="A spinner reading: Classifying…"> | <img src="docs/media/state-04-success-degraded.png" width="150" alt="A result marked Classified, with a banner reading: Core ML answered — TensorFlow Lite was unavailable."> | <img src="docs/media/state-05-failed-retryable.png" width="150" alt="A failure reading: Couldn't classify this photo, with a Try again button."> |
+| Waiting for a photo. Nothing has been asked for yet. | The whole cold start — the model is compiled, prepared and warmed inside one call, which is why there is no separate "warming" screen. | The photo is being classified. | An answer came back, but not from the engine that was asked. The banner names both ends of the fallback rather than saying only that something went wrong. | No answer came back, and trying again could plausibly work, so the button is offered. When it could not, the screen says so instead. |
+
+*All five of these are rendered from fabricated values; no engine ran, nothing was written to the
+ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `da3c81a`.*
+
+They are a build product, not a hand capture: rendered by
+[`StateScreenshotTests`](Tests/InferlensUITests/StateScreenshotTests.swift) on the pinned simulator and
+regenerated with [`scripts/gen-screenshots.sh`](scripts/gen-screenshots.sh), with the device and OS
+above read from the process that drew the pixels and recorded in
+[`capture-manifest.txt`](docs/media/capture-manifest.txt) — so no device name is retyped off a scheme
+string. What governs them is [ADR-0007](docs/adr/0007-readme-media.md).
 
 ## Tech stack
 
