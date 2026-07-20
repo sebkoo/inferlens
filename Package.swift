@@ -128,6 +128,16 @@ let package = Package(
             dependencies: ["InferlensUI", "InferlensCore"]
         ),
 
+        // The flag provider's spec. It depends on InferlensFlags, InferlensStore AND InferlensCore
+        // — the same asymmetry as the conformance targets: the LIBRARIES never depend on each other
+        // (InferlensFlags cannot import InferlensStore), but a TEST target may depend on both, which
+        // is the only place `DocumentStore` can be shown to satisfy `FlagCache` before the app
+        // target composes them (ADR-0009).
+        .testTarget(
+            name: "InferlensFlagsTests",
+            dependencies: ["InferlensFlags", "InferlensStore", "InferlensCore"]
+        ),
+
         // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on
         // InferlensBench + InferlensCore only — NOT Conformance; this is a value-aggregation spec,
         // not an engine-conformance run.
