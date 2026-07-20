@@ -71,8 +71,25 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, Inferle
 3. **The fallback chain is a value**, not an `if`-ladder. `LiteRT → Core ML → remote` is
    data; degradation is surfaced in the UI, never silent.
 4. **UI states are an enum**, never booleans:
-   `idle | loadingModel | warming | inferring | success(degraded:) | failed(retryable:)`.
-   Cold start, model load, thermal throttle, and OOM each map to a named state.
+   `idle | loadingModel | inferring | success(degraded:) | failed(retryable:)`.
+   Every case must have an **observable trigger** — a signal that actually exists in this
+   codebase and can put the UI into it. A case no signal can produce is decoration, and
+   decoration in a state machine is the same lie as an empty `make` target that exits 0.
+   `success(degraded:)` carries the `[DegradationReason]` list, not a `Bool`, so what the
+   screen shows and what the ledger row records are the same fact (invariant 3; the ledger
+   stores `kind`/`from_backend`/`to_backend` as columns — `LedgerSchema`).
+   **First recorded correction: `warming` is dropped, and `degraded:` is a reason list.**
+   The contract requires warm-up to *complete inside* `loadModel()` — "must not return until
+   the engine can infer at steady-state speed" (`InferenceEngine.loadModel`) — and both engines
+   honour it in a private `warmUp` with no callback, no progress signal, and no second `await`.
+   A driver therefore cannot distinguish loading from warming, so `warming` was a case nothing
+   could enter. It returns only if an engine gains a load-progress signal, which is an
+   engine-contract change, not a UI one. Thermal throttle and OOM keep their mapping onto
+   `success(degraded:)` and `failed(retryable:)`, but neither has a *producer* yet
+   (`.thermallyThrottled` is written at the thermal rung; `InferenceError.outOfMemory` is
+   thrown from exactly one site, `CoreMLEngine`'s pixel-buffer allocation) — named here rather
+   than implied. Recorded like the invariant-1, invariant-2 and RAII corrections; the
+   equivalence argument in [ADR-0001](docs/adr/0001-module-boundaries.md) is corrected with it.
 5. **No CocoaPods.** The build is pure SPM. LiteRT is a checksum-pinned `binaryTarget`
    (ADR-0002).
 6. **No large binaries in git.** Models and the xcframework are checksum-pinned and

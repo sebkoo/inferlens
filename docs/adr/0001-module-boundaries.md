@@ -58,10 +58,20 @@ Server AI UX is `connecting → streaming → retry-on-transient → fallback-to
 → degraded/error`. The on-device analogue is one-to-one:
 
 - cold start / model load = connecting & first-token latency → `loadingModel`
-- discarded warm-up runs → `warming`
-- thermal throttle forcing a lower backend → `success(degraded: true)`
+- thermal throttle forcing a lower backend → `success(degraded: [.thermallyThrottled])`
 - OOM / transient load failure → `failed(retryable: true)`
-- the `LiteRT → Core ML → remote` fallback chain **is** "fall back to a cheaper model"
+- the `LiteRT → Core ML → remote` fallback chain **is** "fall back to a cheaper model",
+  and it arrives on screen as `success(degraded: [.fellBack(from:to:)])` — the same value the
+  ledger stores in its `degradation` columns
+
+**Corrected when the state machine was built.** This list used to carry a fourth row,
+"discarded warm-up runs → `warming`", and it was wrong twice over. The recorder discards
+nothing — the cold run is reported in the cold bucket, ratified at the `LatencyRecorder` rung —
+so there are no discarded runs for a state to represent; and the engine contract requires
+warm-up to finish *inside* `loadModel()`, in a private `warmUp` with no progress signal, so no
+observable trigger for `warming` exists. The row described a state the app could not enter.
+`success(degraded: true)` is likewise corrected to the reason list, so the screen and the ledger
+row carry the same fact rather than the screen carrying strictly less. See CLAUDE.md invariant 4.
 
 UI states are an explicit enum, never booleans, and degradation is always visible in the
 UI — never silent. This is the on-device analogue of streaming/retry/fallback AI-UX.
@@ -83,8 +93,10 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
   without a recorded ratification (CLAUDE.md invariant 1, third correction). The recorder discards
   nothing — the cold run is reported, not dropped.
 - **The fallback chain is a value**, not an `if`-ladder.
-- **UI states are an enum:** `idle | loadingModel | warming | inferring |
-  success(degraded:) | failed(retryable:)`.
+- **UI states are an enum:** `idle | loadingModel | inferring |
+  success(degraded:) | failed(retryable:)` — every case with an observable trigger, and
+  `degraded:` a `[DegradationReason]` rather than a `Bool` (CLAUDE.md invariant 4, first
+  correction: `warming` had no signal that could produce it).
 - **At most one `@unchecked Sendable`** in the whole codebase — reserved for the LiteRT
   C-handle boundary, and only if a design requires it. It is a ceiling, not a quota: the
   shipped on-actor `LiteRTEngine` requires **zero** (the actor serializes every synchronous C

@@ -309,10 +309,10 @@ honest — see [Limitations](#limitations) and
 ## The state machine
 
 ```
-idle → loadingModel → warming → inferring → success(degraded:)
-                                    │                     ▲
-                                    ▼                     │
-                               failed(retryable:) ────────┘
+idle → loadingModel → inferring → success(degraded: [DegradationReason])
+                          │                     │
+                          ▼                     │
+                    failed(retryable:) ─────────┘
 ```
 
 Cold start, model load, thermal throttle, and OOM each map to a named state, and backend
@@ -321,6 +321,16 @@ than silent. This is the on-device analogue of a server AI UX — connecting, st
 retry, fall back to a cheaper model — where model load is first-token latency, thermal
 throttle is the degraded state, and the fallback chain is the cheaper-model path
 ([ADR-0001](docs/adr/0001-module-boundaries.md)).
+
+There used to be a `warming` state between `loadingModel` and `inferring`, and building the
+machine removed it: the engine contract requires warm-up to finish *inside* `loadModel()`, in
+a private `warmUp` with no callback and no second `await`, so nothing in this codebase can put
+the UI into it. A state no signal can produce is decoration, which is the same failure as a
+`make` target that exits 0 without checking anything — so it was dropped rather than drawn
+([CLAUDE.md invariant 4, first correction](CLAUDE.md)). Two of the four mappings above are
+honest about being one-sided today: `.thermallyThrottled` has no producer until the thermal
+rung, and `InferenceError.outOfMemory` is thrown from exactly one site — the states are
+reachable, those two *reasons* are not yet.
 
 ## Limitations
 
