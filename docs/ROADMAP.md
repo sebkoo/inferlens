@@ -344,6 +344,37 @@ The general lesson is the one this repo keeps re-learning: a marker is not the s
 is read to mean. `** TEST FAILED **` was trusted to mean "tests failed" for the same reason a reused
 DerivedData was trusted to mean "this tree passed" — nobody had made it lie on purpose yet.
 
+## The claims-audit contract — Check A is pre-push, Check B is POST-push
+
+Recorded so the next red is judged rather than waved past, because it will recur on every rung whose
+docs cite their own commit — which [ADR-0007](adr/0007-readme-media.md) requires of any README media
+caption.
+
+`claims-audit.sh` runs two independent checks and reports both through one exit code:
+
+- **Check A — forbidden claims** (`claims-audit.sh:45`). Sweeps the working tree and the unpushed
+  commit messages for phrasings that are false in this repo. It reads only what is already local, so
+  it is meaningful at any moment. **A pre-push gate: red means fix it before pushing.**
+- **Check B — dead-sha references** (`claims-audit.sh:89`). Every short sha named in the docs must be
+  reachable **from `origin/main`**, because a reader's commit link resolves against the remote, not
+  against a local clone. **A post-push gate**, unavoidably: a caption that cites its own rung's `feat`
+  commit names a sha that by construction is not on origin until the push happens.
+
+So: **a red Check B immediately before pushing a doc that cites its own sha is expected, and is the
+gate working.** The judgement is the re-run straight after the push, when the sha is reachable. **A
+Check B still red after the push is a real finding** — the caption names a commit that does not exist
+on the remote, usually because history was rewritten after the caption was written, and a reader's
+link 404s.
+
+Two consequences worth stating, since the exit code alone cannot distinguish them:
+
+- The gate reports exit 1 for either check, so "claims-audit failed" must always be read with the
+  FAIL line beside it. A pre-push red that names a forbidden claim is a stop; one that names only a
+  sha the current push will publish is not.
+- Rewriting history after writing a caption invalidates the caption. It happened at the screen rung:
+  the feat commit was rebuilt to move a comment into it, its sha changed, and the caption had to be
+  repointed — Check B is exactly what would have caught that had it gone unnoticed.
+
 ## Harness backlog — a cross-document pointer check (recorded now)
 
 claims-audit catches forbidden phrasings and dead shas, but not cross-document POINTERS: a `rung N`
