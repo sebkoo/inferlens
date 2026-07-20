@@ -6,9 +6,21 @@
 // preview (or a screenshot test) can show the fallback banner without a phone that has actually
 // thermally throttled.
 //
-// What is NOT here: the result itself — labels, confidences, the backend name, p50/p95. Those
-// arrive with the screen rung that wires an image to an engine and has something to display. This
-// rung is the machine and its chrome; adding fields now would mean shipping payload nothing reads.
+// What is NOT here: the result itself — labels, confidences, the backend name, p50/p95. Those live
+// in `ClassificationResultView`, drawn by `ClassificationScreen` beneath this chrome, because this
+// view's job is the state and that view's job is the payload.
+//
+// THE TWO WAITS ARE DRAWN DIFFERENTLY, and that is a fix, not a decoration. `loadingModel` and
+// `inferring` used to render identically — the same `ProgressView`, one differing label — while
+// meaning a once-per-launch cost and a per-photo one. The finding was recorded in ROADMAP against
+// the screen rung, and it came from rendering the five states side by side; no assertion in this
+// repo could have produced it, because both renders were correct.
+//
+// What a person waiting on a spinner needs is not "working" — it is **will this happen again**. So
+// the difference is a difference in SHAPE, not in wording: the load is a full-width card carrying
+// the sentence that answers the question ("First run only — this happens once per launch"), and the
+// inference is a compact inline row. People watching spinners do not read labels, and two states
+// separated by one word are two states nobody can tell apart.
 
 import InferlensCore
 import SwiftUI
@@ -45,10 +57,37 @@ public struct InferenceStateView: View {
             case .loadingModel:
                 // One label for the whole cold start, because it IS one call — the model compile,
                 // the ANE preparation and the engine's warm-up are all inside `loadModel()`.
-                ProgressView("Loading model…")
+                //
+                // A CARD, with a subtitle, deliberately shaped unlike the row below it. See the
+                // note under this view: these two states used to differ by one word.
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text("Preparing the model")
+                        .font(.headline)
+                    Text("First run only — this happens once per launch.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        // Wrap rather than truncate. Without this the line came out as "…once per
+                        // lau…" — the sentence that carries the whole point of distinguishing this
+                        // state from `inferring`, cut off mid-word. Every existing render check
+                        // passed it: it is not clipped at an edge, because SwiftUI truncates with
+                        // an ellipsis instead of overflowing, so no ink ever reaches the boundary
+                        // the bottom-edge assertion watches.
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
 
             case .inferring:
-                ProgressView("Classifying…")
+                // A compact inline ROW. Different footprint, not a different label.
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Classifying this photo…")
+                }
+                .font(.subheadline)
 
             case .success(let degradations):
                 Label("Classified", systemImage: "checkmark.circle")

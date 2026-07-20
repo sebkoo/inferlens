@@ -1,4 +1,4 @@
-// The README's state screenshots, generated rather than hand-captured (ADR-0007).
+// The README's screenshots — the five states and the result — generated, not hand-captured (ADR-0007).
 //
 // Why a test and not Xcode's preview canvas. The canvas cannot render this package at all — the
 // executable target `InferlensApp` wants `ENABLE_DEBUG_DYLIB=YES`, which SPM does not cleanly expose —
@@ -40,18 +40,70 @@ final class StateScreenshotTests: XCTestCase {
     private static let renderWidth: CGFloat = 300
     private static let renderScale: CGFloat = 3
 
-    /// The five states, paired with the file each is written to. The file name is data here, not a
-    /// convention held in someone's head: `state-NN-<kebab-case-state>.png`, NN being the order a user
-    /// meets the state in a run.
-    private static let subjects: [(file: String, state: InferenceState)] = [
-        ("state-01-idle.png", .idle),
-        ("state-02-loading-model.png", .loadingModel),
-        ("state-03-inferring.png", .inferring),
-        // The degraded case carries a REASON PAIR, not a flag, so the banner can name both ends of the
-        // fallback — the same value the ledger row stores (invariant 3).
-        ("state-04-success-degraded.png", .success(degraded: [.fellBack(from: .liteRT, to: .coreML)])),
-        ("state-05-failed-retryable.png", .failed(retryable: true)),
-    ]
+    /// What is rendered, paired with the file each is written to. The file name is data here, not a
+    /// convention held in someone's head: `state-NN-<kebab-case-subject>.png`, NN being the order a
+    /// user meets it in a run.
+    ///
+    /// Five of the six are the states of `InferenceState`. The sixth is the RESULT — the payload the
+    /// screen rung added — which is not a state and so cannot be keyed on one: `success` says a result
+    /// arrived, and `ClassificationResultView` is what shows it. Rendering it here means the top-3,
+    /// the backend and the p50/p95 block are covered by the same "did it actually draw" assertions as
+    /// everything else, rather than being the one part of the screen no check ever looks at.
+    @MainActor
+    private static var subjects: [(file: String, view: AnyView)] {
+        [
+            ("state-01-idle.png", AnyView(InferenceStateView(state: .idle, onRetry: {}))),
+            ("state-02-loading-model.png", AnyView(InferenceStateView(state: .loadingModel, onRetry: {}))),
+            ("state-03-inferring.png", AnyView(InferenceStateView(state: .inferring, onRetry: {}))),
+            // The degraded case carries a REASON PAIR, not a flag, so the banner can name both ends of
+            // the fallback — the same value the ledger row stores (invariant 3).
+            (
+                "state-04-success-degraded.png",
+                AnyView(InferenceStateView(
+                    state: .success(degraded: [.fellBack(from: .liteRT, to: .coreML)]),
+                    onRetry: {}
+                ))
+            ),
+            ("state-05-failed-retryable.png", AnyView(InferenceStateView(state: .failed(retryable: true), onRetry: {}))),
+            ("state-06-result.png", AnyView(resultSubject)),
+        ]
+    }
+
+    /// The result, from values typed by hand — no engine ran and no ledger row was written, which is
+    /// the sentence ADR-0007 requires the caption to carry verbatim.
+    ///
+    /// The latency block is present because a readout WITH a device is the only kind this code can
+    /// build (invariant 7: `LatencyReadout` carries the machine, so an image of a number without one
+    /// cannot be produced by accident).
+    @MainActor
+    private static var resultSubject: some View {
+        ClassificationResultView(
+            classifications: [
+                Classification(label: "golden retriever", confidence: 0.871),
+                Classification(label: "Labrador retriever", confidence: 0.062),
+                Classification(label: "kuvasz", confidence: 0.011),
+            ],
+            backend: .coreML,
+            readout: LatencyReadout(
+                summary: LatencySummary(
+                    cold: TimingBreakdown(
+                        preprocess: Percentiles(p50: .milliseconds(4), p95: .milliseconds(6)),
+                        infer: Percentiles(p50: .milliseconds(21), p95: .milliseconds(28)),
+                        total: Percentiles(p50: .milliseconds(214), p95: .milliseconds(232)),
+                        sampleCount: 1
+                    ),
+                    warm: TimingBreakdown(
+                        preprocess: Percentiles(p50: .milliseconds(4), p95: .milliseconds(5)),
+                        infer: Percentiles(p50: .milliseconds(19), p95: .milliseconds(26)),
+                        total: Percentiles(p50: .milliseconds(23), p95: .milliseconds(31)),
+                        sampleCount: 12
+                    )
+                ),
+                device: "iPhone18,1",
+                os: "iOS 26.1"
+            )
+        )
+    }
 
     func testRenderStateScreenshots() throws {
         let environment = ProcessInfo.processInfo.environment
@@ -72,7 +124,7 @@ final class StateScreenshotTests: XCTestCase {
         var written: [(file: String, pixels: String, bytes: Int)] = []
 
         for subject in Self.subjects {
-            let data = try render(subject.state)
+            let data = try render(subject.view)
             let destination = directory.appendingPathComponent(subject.file)
             try data.write(to: destination)
 
@@ -100,7 +152,7 @@ final class StateScreenshotTests: XCTestCase {
         let total = written.reduce(0) { $0 + $1.bytes }
         XCTAssertLessThanOrEqual(
             total, 2_000_000,
-            "The five images total \(total) bytes, over ADR-0007's 2,000,000-byte directory ceiling."
+            "The images total \(total) bytes, over ADR-0007's 2,000,000-byte directory ceiling."
         )
 
         try writeManifest(to: directory, written: written)
@@ -125,8 +177,8 @@ final class StateScreenshotTests: XCTestCase {
     ///
     /// Opaque on purpose: a transparent PNG renders as a black rectangle in GitHub's dark theme, which
     /// would make the failure state look like a crash.
-    private func render(_ state: InferenceState) throws -> Data {
-        let view = InferenceStateView(state: state, onRetry: {})
+    private func render(_ subject: AnyView) throws -> Data {
+        let view = subject
             .frame(width: Self.renderWidth)
             .padding(20)
             .background(Color(uiColor: .systemBackground))
@@ -188,7 +240,7 @@ final class StateScreenshotTests: XCTestCase {
         }
 
         window.isHidden = true
-        return try XCTUnwrap(image.pngData(), "The rendered image for \(state) has no PNG data.")
+        return try XCTUnwrap(image.pngData(), "The rendered subject has no PNG data.")
     }
 
     // MARK: - Did it actually draw?
