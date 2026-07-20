@@ -366,6 +366,43 @@ Check B still red after the push is a real finding** — the caption names a com
 on the remote, usually because history was rewritten after the caption was written, and a reader's
 link 404s.
 
+**Amendment — Check A has TWO surfaces, and one of them is empty after a push.** The rule above
+says when each check is authoritative. It omitted that Check A is not one sweep but two, with
+different lifetimes:
+
+- **A1, the working tree.** Always live, independent of what has been pushed.
+- **A2, the commit messages**, over `RANGE="$BASE..HEAD"` — `origin/main..HEAD`, set at
+  `claims-audit.sh:42` from the `BASE` at `:37`. After a successful push that range is **empty**,
+  so A2 inspects nothing.
+
+So the two runs cover different things:
+
+| Run | A1 (tree) | A2 (messages) | Check B (shas) |
+|---|---|---|---|
+| pre-push | live | **live — the only time it runs** | expected red if a doc cites its own commit |
+| post-push | live | **empty — inspects nothing** | authoritative |
+
+**Neither run alone is the full gate.** The pre-push run is the only one that ever reads a commit
+message; the post-push run is the only one whose Check B verdict means anything. So **"claims-audit
+is green" is never a blanket pass — it is always qualified by which side of the push it came
+from**, and a report that omits which side has said less than it appears to.
+
+A2 is not an incidental surface. It is the **second** of the three surfaces named in the per-rung
+claims-audit item *above*, and it is the one rung 12 built Check A for, after a false claim inside
+a commit body survived a working-tree `grep -r`. A workflow that only ever ran the gate after
+pushing would never exercise it.
+
+Deliberately **not** recorded as an eighth instance of the recurring defect. No check here has run
+and reported clean about the wrong corpus; what exists is an **incomplete rule** — a documented
+gate whose scope statement omitted a surface. It becomes an instance the first time someone reads
+a post-push green as a blanket pass, which is what this amendment exists to prevent. Counting it
+now would inflate a count already corrected twice in the same series.
+
+One property of this amendment is the cheapest possible demonstration of it: the commit that lands
+this text is unpushed when its own gate runs, so `RANGE` is non-empty and **A2 is live over this
+commit's own message**. The text documenting A2's coverage gap is covered by A2 — verified by
+running the gate before pushing, not asserted.
+
 Two consequences worth stating, since the exit code alone cannot distinguish them:
 
 - The gate reports exit 1 for either check, so "claims-audit failed" must always be read with the
