@@ -175,6 +175,33 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   has to write about steps that do not touch. Deliberate, not skipped; 19 and 20 remain on the
   ladder and are unblocked.
 
+## Product finding, recorded against rung 24 — two states look identical and mean different things
+
+> `loadingModel` and `inferring` render identically — same spinner, one differing label. They mean
+> different things to a waiting user: a cold start that happens once, versus a per-photo cost that
+> repeats. Nothing on screen distinguishes them. Surfaced by rendering the five states side by side;
+> invisible in the code, and no gate can see it.
+
+Rung 24 owns the screen and owns this; it is not fixed here. Recorded because of where it came from.
+
+This is the JD's "AI UX under non-determinism" in one concrete case, and the concrete case is sharper
+than the phrase. What a user waiting on a spinner needs is not *working* — it is **will this happen
+again**. A cold start is a once-per-launch cost a person will absorb without complaint if they know that
+is what it is; the same spinner appearing on every photo is a product that feels slow. The two are the
+same pixels today, separated by one word, and people watching spinners do not read labels. The server
+analogue is the one ADR-0001 draws: "connecting" and "generating" are both waits, and a UI that renders
+them identically has told the user nothing they can act on.
+
+**Where it came from is the point.** Every other finding this session was caught by a check, or by
+building a check after a defect appeared — the placeholder glyph, the all-black capture, the clipped
+text, the gate flagging its own prose. This one came from *looking at the five states next to each
+other*, which no assertion in this repo could have produced: the images are correct, the state machine
+is correct, every gate is green, and the screen is still ambiguous to the person it is for. A test can
+tell you the render matches the view. It cannot tell you the view answers the user's question.
+
+So it is written into the ladder rather than left in a session log, where it would evaporate — and it is
+the argument for rendering the states side by side at all, beyond having pictures for the README.
+
 ## Harness backlog — the per-rung claims audit (recorded at rung 12)
 
 Rung 12's real cost was not the `LatencyRecorder`; it was tracking one false claim ("the
