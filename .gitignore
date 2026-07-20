@@ -20,6 +20,7 @@ bench-results/
 
 # Local-only notes — NEVER committed
 NOTES.local.md
+.claude/
 
 # macOS
 .DS_Store
