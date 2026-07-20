@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-16%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-18%2F37-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -245,10 +245,10 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side — Apple FP16 vs Google FP32 — reported prominently; different weights; warm-up policy; run counts; thermal state) + LIMITATIONS.md
 - [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, link the 20s video as a GitHub attachment (NEVER a tracked GIF — ADR-0007), publish docs/ via GitHub Pages (the README itself lands at rung 01)
 
-**Product loop** — 3/13 landed
+**Product loop** — 5/13 landed
 - [x] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
-- [ ] 19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
-- [ ] 20 feat(flags): FeatureFlagProvider protocol + local JSON provider
+- [x] 19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
+- [x] 20 feat(flags): FeatureFlagProvider protocol + local JSON provider
 - [x] 23 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
 - [x] 24 feat(ui): pick/capture image -> classify -> top-3 + confidence + backend + p50/p95
 - [ ] 25 feat(ui): thumbs up/down signal -> append to ledger

@@ -182,6 +182,22 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   has to write about steps that do not touch. Deliberate, not skipped; 19 and 20 remain on the
   ladder and are unblocked.
 
+- Rungs 19 and 20 landed after 23 and 24, and **together**, which is the point. The objection
+  recorded above — that each "adds a module with no producer" — is true of either one alone and
+  false of the pair: rung 19's document store exists to hold the flag cache, and rung 20's provider
+  is what reads it. Landing 19 by itself would have shipped a store with no client; landing 20 by
+  itself would have shipped a provider whose flags do not survive a launch. So the deferral was
+  removed by making the objection untrue rather than by overruling it.
+
+  The pairing is also what let rung 19 ship **smaller than its ladder line**: with a real consumer
+  in hand, the model-metadata half had to justify itself against three existing records and could
+  not ([ADR-0009](adr/0009-document-store-scope.md)). A speculative store would have kept it.
+
+  Neither rung is a prerequisite for the screen that preceded them. That ordering was a choice, not
+  a dependency: hardcoding one engine for one rung is honest and reversible, where a flag system
+  built to avoid hardcoding it would have been the module-with-no-producer this section already
+  warns about.
+
 ## Product finding, recorded against rung 24 — two states look identical and mean different things
 
 > `loadingModel` and `inferring` render identically — same spinner, one differing label. They mean
