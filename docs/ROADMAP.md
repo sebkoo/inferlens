@@ -324,6 +324,57 @@ the file the ADR exists to prevent — the correction has to be where the instru
 the reasoning is. Same disposition as the rung 26 → 31 correction below: the fix ships with the work
 that revealed it, in the same push, so the contradiction never exists on origin.
 
+## The recurring defect, named — a check whose SCOPE excludes the failure reports clean
+
+Naming it because it has now been rediscovered from scratch five times, each time as if it were new, and
+an unnamed pattern gets re-derived instead of checked for. The shape:
+
+> A check runs, passes, and reports clean — about a corpus, an input, or a failure mode that does not
+> include the thing under test. The green is true and answers a question nobody asked.
+
+Every instance so far:
+
+| Instance | The check said | What it did not read |
+|---|---|---|
+| Reused `DerivedData` | "tests passed" | this tree — the result came from an older build |
+| `** TEST FAILED **` read as a test failure | "tests ran and failed" | whether any test executed at all (a build failure emits the same marker) |
+| `claims-audit` / `anchor-check` over `git ls-files` | "clean, 18 files" | the untracked file that was the entire subject of the commit |
+| The yellow-placeholder assertion in `StateScreenshotTests` | "the render is fine" | an image that was **entirely black** — a blank frame contains no yellow |
+| `media-check`'s first alt-text pass | "3 findings" | the difference between an image and prose *about* an image, in backticks |
+
+The last two arrived within an hour of each other, which is what forced this section.
+
+**The standing rule this produces: every new check states what it does NOT read**, in a comment at the
+code and in the message that lands it. Not as documentation — as the design step that catches the defect,
+because the scope gap is invisible from a passing run and obvious the moment someone has to write the
+sentence. `media-check` prints its corpus size on success for this reason, and `test-clean` prints the
+`-derivedDataPath` it used for the same one.
+
+A second rule, from the two image cases specifically: a check aimed at one observed failure is worth
+having, but it must not be mistaken for a check on the *class* of failure. The yellow assertion was
+correct and useless on its own; what covers the class is the general pair beside it — distinct-colour
+count and a background pixel — plus the bottom-edge test for clipping. Specific checks catch the bug you
+had; general ones catch the bug you are about to have.
+
+## Harness backlog — the earlier gates have no NEGATIVE control (recorded now)
+
+`claims-audit`, `anchor-check` and `test-clean` have each been teeth-tested by planting the failure they
+exist to catch, and each fired. None has been run against a control that must **not** be flagged. That
+gap is not academic: **a gate that refused everything unconditionally would pass all three teeth tests**,
+and nothing in the record would show it.
+
+`media-check` had a negative control from the start — `plant-clean.png`, a small well-formed image
+referenced with alt text, asserted to be left alone while three offenders beside it were refused by name.
+That is what makes its positive results mean anything, and it is the pattern the other three need:
+
+- `claims-audit` — a commit message and a live sha that must survive the sweep untouched
+- `anchor-check` — a correct in-page anchor that must not be reported
+- `test-clean` — a passing suite that must return 0 (exercised incidentally on every green run, but never
+  as a stated control alongside the failure plants, which is a weaker claim than it looks)
+
+Lands with the CI rung alongside the other gate work; until then it is a manual step in the landing
+checklist.
+
 ## Harness backlog — the gates sweep `git ls-files`, so an untracked file is skipped silently (recorded now)
 
 `claims-audit` and `anchor-check` both enumerate their corpus with `git ls-files`. An **untracked** file
