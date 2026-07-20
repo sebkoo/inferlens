@@ -4,7 +4,8 @@
 - Deciders: maintainer
 - Relates to: [ADR-0001](0001-module-boundaries.md) (module boundaries, dependency direction),
   [ADR-0003](0003-benchmark-comparison-scope.md) (what a latency number may claim),
-  CLAUDE.md invariants 1 (timing code), 4 (UI states), and 7 (every number carries its device + iOS).
+  CLAUDE.md invariants 1 (timing code), 4 (UI states), and 7 (every number carries its device and
+  iOS version).
 
 ## Context
 
@@ -14,14 +15,15 @@ screen live on opposite sides of a boundary the repo enforces:
 - p50/p95 are produced by [`LatencyRecorder`](../../Sources/InferlensBench/LatencyRecorder.swift)
   in **InferlensBench**.
 - **InferlensUI** depends on **InferlensCore** and nothing else — one line in
-  [`Package.swift`](../../Package.swift), and a CI dependency-lint at rung 31 that fails any
-  arrow pointing sideways.
+  [`Package.swift`](../../Package.swift), and a CI dependency-lint — not yet implemented — that
+  will fail any arrow pointing sideways.
 
 So `InferlensUI` cannot name `LatencySummary` while it lives in Bench, and cannot be allowed to
 compute one itself: invariant 1 makes the percentile definition, the cold/warm boundary and the
-warm-up policy **maintainer-ratified choices with exactly one implementation**. A second
-percentile in the view layer would not be a duplication of code, it would be a second definition
-of the benchmark — the failure this repo's whole measurement path is arranged to prevent.
+warm-up policy **maintainer-ratified choices with exactly one implementation**. A view layer that
+COMPUTED a percentile would be a second definition of the benchmark — that is the strong claim, and
+it applies only to computation. Merely holding a summary is a weaker risk with a different shape,
+and it is dealt with under Alternatives.
 
 Three shapes were considered. Naming them is the decision; the code is the consequence.
 
@@ -37,7 +39,7 @@ InferlensCore. The computation, and every ratified biasable choice, stays in Inf
 public init(engine: any InferenceEngine, summarize: (@Sendable ([LatencySample]) -> LatencySummary?)? = nil)
 ```
 
-— which the app target (rung 29) satisfies with `{ try? LatencyRecorder().summarize($0) }`, one
+— which the app target will satisfy with `{ try? LatencyRecorder().summarize($0) }`, one
 line, no adapter and no mapping. Dependency inversion at the same seam the engine already uses:
 UI holds the protocol and the value types, never the implementation.
 
@@ -63,8 +65,14 @@ does — the same rule the gates follow.
   `LatencySummary` out of thin air. Nothing stops it but review — the same footing as the on-actor
   discipline in [ADR-0005](0005-litert-engine-concurrency.md), and recorded here rather than
   implied.
-- It does **not** say where model-load time is measured. That is timing code, it is new at rung 24,
-  and it is called out in the rung's commit for ratification rather than settled here.
+- It enforces invariant 7 in **shape, not in content**. `LatencyReadout` and `LatencySource` make it
+  impossible to supply a latency figure without a device and an OS — that much is structural, and a
+  caller cannot forget. Nothing checks the strings are TRUE: `""`, `"a phone"`, or the wrong device
+  identifier all satisfy the type. The composition is expected to pass `DeviceIdentity.current`, and
+  only review says it did. Invariant 7's real teeth are in the ledger, where both columns are `NOT
+  NULL` and non-empty by `CHECK` constraint; on screen they are a convention held by one call site.
+- It does **not** say where model-load time is measured. That is timing code, it is new with the
+  screen rung, and it is called out in that rung's commit for ratification rather than settled here.
 - It says nothing about the *content* of a number. Whether a figure may be quoted at all is
   ADR-0003 and invariant 7; this ADR is only about which module may hold it.
 
@@ -75,10 +83,14 @@ target is thin: composition only" reads like at first, and it is the shape actua
 only *after* the types moved. On its own it does not work, because the view has to **name** the
 type of what it is handed. Without the move, "hand it a value" forces InferlensUI to declare its
 own parallel struct with the same two fields, and the composition to write a field-by-field
-mapping. That gives two definitions of "p95" — a Bench one and a UI one — with an adapter in the
-app target that no test target can reach, because a test that imported both would be the only place
-the two ever met. Rejected for the duplication, not for the composition; the composition survives
-as the closure above.
+mapping. A parallel struct would not REDEFINE p95 — it would carry the number Bench computed — so
+the risk is not two definitions of the statistic. It is a second place where the SHAPE can drift out
+of step with the computation: add a field to `TimingBreakdown`, or change what `total` means for a
+cold run, and the UI struct and its hand-written mapping go stale silently, still compiling and
+still rendering a number. The adapter that would catch it sits in the app target, which no test
+target can reach — a test that imported both Bench and UI would be the only place the two ever
+met. Rejected for that drift risk, not for the composition; the composition survives as the
+closure above.
 
 **The view takes formatted strings only.** Cheapest, and wrong in the direction this repo cares
 about. Formatting is a rendering decision, and rendering decisions live in the UI module — that is
