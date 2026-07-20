@@ -428,6 +428,17 @@ Two consequences worth stating, since the exit code alone cannot distinguish the
   the feat commit was rebuilt to move a comment into it, its sha changed, and the caption had to be
   repointed — Check B is exactly what would have caught that had it gone unnoticed.
 
+**Amendment two — the gate must run BETWEEN commit and push, or A2 never sees the message.** The
+window in which `RANGE` is non-empty is after `git commit` and before `git push`: that is the only
+moment A2 can sweep the message being landed. A gate run before the commit exists sweeps every
+message except the one being written, and the post-push run sweeps none. Not hypothetical — two
+published messages were never swept by any valid A2 run: the out-of-order record (`91b3280`; its
+gates ran pre-commit, `make land` amended it twice, and the push followed with no gate between) and
+the 83-to-108 count fix (`e3eb479`; same shape). Both were reviewed by hand, which is a disposition,
+not a gate. So the landing order is: edit, then width/anchor/A1, then commit, then **claims-audit**,
+then push. `make land` does not run the gate — a named gap, like the tag-convention gap already
+recorded for it — so the step is manual until the Harness backlog lands it.
+
 ## Harness backlog — a cross-document pointer check (recorded now)
 
 claims-audit catches forbidden phrasings and dead shas, but not cross-document POINTERS: a `rung N`
