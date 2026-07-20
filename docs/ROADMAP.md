@@ -209,6 +209,39 @@ tell you the render matches the view. It cannot tell you the view answers the us
 So it is written into the ladder rather than left in a session log, where it would evaporate — and it is
 the argument for rendering the states side by side at all, beyond having pictures for the README.
 
+## Product finding, recorded against rung 19 — model metadata already lives in three places
+
+Rung 19 reads "document/KV store for model metadata + flag cache (NoSQL)". That is two things, and
+only one of them is clearly earned. Recorded now, while it is fresh, rather than discovered by
+whoever builds it — the same disposition as the `loadingModel`/`inferring` finding against rung 24.
+
+**The flag cache is earned.** Flags have to survive a launch, and nothing in the repo persists them
+today: [InferlensFlags](../Sources/InferlensFlags/InferlensFlags.swift) is a three-line skeleton.
+
+**The model-metadata half is not, yet.** The same facts are already recorded in three places, each
+doing a different job, and a KV store would be the fourth:
+
+| Where | What it holds | What makes it different |
+|---|---|---|
+| [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md) | which bytes, from where, at what checksum | build-time, human-readable, reviewable in a diff |
+| [`fetch-models.sh`](../scripts/fetch-models.sh) via `make bootstrap` | the same facts, enforced | fails closed on a mismatched pin — a claim with teeth |
+| the ledger row (`LedgerSchema`) | `model_name`, `model_precision`, `model_input_width/height` | copied per run, so a row stays self-contained when the model is swapped |
+
+CLAUDE.md is explicit that a module serving no clause of the thesis is cut. So rung 19's first
+obligation is to name what a store holds that those three do not — and if it cannot, to drop that
+half and record the decision. **The decision not to duplicate is worth as much as the store**, and it
+is an ADR either way.
+
+The one candidate visible from here is the **ImageNet label table**: `MODEL_PROVENANCE.md` records
+that the raw `.tflite` carries no embedded label strings, so `LiteRTEngine` labels classes by index
+while the Apple side carries real strings. That is a genuine gap none of the three fills — but the
+same document assigns the reconciliation to **rung 17** (cross-model agreement), not to 19, so
+claiming it here would take a rung's subject from another rung rather than justify this one.
+
+Scope, and what this finding did NOT read: it compares what the three sources *record*. It does not
+survey NoSQL options, does not say what shape a store should take if one is built, and says nothing
+about the flag half beyond that it is earned.
+
 ## Harness backlog — the per-rung claims audit (recorded at rung 12)
 
 Rung 12's real cost was not the `LatencyRecorder`; it was tracking one false claim ("the
