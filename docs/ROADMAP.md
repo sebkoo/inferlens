@@ -461,7 +461,9 @@ that revealed it, in the same push, so the contradiction never exists on origin.
 
 ## The recurring defect, named — a check whose SCOPE excludes the failure reports clean
 
-Naming it because it has now been rediscovered from scratch five times, each time as if it were new, and
+Naming it because it has now been found seven times — the first six rediscovered from scratch, each
+as if it were new, and the seventh caught by applying this section rather than by stumbling into
+it — and
 an unnamed pattern gets re-derived instead of checked for. The shape:
 
 > A check runs, passes, and reports clean — about a corpus, an input, or a failure mode that does not
@@ -477,8 +479,9 @@ Every instance so far:
 | The yellow-placeholder assertion in `StateScreenshotTests` | "the render is fine" | an image that was **entirely black** — a blank frame contains no yellow |
 | `media-check`'s first alt-text pass | "3 findings" | the difference between an image and prose *about* an image, in backticks |
 | Every render assertion, over the new load card | "the image drew correctly" | whether the text was **horizontally truncated** — SwiftUI ellipsises instead of overflowing, so no ink ever reaches the edge the clipping test watches |
+| **The whole gate set, over the committed PNGs** (permanent, not a miss) | "green" | whether the images still match what the views render — the only check that could tell is skipped in every ordinary run |
 
-The last two arrived within an hour of each other, which is what forced this section.
+Instances five and six arrived within an hour of each other, which is what forced this section.
 
 The sixth arrived at the screen rung and is the sharpest yet, because the check that missed it was
 written *specifically* to catch cut-off text. The bottom-edge assertion catches VERTICAL clipping: a
@@ -489,6 +492,43 @@ this happens once per lau…". The one sentence on the screen that answers *will
 cut mid-word, every assertion passed, and a human looking at the picture is what caught it. Again.
 No check for it has been written yet: detecting an ellipsis in a bitmap is not cheap, and a plausible
 one that does not work would be worse than the honest gap. Recorded as a gap, not closed.
+
+### The seventh is different: a permanent hole, not a miss
+
+The first six were one-off misses — a check that ran and read the wrong thing. This one is
+structural, and it does not get better on its own.
+
+The suite reports **83 tests: 82 run, 1 skipped**. The skipped one is `StateScreenshotTests` — the
+test that GENERATES the six README images. It skips unless `TEST_RUNNER_INFERLENS_MEDIA_OUT` is set,
+which is correct (an ordinary run must not be conscripted into writing files), and the consequence is
+that **nothing verifies the committed PNGs still match what the views render**. Edit
+`InferenceStateView`, commit, and all six standing gates pass — the four check scripts, the
+`commit-msg` hook and the commit-hygiene workflow — while the README shows a screen that no longer
+exists. Only four of the six could even in principle notice, and this is what each reads instead.
+
+The hook and the workflow read commit messages and are not in the running at all. The four that scan
+the repo do not read the images either — stated explicitly, because that is the rule this section
+produced:
+
+- **`media-check`** reads bytes, pixel dimensions, alt text, orphans and tracked video. It never opens
+  an image's *content*, so a stale-but-well-formed PNG is indistinguishable from a fresh one.
+- **`anchor-check`** reads links and headings. It confirms a pointer resolves, never what the thing it
+  points at looks like.
+- **`test-clean`** runs the suite — with the generator skipped. The renderer's own assertions (no
+  placeholder glyph, enough distinct colours, a light background, no ink on the bottom edge) are real
+  and they are exactly what does NOT run in a normal green build.
+- **`claims-audit`** reads text and shas. The caption's sha proves which commit the images were
+  generated from *when the caption was written*; nothing re-checks it after a later view edit.
+
+So the caption's sha is the only link between the images and the code, and it is maintained by hand.
+
+**Recorded as a backlog item, deliberately not closed here** — the same discipline as the truncation
+gap above. The obvious check is "regenerate in CI and fail if the bytes differ", and PNG output is not
+guaranteed byte-stable across toolchains or simulator versions, so a naive version would either flap
+or be silently disabled. A check that does not actually work would be worse than a named hole. It
+lands with the CI rung, where a pinned runner image makes the comparison meaningful; until then, the
+manual step is: **regenerate the screenshots in any rung that touches a view, and update the caption's
+sha.**
 
 **The standing rule this produces: every new check states what it does NOT read**, in a comment at the
 code and in the message that lands it. Not as documentation — as the design step that catches the defect,
