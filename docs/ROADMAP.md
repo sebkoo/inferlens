@@ -152,16 +152,62 @@ that a rebase can orphan) — not just `grep -r`. It lands as a lint with the CI
 then it is a manual step in the landing checklist. This is a derived-vs-declared check like the
 others (a claim is "declared" in the subject and must hold everywhere it is "restated").
 
-## Harness backlog — test-clean's exit-code contract is unexercised (recorded now)
+## Correction of record — test-clean returned 1 for a build failure the contract assigns to 2
 
-`make test-clean` carries the same exit-code contract as the claims audit — 0 tests passed, 1
-tests ran and failed, 2 the harness could not run (no simulator, or the build never reached test
-execution) — so a pass and a never-ran can never share an exit. But only the exit-0 path has been
-exercised: the green two-run proof drove neither the failing-test path (exit 1) nor the
-no-simulator path (exit 2). Teeth-test both the way the claims audit was — force a deliberately
-failing test and a destination with no available simulator, and confirm each exit is
-distinguishable from a pass. An unexercised contract is a claim, not a guarantee. Lands as a check
-with the CI rung; until then it is a manual step in the landing checklist.
+This section used to be a backlog item: the exit-1 and exit-2 paths were unexercised and should be
+teeth-tested, because "an unexercised contract is a claim, not a guarantee." That was right, and the
+claim was false. Exercising it found a real bug.
+
+`37fbc1e`'s pushed body states the contract as "2 the harness could not run (no simulator, **or the
+build never reached test execution**)". The script did not do that. It returned 1 on the
+`** TEST FAILED **` marker alone — and under `xcodebuild test` a failed **build** emits that marker
+too, because the action that failed is the test action whatever stopped it. So a compile error
+returned 1, "tests ran and failed", for a run in which no test ever executed. The claim was wrong
+when it was written.
+
+Observed, not hypothesized: a compile error in `InferlensStore` during the run-ledger rung produced
+
+```
+Testing failed:
+    Overlapping accesses to 'info.machine', ...
+    Testing cancelled because the build failed.
+** TEST FAILED **
+The following build commands failed:
+```
+
+Note what is absent — no `** BUILD FAILED **` (the test action swallows it), and no `Executed N tests`
+line at all. **The presence of an `Executed` line is the discriminator**, not the SUCCEEDED/FAILED
+marker: it is the only thing in the log that says the runner reached test execution. Fixed in
+`fix(scripts): test-clean returns 1 for a build failure the contract assigns to 2` — exit 1 now
+requires the marker **and** an `Executed` line; everything else is 2, with the build-failure case
+named in its own message.
+
+`37fbc1e` is pushed and cannot be amended without rewriting shared history, so the correction lives
+here — the same disposition as the rung 26 → 31 correction below.
+
+### The contract, exercised — every path, old script vs fixed
+
+Each path was forced by planting the exact condition it exists to report, both scripts run back to
+back on the same tree:
+
+| Path | Forced by | Old | Fixed |
+|---|---|---|---|
+| 0 — tests ran and passed | the tree as committed | 0 | **0** |
+| 1 — tests ran and failed | an `XCTFail` planted in the store suite | 1 | **1** (no regression) |
+| 2 — build never reached tests | a type error planted in `LedgerCodec.swift` | **1** ← the bug | **2** |
+| 2 — no usable destination | the simulator parser forced to return no records | 2 | **2** |
+
+Path 1 holding at 1 matters as much as path 2 moving to 2: a "fix" that collapsed every failure to 2
+would satisfy the headline and destroy the contract. The point is that the two stay distinguishable.
+
+Scope, honestly: the last row was forced by neutering the parser, not by removing the machine's
+simulators, so it proves the branch refuses to fall through to a default destination — it does not
+prove behaviour on a genuinely simulator-less machine (a CI runner will). Automating all four as a
+standing check lands with the CI rung; until then they are a manual step in the landing checklist.
+
+The general lesson is the one this repo keeps re-learning: a marker is not the same as the thing it
+is read to mean. `** TEST FAILED **` was trusted to mean "tests failed" for the same reason a reused
+DerivedData was trusted to mean "this tree passed" — nobody had made it lie on purpose yet.
 
 ## Harness backlog — a cross-document pointer check (recorded now)
 

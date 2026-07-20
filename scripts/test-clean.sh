@@ -28,8 +28,25 @@
 #   1  tests ran and FAILED
 #   2  the harness could NOT run the tests (no simulator, or the build did not reach test execution)
 # "passed" and "never ran" must never be indistinguishable, so this never drifts to a default destination
-# or to macOS. NOTE (honest): only the exit-0 path is exercised today; teeth-testing the 1 and 2 paths is
-# a docs/ROADMAP.md Harness-backlog item, like the claims-audit no-op-run was.
+# or to macOS.
+#
+# WHY THE EXIT MAPPING BELOW KEYS ON THE "Executed" LINE (a correction, recorded after the contract was
+# observed to break). `** TEST FAILED **` is NOT a test-failure marker. Under `xcodebuild test`, a failed
+# BUILD emits it too — the action that failed is the test action, whatever stopped it. So an earlier
+# revision of this script, which reached for `** TEST FAILED **` alone, returned 1 (tests ran and failed)
+# for a compile error the contract assigns to 2. Observed here, verbatim, from a build-failure log:
+#
+#     Testing failed:
+#         Overlapping accesses to 'info.machine', ...
+#         Testing cancelled because the build failed.
+#     ** TEST FAILED **
+#     The following build commands failed:
+#     ...
+#
+# Note what is NOT in that log: no `** BUILD FAILED **` (the test action swallows it) and, crucially, no
+# `Executed N tests` line. The presence of an `Executed` line is therefore the discriminator that actually
+# separates the two — "did the runner reach test execution at all" — and the SUCCEEDED/FAILED marker only
+# decides 0 vs 1 once that is established. Anything else is 2.
 #
 # Scope: the simulator suite only. Device-only paths (Neural Engine warm-up, real latency) cannot run
 # here and are the on-device bench rung, not this target.
@@ -119,10 +136,21 @@ echo "test-clean: full log = $DD/xcodebuild.log"
 if grep -q '\*\* TEST SUCCEEDED \*\*' "$DD/xcodebuild.log" && grep -qE 'Executed [0-9]+ test' "$DD/xcodebuild.log"; then
   echo "test-clean: OK — the suite ran and passed on a fresh, never-reused derivedDataPath."
   exit 0
-elif grep -q '\*\* TEST FAILED \*\*' "$DD/xcodebuild.log"; then
+elif grep -q '\*\* TEST FAILED \*\*' "$DD/xcodebuild.log" \
+     && grep -qE 'Executed [0-9]+ test' "$DD/xcodebuild.log"; then
+  # BOTH conditions, not just the marker: a failed build also prints ** TEST FAILED **. The Executed
+  # line is what proves the runner actually reached test execution, so this branch is only ever a real
+  # test failure.
   echo "test-clean: FAIL — tests ran and failed (see $DD/xcodebuild.log)." >&2
   exit 1   # tests ran and failed
 else
-  echo "test-clean: ERROR — the suite did not reach test execution (build/config error; see $DD/xcodebuild.log)." >&2
+  # Everything else: the suite never ran. Name WHICH kind, because "the build broke" and "the runner
+  # died before executing anything" send a reader to different places, and both are exit 2.
+  if grep -q 'Testing cancelled because the build failed' "$DD/xcodebuild.log" \
+     || grep -q 'The following build commands failed' "$DD/xcodebuild.log"; then
+    echo "test-clean: ERROR — the BUILD failed; no test ever executed (see $DD/xcodebuild.log)." >&2
+  else
+    echo "test-clean: ERROR — the suite did not reach test execution (see $DD/xcodebuild.log)." >&2
+  fi
   exit 2   # harness could not run (NOT a test failure)
 fi
