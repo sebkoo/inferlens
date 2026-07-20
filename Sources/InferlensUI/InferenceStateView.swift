@@ -127,3 +127,47 @@ extension Backend {
         }
     }
 }
+
+// MARK: - Previews
+
+// One preview per state, for developing the views. They are NOT the source of the README's
+// screenshots — that is `StateScreenshotTests`, which renders the same five states with
+// `ImageRenderer` on the pinned simulator (ADR-0007).
+//
+// Why not the canvas: Xcode cannot render previews in this package. The executable target
+// `InferlensApp` requires `ENABLE_DEBUG_DYLIB=YES`, which an SPM package does not cleanly expose, and
+// the canvas fails before drawing anything. Recorded here so the next person does not spend the
+// afternoon rediscovering it. The declarations stay because they cost five lines each and are how a
+// SwiftUI module is ordinarily developed; they become useful the day that build setting is reachable.
+//
+// EVERY VALUE BELOW IS FABRICATED. No engine is constructed, no model is loaded, no inference runs,
+// and no ledger row is written — a `success` here is a state value spelled out by hand, not a result.
+// That is the payoff of the machine being a pure function over two enums, and it is simultaneously
+// the hazard: these renders are indistinguishable from real ones to anyone looking at a picture.
+// ADR-0007 therefore requires any image derived from them to carry, verbatim, "rendered from
+// fabricated values; no engine ran, nothing was written to the ledger."
+
+#Preview("idle") {
+    InferenceStateView(state: .idle)
+}
+
+#Preview("loadingModel") {
+    InferenceStateView(state: .loadingModel)
+}
+
+#Preview("inferring") {
+    InferenceStateView(state: .inferring)
+}
+
+// The degraded case carries a REASON pair, not a flag — the banner names both ends of the fallback
+// because `success(degraded:)` and the ledger's degradation row hold the same value (invariant 3).
+#Preview("success-degraded") {
+    InferenceStateView(state: .success(degraded: [.fellBack(from: .liteRT, to: .coreML)]))
+}
+
+// `onRetry` is supplied so the Retry button actually renders: with it `nil`, a retryable failure
+// deliberately offers no button, and a screenshot of that would show the non-retryable chrome under
+// a retryable caption.
+#Preview("failed-retryable") {
+    InferenceStateView(state: .failed(retryable: true), onRetry: {})
+}
