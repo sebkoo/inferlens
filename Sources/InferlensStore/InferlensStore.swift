@@ -1,10 +1,17 @@
 // InferlensStore — the persistence side of the product loop's `run → ledger` step.
 //
-// Two stores belong here, and only the first exists today:
+// Two stores live here, and they answer different questions:
 //   - the APPEND-ONLY SQL run ledger (`RunLedger`) — one row per inference, schema versioned by
 //     migration. It is what the NDJSON export and the offline eval will read.
-//   - the document/KV store for model metadata and the flag cache — still design-stage. It is its
-//     own ladder rung and no code for it is in this module yet.
+//   - the DOCUMENT store (`DocumentStore`) — schema-free JSON on disk, read whole and OVERWRITTEN
+//     whole. It holds the feature-flag cache and nothing else.
+//
+// The split is structural, not stylistic. The ledger is append-only in the FILE, by trigger; a cache
+// is overwritten on every refresh, so it cannot live in a database whose triggers refuse UPDATE
+// without either failing every write or decaying the file-level guarantee into a per-table one.
+// ADR-0009 also records what the document store does NOT hold: model metadata, whose facts already
+// live in MODEL_PROVENANCE.md, in fetch-models.sh's checksum enforcement, and in the ledger row —
+// a fourth copy with no reader is a module serving no clause of the thesis, which CLAUDE.md cuts.
 //
 // Dependency direction (ADR-0001): InferlensStore -> InferlensCore, plus Foundation and the
 // platform's SQLite3 system module. No engine, no UI, and nothing points back the other way. The
