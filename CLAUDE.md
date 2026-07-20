@@ -8,7 +8,8 @@ Decisions of record: [docs/adr/0001](docs/adr/0001-module-boundaries.md) (module
 boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0003](docs/adr/0003-benchmark-comparison-scope.md) (benchmark scope),
 [0005](docs/adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency),
-[0006](docs/adr/0006-run-ledger-storage.md) (run ledger storage). Plan:
+[0006](docs/adr/0006-run-ledger-storage.md) (run ledger storage),
+[0007](docs/adr/0007-readme-media.md) (README media). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis

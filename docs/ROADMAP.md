@@ -41,7 +41,9 @@ Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0003](adr/0003-benchmark-comparison-scope.md) (benchmark scope),
 [ADR-0004](adr/0004-commit-hygiene.md) (commit hygiene),
 [ADR-0005](adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency),
-[ADR-0006](adr/0006-run-ledger-storage.md) (run ledger storage).
+[ADR-0006](adr/0006-run-ledger-storage.md) (run ledger storage),
+[ADR-0007](adr/0007-readme-media.md) (README media — screenshots, video, and the byte ceiling
+invariant 6 never gave).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 
