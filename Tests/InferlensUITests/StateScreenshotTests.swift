@@ -139,6 +139,14 @@ final class StateScreenshotTests: XCTestCase {
         // produce a dark set under a caption describing the light one.
         controller.overrideUserInterfaceStyle = .light
 
+        // Drop the safe area. A hosting controller in a window inherits the device's safe-area insets —
+        // roughly 100pt of status bar and home indicator — and `systemLayoutSizeFitting` dutifully
+        // includes them, so the first renders were ~157pt tall for ~60pt of content, with the words
+        // stranded in a thin band of white. That is not a phone screenshot; it is a component render with
+        // a phone's chrome allowance stamped into it, and the empty space is what forced the text down to
+        // an illegible size once the image was scaled to fit a README column.
+        controller.safeAreaRegions = []
+
         // Measure AFTER the view is in a window, not before. `sizeThatFits(in:)` on a hosting controller
         // whose view has never been in a hierarchy under-reports height, and the difference is not a
         // rounding error: it clipped four of the five states, shearing "Loading model…" through the middle

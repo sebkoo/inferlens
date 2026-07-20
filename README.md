@@ -271,10 +271,15 @@ hand. A screenshot reads as "this works" to a non-developer, so it is worth sayi
 picture of a design, not evidence of a run. The [state machine](#the-state-machine) below is the part
 that is real.
 
-| Nothing chosen | Loading the model | Classifying | Answered, degraded | Failed, retryable |
-|---|---|---|---|---|
-| <img src="docs/media/state-01-idle.png" width="150" alt="The idle screen, reading: Choose a photo to classify."> | <img src="docs/media/state-02-loading-model.png" width="150" alt="A spinner reading: Loading model…"> | <img src="docs/media/state-03-inferring.png" width="150" alt="A spinner reading: Classifying…"> | <img src="docs/media/state-04-success-degraded.png" width="150" alt="A result marked Classified, with a banner reading: Core ML answered — TensorFlow Lite was unavailable."> | <img src="docs/media/state-05-failed-retryable.png" width="150" alt="A failure reading: Couldn't classify this photo, with a Try again button."> |
-| Waiting for a photo. Nothing has been asked for yet. | The whole cold start — the model is compiled, prepared and warmed inside one call, which is why there is no separate "warming" screen. | The photo is being classified. | An answer came back, but not from the engine that was asked. The banner names both ends of the fallback rather than saying only that something went wrong. | No answer came back, and trying again could plausibly work, so the button is offered. When it could not, the screen says so instead. |
+In the order a user meets them:
+
+| | |
+|---|---|
+| <img src="docs/media/state-01-idle.png" width="430" alt="The idle screen, reading: Choose a photo to classify."> | **Nothing chosen.** Waiting for a photo. Nothing has been asked for yet. |
+| <img src="docs/media/state-02-loading-model.png" width="430" alt="A spinner reading: Loading model…"> | **Loading the model.** The whole cold start — the model is compiled, prepared and warmed inside one call, which is why there is no separate "warming" screen. |
+| <img src="docs/media/state-03-inferring.png" width="430" alt="A spinner reading: Classifying…"> | **Classifying.** The photo is being run through the engine. |
+| <img src="docs/media/state-04-success-degraded.png" width="430" alt="A result marked Classified, with a banner reading: Core ML answered — TensorFlow Lite was unavailable."> | **Answered, but degraded.** A result came back, and not from the engine that was asked. The banner names both ends of the fallback rather than saying only that something went wrong. |
+| <img src="docs/media/state-05-failed-retryable.png" width="430" alt="A failure reading: Couldn't classify this photo, with a Try again button."> | **Failed, retryable.** No result came back, and trying again could plausibly work, so the button is offered. When it could not, the screen says so instead of offering a button that cannot help. |
 
 *All five of these are rendered from fabricated values; no engine ran, nothing was written to the
 ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `da3c81a`.*
