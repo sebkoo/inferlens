@@ -10,6 +10,32 @@ authoritative record of what landed (one tag per landing commit), and the README
 derived from it (`make readme-sync`). This file is the plan; git is the progress. Land a rung
 with `make land RUNG=NN` so the tag is declared, not remembered.
 
+**Which commit a `rung-N` tag points at — the convention, written down at rung 23.** A rung
+usually lands as more than one commit: the `feat`, then the doc corrections it forced. The rule:
+
+> `rung-N` tags the rung's **`feat` commit**. Doc updates, README syncs and invariant corrections
+> that follow it are part of the rung and are pushed with it, but they are **untagged**.
+
+Chosen because the tag then answers "where is this rung implemented" rather than "where did the
+paperwork stop", and because the number of trailing doc commits varies per rung while the feat
+commit does not. It was already the de-facto convention — `rung-10`, `rung-12` and `rung-18` each
+sit on their `feat` commit — but it was never written, so rung 23 initially landed on its README
+commit and had to be moved before the push.
+
+**Recorded exception: `rung-15` does not follow this rule.** It points at `df4f421`
+(`docs(prompts): rung-15 LiteRT-engine prompt`), three commits after `65b5798`
+(`feat(litert): LiteRTEngine`). It is pushed, and moving a published tag is a shared-history
+rewrite, which costs more than it buys — so the exception is recorded here instead of corrected,
+the same disposition as the `37fbc1e` and rung 26 → 31 corrections below. The convention is
+3-of-4 historically and 4-of-5 from rung 23 forward; nothing derives a number from it, so the
+one outlier misleads a reader and breaks no check.
+
+**Named gap: `make land` does not implement this rule on its own.** It tags `HEAD` and amends the
+derived badge into `HEAD`, which is correct only when the `feat` commit *is* `HEAD`. When doc
+commits follow, run `make land RUNG=NN` as usual and then `git tag -f rung-NN <feat-sha>` before
+pushing — the badge is derived from the tag *count*, so which commit carries the amend does not
+affect it. Teaching `land` to take a target sha is a Harness-backlog item.
+
 Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0002](adr/0002-litert-distribution.md) (LiteRT distribution),
 [ADR-0003](adr/0003-benchmark-comparison-scope.md) (benchmark scope),
@@ -134,6 +160,17 @@ readme-sync fails loud if this map and the ladder ever disagree.
 - Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35
 - Hardening: 31
 <!-- phase-map:end -->
+
+**Deliberate out-of-order landings.** The ladder is a dependency order, not a queue, and a rung
+taken early is recorded here so a gap in the generated block is legible as a decision rather than
+read as a skip. The block itself is honest by construction — it shows `[x] 23` beside `[ ] 19` and
+`[ ] 20` — but only the *why* is missing from it, and the why is the part that rots.
+
+- Rung 23 landed before 19 and 20. Both of those add a module with no producer — a second store
+  and a flag provider nothing reads — while 23 extends the `run → ledger` chain the product-loop
+  phase exists to close. Landing them first would have enlarged the sentence the README already
+  has to write about steps that do not touch. Deliberate, not skipped; 19 and 20 remain on the
+  ladder and are unblocked.
 
 ## Harness backlog — the per-rung claims audit (recorded at rung 12)
 
