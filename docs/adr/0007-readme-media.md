@@ -229,13 +229,28 @@ The right-hand column is not a gap to be closed later by a cleverer regex. A gat
 caption *says* iPhone 17 Pro; only a human can confirm the screenshot came from one. Writing that
 down here is the difference between a check with known scope and a check mistaken for a guarantee.
 
-**Teeth test, as the standing condition of the gate counting at all.** It will not ship until it has
-been made to fail on purpose: plant a file over the ceiling and confirm it is refused **by name and
-with its size**, exit 1; plant an `.mp4` and confirm it is refused by extension, exit 1; then remove
-both.
-Until that has been done and recorded, the gate is not counted in the README's gate table. The README
-counts five gates with four teeth-tested today; this one arriving would make it six and five, and the
-count moves only when the plant has actually been run.
+**Teeth test — done, and recorded.** The gate shipped having been made to fail on purpose, with four
+plants: an oversized PNG referenced from Markdown, an oversized PNG referenced from an HTML `<img>`, an
+`.mp4`, and one small well-formed image as a control that must **not** be flagged. Result: all three
+offenders refused **by name and with their size**, exit 1; the control untouched; removing the plants
+returned the gate to exit 0 over the real five images.
+
+The control is what makes the other three mean anything — without it, a script that flagged everything
+unconditionally would have passed all three. And the test corrected itself in the running: the two
+oversized plants were referenced in different syntaxes to prove both were caught, and doing it showed
+the size check enumerates `git ls-files` and never parses Markdown, so both plants exercised the same
+path. The syntax-sensitive check is the **alt-text** one, which was then planted separately in both
+forms — empty `![](…)` and an `<img>` with no `alt` — and caught both. A teeth test that proves less
+than it claims is the same defect as a gate that reports clean over a corpus it did not read.
+
+One more defect surfaced on the gate's first run over the real tree: it flagged three "violations" in
+**this ADR**, which shows both image syntaxes in backticks while explaining what is checked. Prose about
+an image is not an image, and a gate that fires on its own documentation is a false-positive generator —
+which is how a gate ends up switched off, the quietest way to lose one. Fenced blocks and inline-code
+spans are now stripped before scanning, and the check was re-planted afterwards to confirm the fix
+removed the false positives without removing the teeth.
+
+With that run, the README's table moves from five gates / four teeth-tested to **six / five**.
 
 A `.gitignore` entry for the video extensions lands with the gate, in the same commit, as
 belt-and-braces — not before, since without the gate it would be the only thing standing between the
