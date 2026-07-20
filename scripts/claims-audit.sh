@@ -29,6 +29,12 @@ cd "$(dirname "$0")/.."   # repo root, regardless of caller's working directory
 
 SELF="scripts/claims-audit.sh"   # excluded from the sweeps: it holds the patterns + the ffebebc example
 KEYED="${1:-}"                   # optional per-rung subject-claim, swept on top of the built-in list
+if [ -n "$KEYED" ] && [ "${#KEYED}" -lt 4 ]; then
+  echo "claims-audit: refusing short pattern '$KEYED' as \$1 — an accidental argument (interactive" >&2
+  echo "              zsh passes a trailing '# comment' as arguments) poisons the sweep into" >&2
+  echo "              matching most of the tree. Quote a real regex or pass nothing." >&2
+  exit 2
+fi
 fail=0
 
 # The range under audit is origin/main..HEAD — the commits we are ABOUT to push. Past commits
