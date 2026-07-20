@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-15%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-16%2F37-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -75,27 +75,38 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [banner](Sources/InferlensUI/InferenceStateView.swift) can name both ends of a fallback rather
   than saying only that something was degraded. Building it cost the invariant a state: `warming`
   had been written down since the bootstrap commit and turned out unreachable — see
-  [the state machine](#the-state-machine). What the views do **not** yet show is a result: no
-  screen picks an image or drives an engine.
+  [the state machine](#the-state-machine).
+- The screen — [`ClassificationScreen`](Sources/InferlensUI/ClassificationScreen.swift): pick a
+  photo, classify it, and see the top three with confidence, which engine answered, and p50/p95 split
+  cold from warm. The driver behind it
+  ([`ClassificationModel`](Sources/InferlensUI/ClassificationModel.swift)) is the first thing in the
+  repo to emit the state machine's events from real control flow rather than from a test, and it holds
+  an engine through the protocol only, so it does not know which one answers
+  ([the spec](Tests/InferlensUITests/ClassificationModelTests.swift), 18 tests). It shows p50/p95
+  without being able to compute one — the summarizing function is injected, so exactly one definition
+  of a percentile exists in the repo ([ADR-0008](docs/adr/0008-latency-summary-boundary.md)). What is
+  missing is the app that composes an engine into it: nothing runs it yet.
 - The run ledger — [`RunLedger`](Sources/InferlensStore/RunLedger.swift), an append-only SQLite log
   with versioned migrations, over the SDK's own SQLite3 system module (no package dependency).
   Append-only is enforced by triggers in the database **file**, not by a comment: a
   [test opens its own connection from outside the module](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift)
   and confirms an `UPDATE` and a `DELETE` are refused. Every row carries its device and iOS version,
   by `CHECK` constraint (invariant 7), and a fallback survives into the row (invariant 3) —
-  [ADR-0006](docs/adr/0006-run-ledger-storage.md). Nothing writes to it yet: no screen and no app
-  composition exist to feed it a run.
+  [ADR-0006](docs/adr/0006-run-ledger-storage.md). Nothing writes to it yet: the screen exists now,
+  but the thumbs signal that would append a row does not, and no app composition wires the two.
 - The model pipeline — a checksum-pinned MobileNetV2 fetched by
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
   [provenance](docs/research/MODEL_PROVENANCE.md)).
-- The decision record — six ADRs
+- The decision record — eight ADRs
   ([module boundaries](docs/adr/0001-module-boundaries.md),
   [LiteRT distribution](docs/adr/0002-litert-distribution.md),
   [benchmark scope](docs/adr/0003-benchmark-comparison-scope.md),
   [commit hygiene](docs/adr/0004-commit-hygiene.md),
   [LiteRT engine concurrency](docs/adr/0005-litert-engine-concurrency.md),
-  [run ledger storage](docs/adr/0006-run-ledger-storage.md)), the
+  [run ledger storage](docs/adr/0006-run-ledger-storage.md),
+  [README media](docs/adr/0007-readme-media.md),
+  [the latency-summary boundary](docs/adr/0008-latency-summary-boundary.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
 - The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
@@ -180,10 +191,12 @@ append-only held by database triggers a
 convention ([ADR-0006](docs/adr/0006-run-ledger-storage.md)). The UI's
 [state machine](Sources/InferlensUI/InferenceState.swift) is the second step: the states a run passes
 through, each with a real trigger, degradation visible on screen as the same value the row records.
-What is missing is the wire between them. Nothing writes to the ledger, because no screen picks an
-image and no app composes an engine into either module; the
-[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are still a three-line skeleton, and
-neither the thumbs signal nor the export exists. Two steps that do not touch are not a loop.
+The [screen](Sources/InferlensUI/ClassificationScreen.swift) is now built on top of that machine —
+it picks a photo, drives an engine through the states, and shows the result with p50/p95. What is
+still missing is the wire between the screen and the ledger: nothing writes a row, because the thumbs
+signal does not exist and no app composition hands the screen a real engine. The
+[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are still a three-line skeleton, and the
+export does not exist. Steps that do not touch are not a loop.
 
 **Hardening — the standing gates that keep the claims honest.** *Partial — two gates run by hand;
 automated build+test is not wired.* The [commit-hygiene check](.github/workflows/commit-hygiene.yml) runs
@@ -232,12 +245,12 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side — Apple FP16 vs Google FP32 — reported prominently; different weights; warm-up policy; run counts; thermal state) + LIMITATIONS.md
 - [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, link the 20s video as a GitHub attachment (NEVER a tracked GIF — ADR-0007), publish docs/ via GitHub Pages (the README itself lands at rung 01)
 
-**Product loop** — 2/13 landed
+**Product loop** — 3/13 landed
 - [x] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
 - [ ] 19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
 - [ ] 20 feat(flags): FeatureFlagProvider protocol + local JSON provider
 - [x] 23 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
-- [ ] 24 feat(ui): pick/capture image -> classify -> top-3 + confidence + backend + p50/p95
+- [x] 24 feat(ui): pick/capture image -> classify -> top-3 + confidence + backend + p50/p95
 - [ ] 25 feat(ui): thumbs up/down signal -> append to ledger
 - [ ] 26 feat(store): ledger export (NDJSON) for offline eval
 - [ ] 27 feat(thermal): map ProcessInfo.thermalState + model-load failure + OOM to named states
@@ -260,16 +273,15 @@ an engine. See [ADR-0002](docs/adr/0002-litert-distribution.md).
 
 ## What the screen looks like
 
-These are the five states the screen can be in, rendered from fabricated values, because no run has
-produced them yet.
+Six pictures: the five states the screen can be in, and the result it shows when one arrives. All of
+them are rendered from fabricated values, because no run has produced them yet.
 
 **Read that against the paragraph above, because the pictures will try to overwrite it.** The product
-loop is not closed: nothing picks an image, no engine runs behind these screens, and no ledger row is
-written. What is built is the state machine that decides which of the five the screen shows, and the
-views that draw them — which is precisely why all five can be rendered today, from values typed by
-hand. A screenshot reads as "this works," so it is worth saying plainly: this is a
-picture of a design, not evidence of a run. The [state machine](#the-state-machine) below is the part
-that is real.
+loop is not closed: no engine runs behind these screens, no app composes one into the screen, and no
+ledger row is written. What is built is the screen, the driver that moves it through its states, and
+the state machine underneath — which is precisely why all six can be rendered today, from values typed
+by hand. A screenshot reads as "this works," so it is worth saying plainly: this is a picture of a
+design, not evidence of a run. The [state machine](#the-state-machine) below is the part that is real.
 
 In the order a user meets them:
 
@@ -280,9 +292,17 @@ In the order a user meets them:
 | <img src="docs/media/state-03-inferring.png" width="430" alt="A spinner reading: Classifying…"> | **Classifying.** The photo is being run through the engine. |
 | <img src="docs/media/state-04-success-degraded.png" width="430" alt="A result marked Classified, with a banner reading: Core ML answered — TensorFlow Lite was unavailable."> | **Answered, but degraded.** A result came back, and not from the engine that was asked. The banner names both ends of the fallback rather than saying only that something went wrong. |
 | <img src="docs/media/state-05-failed-retryable.png" width="430" alt="A failure reading: Couldn't classify this photo, with a Try again button."> | **Failed, retryable.** No result came back, and trying again could plausibly work, so the button is offered. When it could not, the screen says so instead of offering a button that cannot help. |
+| <img src="docs/media/state-06-result.png" width="430" alt="A result screen listing golden retriever 87.1 percent, Labrador retriever 6.2 percent and kuvasz 1.1 percent; answered by Core ML; cold p50/p95 214.0 / 232.0 ms over 1 run; warm p50/p95 23.0 / 31.0 ms over 12 runs; iPhone18,1 · iOS 26.1."> | **The result.** Top three with confidence, which engine answered, and p50/p95 split cold from warm with the run count beside each figure. **Every number in this picture was typed by hand** — see the note under the table. |
 
-*All five of these are rendered from fabricated values; no engine ran, nothing was written to the
-ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `da3c81a`.*
+*All six of these are rendered from fabricated values; no engine ran, nothing was written to the
+ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `270387d`.*
+
+*The sixth image needs saying twice, because numbers read as measurements in a way that a spinner does
+not. `214.0 / 232.0 ms`, `23.0 / 31.0 ms` and `12 runs` are invented values chosen to show the layout.
+Nothing has measured this app's latency on any device, and the
+[Core ML vs TensorFlow Lite table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) two
+sections below is empty for exactly that reason. If this picture and that empty table appear to
+disagree, the table is right.*
 
 They are a build product, not a hand capture: rendered by
 [`StateScreenshotTests`](Tests/InferlensUITests/StateScreenshotTests.swift) on the pinned simulator and
@@ -320,7 +340,7 @@ stated plainly, not softened.
 | The job asks for | Where it lives | Evidence |
 |---|---|---|
 | Swift | every module | live |
-| SwiftUI | InferlensUI | state-machine views [built + tested](Tests/InferlensUITests/InferenceStateTests.swift); the screen that picks an image is not |
+| SwiftUI | InferlensUI | state-machine views and the [screen that picks a photo](Sources/InferlensUI/ClassificationScreen.swift), [built + tested](Tests/InferlensUITests/ClassificationModelTests.swift); no app composes an engine into it yet |
 | Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
 | TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | [conformance test passes](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift) on the sim; device latency is the rung-32 bench |
 | Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
@@ -392,6 +412,11 @@ Read these before the plan.
   copy is explicit and counted as `preprocess`, while Core ML's `prediction()` includes input
   conversion and output wrapping inside the call — so Core ML's `infer` is inherently a little more
   inclusive. Disclosed, not removed ([ADR-0003](docs/adr/0003-benchmark-comparison-scope.md)).
+- **The picked photo is decoded to a 1024 px bound before any measurement.** A 12-megapixel photo is
+  ~48 MB of raw bytes, and handing that to an engine would make `preprocess` mostly a measurement of
+  the camera. Both engines receive the identical buffer, so the comparison is unaffected; the absolute
+  `preprocess` figure is a number about a 1024 px input, not an arbitrary one
+  ([the decoder](Sources/InferlensUI/ImageDecoding.swift)).
 - One architecture (MobileNetV2), one task (image classification).
 - The remote fallback is a stub; there is no server.
 - No App Store build — this is a code and benchmark artifact, not a shipping app.
@@ -435,6 +460,8 @@ its on-device inference, rather than trusting a vendor's published number.
 - [ADR-0004 — commit hygiene](docs/adr/0004-commit-hygiene.md)
 - [ADR-0005 — LiteRT engine concurrency](docs/adr/0005-litert-engine-concurrency.md)
 - [ADR-0006 — run ledger storage](docs/adr/0006-run-ledger-storage.md)
+- [ADR-0007 — README media](docs/adr/0007-readme-media.md)
+- [ADR-0008 — the latency-summary boundary](docs/adr/0008-latency-summary-boundary.md)
 - [Prior-art research](docs/research/PRIOR_ART.md) ·
   [Model provenance](docs/research/MODEL_PROVENANCE.md)
 - [The roadmap](docs/ROADMAP.md)
@@ -445,7 +472,7 @@ Built with an AI agent, with the method kept in the repo rather than in a commit
 pillars, each with a plain verdict — `working`, `partial`, or `design-stage` — and the artifact that
 proves it. Where a claim outran its evidence, the weaker truth is written here.
 
-**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the six [ADRs](docs/adr), and the
+**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the eight [ADRs](docs/adr), and the
 [roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
 fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
 got built: the whole measurement path — the per-engine clock brackets and the percentile aggregation —
@@ -504,12 +531,14 @@ only the second is unfinished. Before this session one gate stood; now six do.
 → land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
 export → evaluate — is not closed, and two landed steps do not close it either. The `ledger` step is
 real ([`RunLedger`](Sources/InferlensStore/RunLedger.swift), append-only by database trigger, proven
-from outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)), and the UI's
-[state machine](Sources/InferlensUI/InferenceState.swift) is real — but nothing joins them: no screen
-picks an image, no app composes an engine, [Flags](Sources/InferlensFlags/InferlensFlags.swift) is
-still a three-line skeleton, and signal, export, and the eval-loop doc do not exist. Two steps that do
-not touch are not a loop, so this line stays split until a run traverses run → ledger → signal →
-export end to end.
+from outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)), and the
+[screen](Sources/InferlensUI/ClassificationScreen.swift) over the
+[state machine](Sources/InferlensUI/InferenceState.swift) is real — but nothing joins them. The screen
+does not write a row: the thumbs signal is its own rung, the app composition that would hand it a real
+engine is another, and [Flags](Sources/InferlensFlags/InferlensFlags.swift) is still a three-line
+skeleton while export and the eval-loop doc do not exist. The screen rung moved the `run` step, not the
+wire; steps that do not touch are not a loop, so this line stays split until a run traverses run →
+ledger → signal → export end to end.
 
 **The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
 at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the

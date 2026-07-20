@@ -11,9 +11,10 @@ render-width-points: 300
 
 files:
   state-01-idle.png  1020x183 px  11973 bytes
-  state-02-loading-model.png  1020x261 px  12626 bytes
-  state-03-inferring.png  1020x261 px  12484 bytes
+  state-02-loading-model.png  1020x486 px  33936 bytes
+  state-03-inferring.png  1020x174 px  12897 bytes
   state-04-success-degraded.png  1020x276 px  20584 bytes
   state-05-failed-retryable.png  1020x291 px  20211 bytes
+  state-06-result.png  1020x654 px  69980 bytes
 
-total-bytes: 77878
+total-bytes: 169581

@@ -185,8 +185,17 @@ Three rules:
      two conditions, both of which exist to stop the exemption being abused:
      1. It sits **visually adjacent** to the images — immediately above or below them. Never a
         footnote, never a link, never below a fold or a scroll.
-     2. It **names its own scope inside the sentence** ("all five of these are rendered from
-        fabricated values…"), so it cannot be misread as describing only the nearest image.
+     2. It **names its own scope inside the sentence** ("all six of these are rendered from
+        fabricated values…"), so it cannot be misread as describing only the nearest image. The count
+        is part of the scope: when the set grew from five images to six, the caption had to change
+        with it, or the sixth would have been carrying no disclosure at all under a literal reading.
+
+   **An image that discloses MORE than the set keeps its own caption too.** Added when the result
+   screenshot joined the set: the five state images show shapes, and the result image shows NUMBERS —
+   latency figures and a device string — two sections above an empty Cold/Warm table. A number reads
+   as a measurement in a way a spinner does not, so that image carries a second sentence naming its
+   figures as invented and pointing at the empty table as the honest state. The set caption is a
+   floor, not a ceiling.
 
    A single image is still a set of one and carries its own caption. The per-image obligations of
    rule 2 — device, iOS version, sha — collapse into the set caption only when they are identical

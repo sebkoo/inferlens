@@ -191,6 +191,13 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
 
 Rung 24 owns the screen and owns this; it is not fixed here. Recorded because of where it came from.
 
+**Closed at rung 24, and the fix is a difference in SHAPE.** The load is now a full-width card with a
+subtitle — "First run only — this happens once per launch" — and the inference is a compact inline
+row. Re-labelling would not have closed it: people watching spinners do not read labels, so two
+states separated by one word are two states nobody can tell apart. The regenerated `state-02` and
+`state-03` images are the evidence, and they differ in height (486 px against 174 px) before a reader
+gets as far as the text.
+
 This is the JD's "AI UX under non-determinism" in one concrete case, and the concrete case is sharper
 than the phrase. What a user waiting on a spinner needs is not *working* — it is **will this happen
 again**. A cold start is a once-per-launch cost a person will absorb without complaint if they know that
@@ -208,6 +215,27 @@ tell you the render matches the view. It cannot tell you the view answers the us
 
 So it is written into the ladder rather than left in a session log, where it would evaporate — and it is
 the argument for rendering the states side by side at all, beyond having pictures for the README.
+
+## Finding, recorded against a later rung — `.reset` now has no emitter
+
+Building the screen's driver produced a second finding, of the same kind as the `warming` correction
+and found the same way: by trying to use the thing.
+
+> `InferenceEvent.reset` returns the machine to `idle` from anywhere. After the screen rung, **nothing
+> in the shipped app emits it** — only tests do. The event enum's own documentation forbids exactly
+> this: "an event with no emitter would smuggle back exactly the unreachability the `warming`
+> correction removed."
+
+It has no emitter because using it would strand the screen. `idle` means "nothing is loaded" to the
+transition table — `(.idle, .classifyBegan)` is refused — but a driver that has run once has a
+**loaded** engine. A reset therefore lands the machine in a state whose only exit is
+`.modelLoadBegan`, and emitting that would draw "Preparing the model" for a load that never happens.
+
+The three ways out are all worse than having no Clear button, which is why the screen has none: lie
+about a load, unload a model that is perfectly good, or teach the machine a notion of "loaded" it does
+not have. The third is the real fix and it is a **state-machine change, not a screen change** — which
+is why this is recorded rather than done at the screen rung. Choosing another photo is legal from
+`success` and from `failed`, so nothing is blocked meanwhile.
 
 ## Product finding, recorded against rung 19 — model metadata already lives in three places
 
@@ -448,8 +476,19 @@ Every instance so far:
 | `claims-audit` / `anchor-check` over `git ls-files` | "clean, 18 files" | the untracked file that was the entire subject of the commit |
 | The yellow-placeholder assertion in `StateScreenshotTests` | "the render is fine" | an image that was **entirely black** — a blank frame contains no yellow |
 | `media-check`'s first alt-text pass | "3 findings" | the difference between an image and prose *about* an image, in backticks |
+| Every render assertion, over the new load card | "the image drew correctly" | whether the text was **horizontally truncated** — SwiftUI ellipsises instead of overflowing, so no ink ever reaches the edge the clipping test watches |
 
 The last two arrived within an hour of each other, which is what forced this section.
+
+The sixth arrived at the screen rung and is the sharpest yet, because the check that missed it was
+written *specifically* to catch cut-off text. The bottom-edge assertion catches VERTICAL clipping: a
+view measured too short renders ink through the last row of pixels. Horizontal truncation looks
+nothing like that — SwiftUI replaces the overflow with an ellipsis, so the image is the right size,
+has hundreds of colours, has a white background, has a clean bottom edge, and reads "First run only —
+this happens once per lau…". The one sentence on the screen that answers *will this happen again* was
+cut mid-word, every assertion passed, and a human looking at the picture is what caught it. Again.
+No check for it has been written yet: detecting an ellipsis in a bitmap is not cheap, and a plausible
+one that does not work would be worse than the honest gap. Recorded as a gap, not closed.
 
 **The standing rule this produces: every new check states what it does NOT read**, in a comment at the
 code and in the message that lands it. Not as documentation — as the design step that catches the defect,
