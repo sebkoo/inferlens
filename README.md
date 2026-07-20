@@ -334,19 +334,22 @@ assumed became zero; an `isolated deinit` crashed and became RAII — [ADR-0005]
 Earlier rungs' prompts lived in session handoffs and are **not** reconstructed: a backfilled prompt
 would not be the one that ran, and inventing it would be the fabrication this repo bans.
 
-**Harness engineering — partial.** The standing, committed gates are teeth-tested: the checksum gate
-refuses a mismatched pin — [`fetch-models.sh`](scripts/fetch-models.sh) on a model's sha256 and
-[`vendor-litert.sh`](scripts/vendor-litert.sh) on the LiteRT archive's, with the `binaryTarget` checksum
-covering the extracted xcframework (fail-closed at each); the conformance suite
-[fails a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift)
-(`testSuiteFailsOnUnsortedClassifications`) and bad model bytes
-[fail to load cleanly](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift)
-(`testLoadFailsCleanlyOnBadModelBytes`); and [`make land` / `make readme-sync`](Makefile) plus the
-[commit-msg hook](.githooks/commit-msg) keep the ladder and its trailers honest. Two rung-15 checks were
-run **once, by hand, and are not in CI** — the `LiteRTEngine` survived a 5× run-tests-until-failure loop
-and an AddressSanitizer pass; one-off verifications, not standing gates. The gate that should be
-standing is not: CI runs the commit-hygiene lint only, and build + test wait for rung 31 — so nothing
-automated compiles or runs the suite on a push. That gap is the self-correction below.
+**Harness engineering — working.** Four standing gates. Three landed this session, each teeth-tested by
+planting the exact failure it exists to catch: [claims-audit](scripts/claims-audit.sh) a stale claim or a
+short-sha dead on origin, [anchor-check](scripts/anchor-check.sh) an in-page link to a heading that does
+not exist, and [test-clean](scripts/test-clean.sh) a stale pass — it runs the suite on a fresh
+`-derivedDataPath` against a pinned simulator, so a cached result cannot be taken for a real one. These
+three share one exit-code contract — 0 clean, 1 findings, 2 could not run — and CI invokes them as
+`bash scripts/…`, never `make`, because `make` flattens any recipe failure to a bare 2. The fourth,
+[commit-hygiene](.github/workflows/commit-hygiene.yml), predates this session and is the one gate that
+runs on every push, rejecting AI-attribution trailers; its teeth-test is not recorded, so this does not
+claim one. Alongside them the supply-chain checksum gates ([`fetch-models.sh`](scripts/fetch-models.sh),
+[`vendor-litert.sh`](scripts/vendor-litert.sh)) fail closed on a mismatched pin, and the conformance suite
+[fails a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift). Not
+automated: only commit-hygiene runs on push; the three script gates are maintainer-run until
+[rung 31](docs/ROADMAP.md) wires build+test into CI — the gates are the harness, CI is where it runs, and
+only the second is unfinished. Before this session one gate stood; now four do, and the three added this
+session were each made to fail on purpose before being trusted.
 
 **Loop engineering — split.** The developer loop — prompt → context → harness → review-at-a-gate →
 land — is live and visible in the commit history. The product eval loop — run → ledger → signal →

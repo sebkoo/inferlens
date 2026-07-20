@@ -166,6 +166,16 @@ through `make`, which collapses a recipe failure to a bare 2 and erases the fire
 distinction. Lands with the CI rung; until then the green bar rests on test-clean run as the script, plus
 the standing commit-hygiene and claims-audit gates.
 
+## Harness backlog — teeth-test commit-hygiene with a planted trailer (recorded now)
+
+Three of the four standing gates — claims-audit, anchor-check, test-clean — are teeth-tested by planting
+the failure each catches. commit-hygiene (the AI-attribution-trailer lint that runs on every push, plus the
+committed commit-msg hook) is NOT: no test plants a trailer and confirms rejection, so the README harness
+pillar says three are teeth-tested, not four. Add one — plant a commit message carrying an AI trailer,
+confirm the hook and the CI lint reject it, then remove it, the same standard the other three met. Until
+then the fourth gate is long-standing, not proven. Beside the no-simulator and cross-document-pointer items
+above.
+
 ## Correction of record — the CI build+test gate is rung 31, not 26
 
 This ladder is the index; prose is downstream of it. The CI build+test gate is **rung 31**
