@@ -229,7 +229,7 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 17 feat(bench): measure & PUBLISH cross-model top-1 agreement on a FROZEN golden set (different weights → disagreement is data, not a gate; ADR-0003)
 - [ ] 32 perf(bench): make bench on-device harness emits JSON (device, iOS, thermal, run count, warm-up policy)
 - [ ] 33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side — Apple FP16 vs Google FP32 — reported prominently; different weights; warm-up policy; run counts; thermal state) + LIMITATIONS.md
-- [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, add the 20s GIF, publish docs/ via GitHub Pages (the README itself lands at rung 01)
+- [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, link the 20s video as a GitHub attachment (NEVER a tracked GIF — ADR-0007), publish docs/ via GitHub Pages (the README itself lands at rung 01)
 
 **Product loop** — 2/13 landed
 - [x] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)

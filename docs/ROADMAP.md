@@ -138,8 +138,9 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
 34 docs(loop): EVAL_LOOP.md (product loop == eval loop) + docs/prompts/ (one per rung)
 35 docs(monetization): MONETIZATION.md (Pro surface as a plan; revisit-trademark line)
                + docs/ASO.md
-36 docs(readme): COMPLETE the README — fill the latency table with real runs, add the
-               20s GIF, publish docs/ via GitHub Pages (the README itself lands at rung 01)
+36 docs(readme): COMPLETE the README — fill the latency table with real runs, link the 20s
+               video as a GitHub attachment (NEVER a tracked GIF — ADR-0007), publish docs/
+               via GitHub Pages (the README itself lands at rung 01)
 ```
 
 **Split rule honored:** the conformance work splits into stub / suite / proofs / wiring
@@ -308,6 +309,42 @@ non-git working directory, and whatever internal failure line 40 guards — and 
 distinguishable from both a pass and a finding. Lands as a check with the CI rung; until then it is a
 manual step in the landing checklist, beside the workflow teeth test above.
 
+## Correction of record — rung 36 ships an attachment-hosted video, not a tracked GIF
+
+Rung 36 read "add the 20s GIF" from the bootstrap commit forward.
+[ADR-0007](adr/0007-readme-media.md) forbids a tracked `.gif` outright — a GIF of a screen recording
+is video wearing an image container, and an extension-shaped loophole is how the first multi-megabyte
+file gets in — so the ladder line and the ADR could not both stand. The ladder is corrected above:
+rung 36's artifact is one uninterrupted video, uploaded as a GitHub attachment and linked, and the
+repo carries no video bytes.
+
+Corrected in the ladder itself rather than only in prose, because the ladder is what a future session
+reads first. Left as it was, the next person would do rung 36 from the ladder alone and commit exactly
+the file the ADR exists to prevent — the correction has to be where the instruction is, not only where
+the reasoning is. Same disposition as the rung 26 → 31 correction below: the fix ships with the work
+that revealed it, in the same push, so the contradiction never exists on origin.
+
+## Harness backlog — the gates sweep `git ls-files`, so an untracked file is skipped silently (recorded now)
+
+`claims-audit` and `anchor-check` both enumerate their corpus with `git ls-files`. An **untracked** file
+is therefore not swept, and the gate says "clean" without saying what it did not look at — so a sweep's
+coverage silently depends on whether the thing under test happened to be staged when it ran.
+
+Observed while landing ADR-0007, not hypothesized: both gates were run against the new ADR while it was
+still untracked and both reported clean — `anchor-check` naming **18** Markdown files. The file was
+staged and they were re-run: **19** files, still clean. The second run is the one that means anything;
+the first was a pass over a corpus that excluded the only new file in the tree.
+
+This is the reused-DerivedData shape again, and the CI-workflow shape, and the `** TEST FAILED **`
+shape: a green that is really a statement about a different input than the reader assumes. It was
+caught by comparing 18 tracked against 19 on disk **by hand**, which is not a check.
+
+To close it: have each gate report its corpus size, and either count untracked `*.md` and name them, or
+exit **2** (could not run) when an untracked Markdown file exists — a scope the gate cannot cover should
+be loud, not absent. Exit 2 rather than 1 because an unswept file is not a finding; it is the gate
+declining to claim coverage. Lands as part of the CI rung with the other derived-vs-declared lints;
+until then it is a manual step in the landing checklist — stage before sweeping, and read the count.
+
 ## Correction of record — the CI build+test gate is rung 31, not 26
 
 This ladder is the index; prose is downstream of it. The CI build+test gate is **rung 31**
@@ -338,6 +375,7 @@ and the ADR-0002 device-only CI contingency applies. See ADR-0002.
 ## README
 
 The project overview README lives at [README.md](../README.md) as of rung 01. It is not
-duplicated here. Rung 36 completes it: the latency table filled with real runs, the GIF,
+duplicated here. Rung 36 completes it: the latency table filled with real runs, the video
+(linked as an attachment, never a tracked GIF — [ADR-0007](adr/0007-readme-media.md)),
 and GitHub Pages. The empty latency table and scoped headline are already on the page
 today, marked empty because the measurements do not exist yet.
