@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-14%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-15%2F37-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -66,6 +66,16 @@ Two lists, so no one has to guess which half of the repo they are reading.
   over cold and warm runs by nearest-rank, pinned by 10 property tests
   ([the spec](Tests/InferlensBenchTests/LatencyRecorderTests.swift)). It aggregates the numbers; the
   Cold/Warm table it fills is **still empty** — those figures come from the device bench (rung 32).
+- The UI state machine — [`InferenceState`](Sources/InferlensUI/InferenceState.swift): five states,
+  each with a signal that actually produces it, and a transition table that is a pure function over
+  two enums — so all five are driven in a test with no model, no engine and no device capability
+  ([the spec](Tests/InferlensUITests/InferenceStateTests.swift), 17 tests). `success(degraded:)`
+  carries the same `[DegradationReason]` list the ledger row stores, so the
+  [banner](Sources/InferlensUI/InferenceStateView.swift) can name both ends of a fallback rather
+  than saying only that something was degraded. Building it cost the invariant a state: `warming`
+  had been written down since the bootstrap commit and turned out unreachable — see
+  [the state machine](#the-state-machine). What the views do **not** yet show is a result: no
+  screen picks an image or drives an engine.
 - The run ledger — [`RunLedger`](Sources/InferlensStore/RunLedger.swift), an append-only SQLite log
   with versioned migrations, over the SDK's own SQLite3 system module (no package dependency).
   Append-only is enforced by triggers in the database **file**, not by a comment: a
@@ -92,14 +102,14 @@ Two lists, so no one has to guess which half of the repo they are reading.
   ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
 - The module skeleton — an SPM workspace of six local packages plus a thin app placeholder, green
   under Swift 6 strict concurrency; `InferlensCore`, `InferlensCoreML`, `InferlensLiteRT`,
-  `InferlensStore`, and the conformance module now carry code, while the flags and UI packages are
-  still skeletons.
+  `InferlensStore`, `InferlensUI`, and the conformance module now carry code, while the flags
+  package is still a skeleton.
 
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
 - The NoSQL metadata and flag-cache store
 - OSSignposter spans around load / preprocess / infer
-- The fallback chain, cancel-on-input-change, and the SwiftUI state machine
+- The fallback chain and cancel-on-input-change
 - Signal capture, NDJSON export, and the on-device benchmark harness
 
 ## What it does
@@ -161,16 +171,18 @@ the [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-fast
 because the on-device benchmark has not run.
 
 **Product loop — run, record, capture a signal, export, evaluate: the loop the whole project exists to
-close.** *One step built, the loop not closed.* The `ledger` step exists: an
+close.** *Two steps built, the loop not closed — and they are not yet connected to each other.* The `ledger` step exists: an
 [append-only SQLite log](Sources/InferlensStore/RunLedger.swift) that records a run's engine, model,
 cold/warm latency split, outcome, degradations, and the device and iOS version behind them — with
 append-only held by database triggers a
 [test proves from outside the module](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift), not by
-convention ([ADR-0006](docs/adr/0006-run-ledger-storage.md)). Nothing writes to it yet, and that is the
-honest state: the [screen](Sources/InferlensUI/InferlensUI.swift) and the
-[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are still three-line skeletons, no app
-composes a run into a ledger row, and neither the thumbs signal nor the export exists. A store with no
-producer is a step, not a loop.
+convention ([ADR-0006](docs/adr/0006-run-ledger-storage.md)). The UI's
+[state machine](Sources/InferlensUI/InferenceState.swift) is the second step: the states a run passes
+through, each with a real trigger, degradation visible on screen as the same value the row records.
+What is missing is the wire between them. Nothing writes to the ledger, because no screen picks an
+image and no app composes an engine into either module; the
+[feature flags](Sources/InferlensFlags/InferlensFlags.swift) are still a three-line skeleton, and
+neither the thumbs signal nor the export exists. Two steps that do not touch are not a loop.
 
 **Hardening — the standing gates that keep the claims honest.** *Partial — two gates run by hand;
 automated build+test is not wired.* The [commit-hygiene check](.github/workflows/commit-hygiene.yml) runs
@@ -219,11 +231,11 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 33 docs(method): BENCHMARK_METHOD.md (ecosystem comparison; native precision per side — Apple FP16 vs Google FP32 — reported prominently; different weights; warm-up policy; run counts; thermal state) + LIMITATIONS.md
 - [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, add the 20s GIF, publish docs/ via GitHub Pages (the README itself lands at rung 01)
 
-**Product loop** — 1/13 landed
+**Product loop** — 2/13 landed
 - [x] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
 - [ ] 19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
 - [ ] 20 feat(flags): FeatureFlagProvider protocol + local JSON provider
-- [ ] 23 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
+- [x] 23 feat(ui): InferenceState enum + SwiftUI state-machine views, no engine knowledge
 - [ ] 24 feat(ui): pick/capture image -> classify -> top-3 + confidence + backend + p50/p95
 - [ ] 25 feat(ui): thumbs up/down signal -> append to ledger
 - [ ] 26 feat(store): ledger export (NDJSON) for offline eval
@@ -253,7 +265,7 @@ A non-developer should be able to read the whole stack and its state here. `Stat
 | Layer | Choice | Version / pin | Status | Why this one |
 |---|---|---|---|---|
 | Language | Swift | 6.3 | pinned | strict concurrency is the subject, not a checkbox |
-| UI | SwiftUI | iOS 26 SDK | pinned | views over an explicit state enum, no engine knowledge |
+| UI | SwiftUI | iOS 26 SDK | live | views over an explicit state enum, no engine knowledge — [`InferenceState`](Sources/InferlensUI/InferenceState.swift) |
 | Min OS | iOS | 26 | pinned | no install base, so device coverage is [deliberately not a factor](docs/adr/0001-module-boundaries.md) |
 | Build | Xcode | 26 | pinned | highest stable toolchain; the betas would cost green CI |
 | Packaging | Swift Package Manager | — | done | six local module packages |
@@ -275,14 +287,14 @@ stated plainly, not softened.
 | The job asks for | Where it lives | Evidence |
 |---|---|---|
 | Swift | every module | live |
-| SwiftUI | InferlensUI | planned |
+| SwiftUI | InferlensUI | state-machine views [built + tested](Tests/InferlensUITests/InferenceStateTests.swift); the screen that picks an image is not |
 | Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
 | TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | [conformance test passes](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift) on the sim; device latency is the rung-32 bench |
 | Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
 | SQL | InferlensStore — append-only ledger + migrations | [round trip + trigger teeth pass](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift) on the sim; nothing writes to it yet |
 | NoSQL | InferlensStore — document / KV store | planned |
 | async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift), partial |
-| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | planned · [ADR-0001](docs/adr/0001-module-boundaries.md) |
+| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | the [state enum](Sources/InferlensUI/InferenceState.swift) is built — every case with a real trigger, retry driven by `InferenceError.isRetryable`; the fallback chain itself is planned |
 | latency & memory optimization | LatencyRecorder (p50/p95 over cold/warm), OSSignposter spans | recorder [built + property-tested](Tests/InferlensBenchTests/LatencyRecorderTests.swift); Cold/Warm table + OSSignposter planned |
 | feature flags / remote config | FeatureFlagProvider + local JSON provider | planned |
 | capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | planned |
@@ -449,13 +461,14 @@ only the second is unfinished. Before this session one gate stood; now five do.
 
 **Loop engineering — still split.** The developer loop — prompt → context → harness → review-at-a-gate
 → land — is live and visible in the commit history. The product eval loop — run → ledger → signal →
-export → evaluate — is not closed, and one landed step does not close it. The `ledger` step is now real
-([`RunLedger`](Sources/InferlensStore/RunLedger.swift), append-only by database trigger, proven from
-outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)) — but nothing writes to it:
-[UI](Sources/InferlensUI/InferlensUI.swift) and [Flags](Sources/InferlensFlags/InferlensFlags.swift) are
-still three-line skeletons, no app composes a run into a row, and signal, export, and the eval-loop doc
-do not exist. This line stays split until a run reaches the ledger end to end; a store with no producer
-is a step, not a loop.
+export → evaluate — is not closed, and two landed steps do not close it either. The `ledger` step is
+real ([`RunLedger`](Sources/InferlensStore/RunLedger.swift), append-only by database trigger, proven
+from outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)), and the UI's
+[state machine](Sources/InferlensUI/InferenceState.swift) is real — but nothing joins them: no screen
+picks an image, no app composes an engine, [Flags](Sources/InferlensFlags/InferlensFlags.swift) is
+still a three-line skeleton, and signal, export, and the eval-loop doc do not exist. Two steps that do
+not touch are not a loop, so this line stays split until a run traverses run → ledger → signal →
+export end to end.
 
 **The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
 at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the
