@@ -164,6 +164,13 @@ readme-sync fails loud if this map and the ladder ever disagree.
 - Hardening: 31
 <!-- phase-map:end -->
 
+**Rung numbers are identifiers, not a work queue.** Tags bind to them (`rung-N`), the badge counts
+them, and a published tag cannot be renumbered without invalidating what it names — so a rung keeps
+its number for the life of the repo regardless of when it lands. Landing order is recorded in the
+section below, and a rung landing out of numeric order is a routine decision to justify there, not a
+deviation to apologise for. Written down because the ambiguity has surfaced twice, and each time the
+absence of this line made an ordinary reordering read as a violation.
+
 **Deliberate out-of-order landings.** The ladder is a dependency order, not a queue, and a rung
 taken early is recorded here so a gap in the generated block is legible as a decision rather than
 read as a skip. The block itself is honest by construction — it shows `[x] 23` beside `[ ] 19` and
