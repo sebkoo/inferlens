@@ -147,8 +147,11 @@ public struct InferenceOutcome: Sendable {
     /// The engine that actually produced this result — may differ from the one requested if
     /// the rung-17 fallback chain stepped down (recorded in `degradations`).
     public let backend: Backend
-    /// Empty when the result was clean; otherwise every reason it was degraded. The UI reads
-    /// `success(degraded: !degradations.isEmpty)`.
+    /// Empty when the result was clean; otherwise every reason it was degraded. This list travels
+    /// intact to both consumers: the UI's `success(degraded:)` and the ledger's `degradation` rows.
+    /// It is deliberately not collapsed to a `Bool` at either end — "something was degraded" cannot
+    /// say a LiteRT → Core ML fallback happened, and the ledger stores that structurally (invariant
+    /// 3, and CLAUDE.md invariant 4's first correction).
     public let degradations: [DegradationReason]
 
     public init(
@@ -177,7 +180,10 @@ public struct Classification: Sendable {
     }
 }
 
-public enum Backend: Sendable {
+/// `Equatable` because both downstream consumers compare backends as data, not as control flow:
+/// the UI's state machine asserts an exact transition result, and the ledger round-trips a
+/// `.fellBack(from:to:)` through SQLite text columns and must prove what came back is what went in.
+public enum Backend: Sendable, Equatable {
     case coreML
     case liteRT
     case remote
@@ -185,7 +191,7 @@ public enum Backend: Sendable {
 
 /// Why a result was degraded. A result still came back — this is not failure (failure throws
 /// `InferenceError`). Rung 17 writes `.fellBack`; rung 22 writes `.thermallyThrottled`.
-public enum DegradationReason: Sendable {
+public enum DegradationReason: Sendable, Equatable {
     case thermallyThrottled
     case fellBack(from: Backend, to: Backend)
 }
@@ -248,7 +254,7 @@ public struct LatencySample: Sendable {
 /// The only error an engine throws — no native Core ML or LiteRT error crosses the contract.
 /// Typed throws makes that a compiler rule rather than a convention, which is how the
 /// protocol stays satisfiable by both engines without either leaking.
-public enum InferenceError: Error, Sendable {
+public enum InferenceError: Error, Sendable, Equatable {
     case modelLoadFailed
     case unsupportedInput
     case inferenceFailed

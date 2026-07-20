@@ -118,6 +118,16 @@ let package = Package(
             dependencies: ["InferlensStore", "InferlensCore"]
         ),
 
+        // The UI state machine's spec: the transition table pair by pair (legal moves AND every
+        // refusal), and the proof that no case is decoration. Depends on InferlensUI +
+        // InferlensCore only — NOT an engine and NOT Conformance. That is the claim under test as
+        // much as anything: the machine is a pure function over two enums, so it needs no model
+        // file, no engine and no device capability to be driven through all five of its states.
+        .testTarget(
+            name: "InferlensUITests",
+            dependencies: ["InferlensUI", "InferlensCore"]
+        ),
+
         // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on
         // InferlensBench + InferlensCore only — NOT Conformance; this is a value-aggregation spec,
         // not an engine-conformance run.
