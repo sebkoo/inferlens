@@ -1,4 +1,4 @@
-// Rung 15's payoff: the rung-03 contract, run against a REAL TensorFlow Lite engine — not the stub,
+// The LiteRT engine's payoff: the contract, run against a REAL TensorFlow Lite engine — not the stub,
 // and the SAME `assertConformsToContract` the Core ML engine passes. A green result here means the
 // contract survived a second reality: preprocess separated cleanly from infer, `loadModel` warmed, the
 // outcome's shape held. This is the moment Core ML AND TensorFlow Lite conform to one contract — the
@@ -6,7 +6,7 @@
 //
 // Simulator caveat (also in the commit body): the sim runs TFLite on CPU, so latency magnitude is
 // unrepresentative and the steady-state check passes without a device's thermal behavior. Green here
-// proves SHAPE-conformance; the real latency table is a device-bench claim (rung 32), not a sim one.
+// proves SHAPE-conformance; the real latency table is a device-bench claim, not a sim one.
 
 import XCTest
 import InferlensCore

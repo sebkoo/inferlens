@@ -326,6 +326,46 @@ case: the CI build+test gate is rung 31 here, yet eleven prose sites (`.github/w
 Add this check with the CI rung; until then it is a manual landing step, beside the no-simulator teeth
 test above.
 
+**The specification, written from a sweep that was actually run.** A check described as a good idea
+gets built less often than one whose spec already exists, so the manual sweep done at the screen rung
+is recorded here as the spec rather than as an anecdote.
+
+- **Pattern:** `rung [0-9]` and `rung-[0-9]`, **case-insensitive**. The first run of this sweep was
+  case-sensitive and silently missed every sentence opening with `Rung 04's …` — seven lines,
+  including three in the contract file. The scope gap was in the grep itself, which is the defect this
+  ROADMAP section already names.
+- **Corpus:** `Sources/ Tests/ scripts/ Makefile .github/ CLAUDE.md docs/adr/` **plus the root
+  dotfiles** — `.swiftlint.yml` carried two, and the first sweep did not read it because the corpus
+  was written as directories.
+- **Three-way classification** for every hit:
+  1. a hard-coded ladder number in code or config → **remove it**, cite the stable component name;
+  2. a `rung-N` **tag** name (`make land`, the badge derivation, the tag convention) → **legitimate**,
+     tags are identifiers and that is what this file now says they are;
+  3. a **historical quote or authorship record** — `commit-hygiene.yml`'s record of the broken
+     `ci.yml`, the invariant-1 correction trail in `CLAUDE.md` and ADR-0005, the RED/green pair note in
+     `LatencyRecorderTests` → **leave**, and check a quote carries its do-not-update marker.
+- **Measured blast radius, not an estimate:** 95 hits. The contract file alone
+  (`InferenceEngine.swift`) held **14 wrong** ones, and `InferlensApp.swift` one more; the rest of
+  `Sources/` and `Tests/` resolved correctly and were converted to component names anyway.
+- **Why neither existing gate sees it:** claims-audit reads shas and forbidden phrasings, anchor-check
+  reads headings. A well-formed reference to the *wrong* rung is invisible to both.
+
+## Harness backlog — audit the claims written AHEAD of their implementation (recorded now)
+
+Every correction this session came from new work touching an old assumption — the screen rung reading
+the contract file, the rung-19 question reading the flags skeleton — and none came from sequential
+review. That is a pattern with a target: **a claim written before the thing it describes exists** is
+the one most likely to be wrong, because nothing has yet forced it to be true.
+
+The instances are all of this shape: `InferenceEngine.swift` named the recorder's rung four rungs
+before the recorder was built and got it wrong; `InferlensFlags.swift` named its own two rungs and got
+both wrong; `CoreMLEngine`'s brackets carried a "hand-written" label that was false when written. The
+audit is: for each doc comment that describes something not yet built, check it against what was
+eventually built, and correct or delete it.
+
+It pairs with the cross-document pointer check above — same job, one keyed on pointers and one on
+claims — and lands with the CI rung. Until then it is a manual step in the landing checklist.
+
 ## Harness backlog — wire swiftformat/swiftlint, and a contract-preserving make test (recorded now)
 
 `make lint` and `make test` are stubs that echo a TODO and exit 0 — they check nothing, so they are not

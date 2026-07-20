@@ -1,4 +1,4 @@
-// InferlensCoreML — the Core ML implementation of the contract. This is where the rung-03
+// InferlensCoreML — the Core ML implementation of the contract. This is where the
 // contract meets a real engine instead of the stub.
 //
 // Everything Core ML — `MLModel`, the `CVPixelBuffer`, the vImage resize, the `classLabelProbs`
@@ -165,8 +165,8 @@ public actor CoreMLEngine: InferenceEngine {
             // chain write degradations from ABOVE the engine (the composition layer), never here.
             //
             // No load timing either: the contract deliberately keeps load out of the outcome — the
-            // LatencyRecorder composes the cold/warm axis when it observes `loadModel`. (The rung-10
-            // brief mentions a `LoadTiming` on the outcome; the rung-03 `InferenceOutcome` has no
+            // LatencyRecorder composes the cold/warm axis when it observes `loadModel`. (This engine's
+            // brief mentions a `LoadTiming` on the outcome; the contract's `InferenceOutcome` has no
             // such field, so this follows the contract and flags the discrepancy rather than
             // inventing one.)
         )

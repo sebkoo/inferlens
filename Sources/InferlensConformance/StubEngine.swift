@@ -3,13 +3,13 @@
 //
 // StubEngine is a deterministic, in-memory `InferenceEngine` with no model and no framework —
 // no Core ML, no TFLite, not even Foundation: only InferlensCore and the standard library. It
-// is the first type to implement the rung-03 contract, and the engine that rung 06's
+// is the first type to implement the contract, and the engine that the engine-agnostic
 // `assertConformsToContract` runs against.
 //
 // It conforms BY CONSTRUCTION: it reports exactly what it was configured with. That is the seam
-// rung 07 uses to build the misbehaving instances (unsorted classifications, confidence > 1, a
+// the broken-variant suite uses to build the misbehaving instances (unsorted classifications, confidence > 1, a
 // run-1-slower-than-run-2 "lazy load"). This file ships only CONFORMING defaults; the broken
-// instances are rung 07's.
+// instances belong to that suite.
 
 import InferlensCore
 
@@ -35,7 +35,7 @@ public actor StubEngine: InferenceEngine {
     /// specific scenario. The defaults are a single conforming outcome.
     ///
     /// - Parameter firstRun: when set, the first `classify` reports it and later calls report
-    ///   `run`. The conforming default leaves it `nil` (run 1 == run 2); rung 07 sets it to a
+    ///   `run`. The conforming default leaves it `nil` (run 1 == run 2); the broken-variant suite sets it to a
     ///   slower timing to build the lazy-load variant the steady-state check must catch.
     public init(
         descriptor: ModelDescriptor = .stub,
@@ -55,7 +55,7 @@ public actor StubEngine: InferenceEngine {
 
     /// Nothing to load, so steady-state is reached the instant this returns — the stub honors
     /// the obligation trivially. Whether a *real* engine can (Core ML fusing warm-up into the
-    /// first `predict`) is rung 10's question, not this stub's.
+    /// first `predict`) is the Core ML engine's question, not this stub's.
     public func loadModel() async throws(InferenceError) {
         isLoaded = true
     }
@@ -84,7 +84,7 @@ public extension StubEngine {
     ]
 
     /// Fixed, nonzero, clock-free timing: run 1 == run 2 (the steady-state obligation) and
-    /// `compute` is measurably greater than zero for rung 06's timing axis.
+    /// `compute` is measurably greater than zero for the conformance suite's timing axis.
     static let instantRun = RunTiming(preprocess: .milliseconds(1), infer: .milliseconds(2))
 }
 

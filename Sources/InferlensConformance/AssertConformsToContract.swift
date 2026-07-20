@@ -1,13 +1,13 @@
-// The engine-agnostic conformance suite. It runs any `InferenceEngine` through the rung-03
+// The engine-agnostic conformance suite. It runs any `InferenceEngine` through the
 // contract's invariants and throws `ConformanceViolation` on the first breach. It imports only
 // InferlensCore — no XCTest (it throws instead of asserting, so it stays framework-free) and no
-// engine module (rung 10's Core ML tests and rung 15's LiteRT tests both import this to run the
+// engine module (the Core ML and LiteRT test targets both import this to run the
 // same checks). It never names or branches on a concrete engine: a check that needs to know
 // which engine it holds belongs in that engine's own tests, not here.
 //
 // It asserts SHAPE, never latency MAGNITUDE. The steady-state check is a relative ratio (run 1
 // vs run 2); the suite must not know that inference "should" take under some fixed wall-clock
-// bound — the benchmark at rung 32 owns that magnitude claim, on named hardware, and asserting
+// bound — the on-device benchmark owns that magnitude claim, on named hardware, and asserting
 // it here would flake on a cold CI runner.
 
 import InferlensCore
@@ -33,7 +33,7 @@ public enum ConformanceViolation: Error {
 /// still caught by the benchmark later; a flaky suite is deleted and catches nothing at all.
 let steadyStateMaxRatio = 4
 
-/// Runs one engine through the rung-03 contract. Returns normally iff the engine conformed on
+/// Runs one engine through the contract. Returns normally iff the engine conformed on
 /// this run; otherwise throws the first `ConformanceViolation` found.
 public func assertConformsToContract(_ engine: some InferenceEngine) async throws {
     // Construction and taxonomy invariants — independent of the engine's outputs.

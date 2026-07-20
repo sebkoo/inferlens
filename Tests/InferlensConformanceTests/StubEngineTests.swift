@@ -1,6 +1,6 @@
-// Rung 05 tests the stub directly — that it is a well-formed, deterministic, conforming engine.
-// Rung 06 adds the engine-agnostic `assertConformsToContract` and runs it against this stub;
-// rung 07 adds the broken variants. These tests are the narrower claim: the stub itself behaves.
+// These tests exercise the stub directly — that it is a well-formed, deterministic, conforming
+// engine. The engine-agnostic `assertConformsToContract` runs against this stub elsewhere, and the
+// broken variants are their own suite. These tests are the narrower claim: the stub itself behaves.
 
 import XCTest
 import InferlensCore

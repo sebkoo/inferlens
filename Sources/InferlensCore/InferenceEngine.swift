@@ -11,7 +11,7 @@
 // LiteRT engine leans on: its `TfLiteInterpreter*` handle stays inside the actor and every C
 // call is synchronous and on-actor, so it needs no `@unchecked Sendable` at all (ADR-0005).
 //
-// This is a contract, not an implementation. Rung 04's conformance suite checks the
+// This is a contract, not an implementation. The engine-agnostic conformance suite checks the
 // engine-output invariants against every engine; a construction invariant it never sees
 // (an `ImageBuffer`'s byte count) is enforced here, at the initializer, instead.
 
@@ -20,20 +20,21 @@
 /// An on-device inference engine.
 ///
 /// Satisfiable by Core ML and by LiteRT without either leaking its native types, and by the
-/// rung-17 fallback chain — which is itself an `InferenceEngine` composing others.
+/// fallback chain — which is itself an `InferenceEngine` composing others.
 public protocol InferenceEngine: Sendable {
     /// The model this engine runs. Identifies it in the ledger and gives preprocessing the
     /// expected input size.
     var descriptor: ModelDescriptor { get }
 
-    /// Load the model into memory. Timed by the recorder (rung 07); the observed duration
+    /// Load the model into memory. Timed by the driver that calls it (`ClassificationModel`
+    /// today); the observed duration
     /// becomes a run's `LoadTiming.cold`. A cold start is this call plus the first `classify`.
     ///
     /// Contract obligation: `loadModel()` must not return until the engine can infer at
     /// steady-state speed — it may not defer work to the first `classify`. Core ML does ANE
     /// compilation and warm-up on the first `predict`; an engine that lets that happen inside
     /// `classify` makes `.cold(d)` under-report load and the first `.warm` run not actually
-    /// warm, putting the time in the wrong phase of the split. Rung 04 tests it: load,
+    /// warm, putting the time in the wrong phase of the split. The conformance suite tests it: load,
     /// `classify` twice, assert run 1's `compute` is not materially slower than run 2's.
     func loadModel() async throws(InferenceError)
 
@@ -42,14 +43,14 @@ public protocol InferenceEngine: Sendable {
     ///
     /// This imposes a real constraint: the engine must OWN its preprocessing, so that a
     /// boundary between `preprocess` and `infer` exists to time. Core ML's `VNCoreMLRequest`
-    /// fuses resize/crop/normalize into the prediction, so **rung 05 cannot use Vision — it
-    /// drives `MLModel` directly.** If that proves wrong, `preprocess` collapses into `infer`
+    /// fuses resize/crop/normalize into the prediction, so **the Core ML engine cannot use Vision
+    /// — it drives `MLModel` directly.** If that proves wrong, `preprocess` collapses into `infer`
     /// and the README's Cold/Warm table loses a column. Recorded in ADR-0001.
     ///
     /// A result that came back but was degraded (thermal throttling, a fallback) is reported
     /// on the outcome, not thrown; only the *absence* of a result throws.
     ///
-    /// Invariants every engine must uphold (rung 04 tests them against real engines):
+    /// Invariants every engine must uphold (the conformance suite tests them against real engines):
     /// - `outcome.classifications` is sorted by `confidence`, descending.
     /// - every `confidence` lies in `0...1`.
     /// - `outcome.backend` names the engine that actually produced the result.
@@ -68,7 +69,7 @@ public struct ImageBuffer: Sendable {
     /// Row-major pixels.
     public let bytes: [UInt8]
 
-    /// Enforces the byte-count invariant at construction — rung 04's suite tests engines,
+    /// Enforces the byte-count invariant at construction — the conformance suite tests engines,
     /// not buffers, so this is the only place it can be checked. Throws `.unsupportedInput`
     /// (rather than trapping) when `bytes.count != width * height * pixelFormat.bytesPerPixel`.
     public init(
@@ -91,7 +92,7 @@ public enum PixelFormat: Sendable {
     case rgba8
     case bgra8
 
-    /// A `switch`, not a constant `4`: adding a format (`.gray8` at rung 05) must not
+    /// A `switch`, not a constant `4`: adding a format (`.gray8`, when an engine needs one) must not
     /// silently inherit 4 and corrupt the byte-count invariant — the compiler forces the
     /// decision.
     public var bytesPerPixel: Int {
@@ -104,7 +105,7 @@ public enum PixelFormat: Sendable {
 // MARK: - Model
 
 /// What a model is, independent of the engine that runs it. Stored as the metadata document
-/// in the NoSQL side of the ledger (rung 15).
+/// in the NoSQL side of the ledger.
 public struct ModelDescriptor: Sendable {
     public let name: String
     public let precision: Precision
@@ -145,7 +146,7 @@ public struct InferenceOutcome: Sendable {
     /// adds it when it composes a `LatencySample`.
     public let timing: RunTiming
     /// The engine that actually produced this result — may differ from the one requested if
-    /// the rung-17 fallback chain stepped down (recorded in `degradations`).
+    /// the fallback chain stepped down (recorded in `degradations`).
     public let backend: Backend
     /// Empty when the result was clean; otherwise every reason it was degraded. This list travels
     /// intact to both consumers: the UI's `success(degraded:)` and the ledger's `degradation` rows.
@@ -171,7 +172,7 @@ public struct InferenceOutcome: Sendable {
 
 public struct Classification: Sendable {
     public let label: String
-    /// A probability in `0...1` (an engine-output invariant rung 04 asserts).
+    /// A probability in `0...1` (an engine-output invariant the conformance suite asserts).
     public let confidence: Float
 
     public init(label: String, confidence: Float) {
@@ -190,7 +191,8 @@ public enum Backend: Sendable, Equatable {
 }
 
 /// Why a result was degraded. A result still came back — this is not failure (failure throws
-/// `InferenceError`). Rung 17 writes `.fellBack`; rung 22 writes `.thermallyThrottled`.
+/// `InferenceError`). The fallback chain writes `.fellBack`; the thermal-state mapping writes
+/// `.thermallyThrottled`.
 public enum DegradationReason: Sendable, Equatable {
     case thermallyThrottled
     case fellBack(from: Backend, to: Backend)
@@ -220,9 +222,9 @@ public enum LoadTiming: Sendable {
     case warm
 }
 
-/// The complete timing of one run, composed by the recorder (rung 07) from the engine's
+/// The complete timing of one run, composed by the driver that observed the load, from the engine's
 /// `RunTiming` and the load it observed. The engine never constructs this — it can only
-/// half-fill it. Rung 28's JSON emits it; `load`'s cold/warm split feeds the table's Cold
+/// half-fill it. `make bench`'s JSON emits it; `load`'s cold/warm split feeds the table's Cold
 /// and Warm columns.
 public struct LatencySample: Sendable {
     public let load: LoadTiming

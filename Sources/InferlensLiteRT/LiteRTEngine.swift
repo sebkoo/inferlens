@@ -1,4 +1,4 @@
-// InferlensLiteRT — the TensorFlow Lite implementation of the contract. This is where the rung-03
+// InferlensLiteRT — the TensorFlow Lite implementation of the contract. This is where the
 // contract meets its second real engine, driving the TFLite C API directly.
 //
 // Concurrency (ADR-0005, the whole reason invariant 2 was reserved and then corrected): the engine is

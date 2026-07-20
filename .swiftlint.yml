@@ -1,6 +1,6 @@
 # SwiftLint configuration — Inferlens
 # Invariants live in CLAUDE.md. Where a rule can encode one it does; the rest are enforced
-# by review and by CI grep-lint (the at-most-one @unchecked Sendable check lands at rung 16).
+# by review and by the CI grep-lint that enforces the at-most-one @unchecked Sendable ceiling.
 
 disabled_rules:
   - todo            # TODO stubs are expected in the early ladder
@@ -30,5 +30,5 @@ custom_rules:
   unchecked_sendable_reminder:
     name: "At-most-one @unchecked Sendable boundary"
     regex: "@unchecked Sendable"
-    message: "At most one @unchecked Sendable — the LiteRT C-handle boundary, only if a design requires it (the on-actor engine ships zero; ADR-0005). Precise at-most-one enforcement is the CI grep-lint at rung 16."
+    message: "At most one @unchecked Sendable — the LiteRT C-handle boundary, only if a design requires it (the on-actor engine ships zero; ADR-0005). Precise at-most-one enforcement is the CI grep-lint."
     severity: warning

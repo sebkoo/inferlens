@@ -1,7 +1,7 @@
-// Rung 06 proves the suite two ways: it PASSES the conforming StubEngine, and — the part that
+// This target proves the suite two ways: it PASSES the conforming StubEngine, and — the part that
 // matters — it FAILS a stub deliberately built to break one invariant. A suite that has never
 // failed is not known to work; the negative is its proof of teeth. The full broken-variant matrix
-// (unsorted, confidence > 1, lazy-load) is rung 07; rung 06 ships one.
+// (unsorted, confidence > 1, lazy-load) is its own rung; this one ships a single variant.
 
 import XCTest
 import InferlensCore

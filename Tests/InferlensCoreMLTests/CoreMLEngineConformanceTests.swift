@@ -1,4 +1,4 @@
-// Rung 10's payoff: the rung-03 contract, run against a REAL Core ML engine — not the stub. This
+// The Core ML engine's payoff: the contract, run against a REAL engine — not the stub. This
 // imports InferlensConformance and calls the SAME `assertConformsToContract` the stub passes, so a
 // green result here means the contract survived reality: preprocess separated cleanly from infer,
 // `loadModel` warmed, the outcome's shape held. The suite lives one module away and names no engine;
