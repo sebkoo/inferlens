@@ -38,6 +38,12 @@ cross-model agreement rung, and taking it here would be claiming another rung's 
 this one rather than justifying this one on its own. It is named here so the next reader does not
 have to rediscover that it was considered.
 
+*(Corrected, not reworded: declining it here was right, the destination was wrong. The table landed
+as its own rung, derived from the pinned `.mlmodel` and living on the model path — it is not a
+document-store subject, and it is not the agreement rung's either, since that rung needs a shared
+vocabulary to express a disagreement in. See [ADR-0012](0012-label-table-provenance.md), Decision 4.
+The paragraph above stands as the state that motivated it.)*
+
 ## Decision 2 — the flag cache is EARNED, and it is a document store, not a ledger table
 
 Flags must survive a launch. Nothing in the repo persists them:
