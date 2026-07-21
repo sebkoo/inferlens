@@ -70,6 +70,34 @@ public struct LatencySource: Sendable {
     }
 }
 
+// MARK: - Where a run and its signal land
+
+/// The seam through which a finished run and its thumbs signal reach the ledger — the same
+/// dependency inversion as `LatencySource` (ADR-0008): this module cannot import InferlensStore,
+/// so the two writes cross the boundary as functions and the composition supplies them over a
+/// `RunLedger`.
+///
+/// `appendRun` is handed what the driver has — the measured sample and the engine's outcome —
+/// and returns the id the ledger assigned, or `nil` when the write failed; the composition owns
+/// turning those into a full ledger record (adding the device, the clock and the model
+/// descriptor). `appendSignal` records a judgement against a previously returned id.
+///
+/// Both are async and neither throws: a ledger failure must never become a classification failure
+/// (invariant 4 — the state machine has no case for it, on purpose), so the sink swallows its own
+/// errors the way `FlagCache` does, and the ledger surfaces them in the ledger's terms.
+public struct RunSink: Sendable {
+    public let appendRun: @Sendable (LatencySample, InferenceOutcome) async -> Int64?
+    public let appendSignal: @Sendable (Int64, SignalVerdict) async -> Void
+
+    public init(
+        appendRun: @escaping @Sendable (LatencySample, InferenceOutcome) async -> Int64?,
+        appendSignal: @escaping @Sendable (Int64, SignalVerdict) async -> Void
+    ) {
+        self.appendRun = appendRun
+        self.appendSignal = appendSignal
+    }
+}
+
 // MARK: - The driver
 
 /// Drives one engine through the state machine for one photo at a time.
@@ -105,6 +133,13 @@ public final class ClassificationModel {
         Array(outcome?.classifications.prefix(3) ?? [])
     }
 
+    /// The thumb the person gave the current result, or `nil` when they have not given one. An
+    /// optimistic echo, not a receipt: it lights the moment of the tap and stays lit even if the
+    /// ledger write later fails, because a signal-write failure is a ledger problem surfaced in
+    /// the ledger's terms, never a classification failure (invariant 4). Cleared when a new run
+    /// starts.
+    public private(set) var givenSignal: SignalVerdict?
+
     /// Whether `retry()` has something to retry with.
     public var canRetry: Bool { lastInput != nil }
 
@@ -133,6 +168,14 @@ public final class ClassificationModel {
 
     private let engine: any InferenceEngine
     private let latency: LatencySource?
+    private let sink: RunSink?
+
+    /// The in-flight ledger append for the current run, if any. Internal so a test can await it
+    /// (the `samples` precedent) and so `signal(_:)` can hand its value to the delivery task.
+    private(set) var pendingRunAppend: Task<Int64?, Never>?
+
+    /// The in-flight signal write, if any. Internal for the same reason.
+    private(set) var pendingSignalDelivery: Task<Void, Never>?
 
     /// Every sample this session has produced, in order, cold first. Handed to the summarizer whole
     /// on each run — the recorder partitions them itself, and it is the only thing that may.
@@ -187,9 +230,17 @@ public final class ClassificationModel {
     ///     reason this module can be tested with no model file and no simulator capability.
     ///   - latency: where p50/p95 come from, and the machine they were measured on. `nil` — the
     ///     default — means the screen shows no latency at all.
-    public init(engine: any InferenceEngine, latency: LatencySource? = nil) {
+    ///   - sink: where a finished run and its thumbs signal land. `nil` — the default — means
+    ///     nothing is recorded and the screen offers no thumbs: a control whose tap goes nowhere
+    ///     is decoration, the same rule the readout follows.
+    public init(
+        engine: any InferenceEngine,
+        latency: LatencySource? = nil,
+        sink: RunSink? = nil
+    ) {
         self.engine = engine
         self.latency = latency
+        self.sink = sink
     }
 
     // MARK: - Running
@@ -221,6 +272,14 @@ public final class ClassificationModel {
     /// would land two concerns in one commit.
     private func run(_ input: Input) async {
         lastInput = input
+
+        // A new run means a new (future) ledger row: retire the previous run's pending id and its
+        // thumb echo NOW, at the start, not on success — otherwise a tap landing while this run
+        // is in flight (or after it fails) would file a judgement against the previous run. The
+        // retired append task itself keeps running: the previous run still lands in the ledger;
+        // only its signalability ends here.
+        pendingRunAppend = nil
+        givenSignal = nil
 
         if !isLoaded {
             state.apply(.modelLoadBegan)
@@ -282,10 +341,40 @@ public final class ClassificationModel {
     private func record(_ outcome: InferenceOutcome) {
         let load: LoadTiming = pendingLoad.map { .cold($0) } ?? .warm
         pendingLoad = nil
-        samples.append(LatencySample(load: load, run: outcome.timing))
+        let sample = LatencySample(load: load, run: outcome.timing)
+        samples.append(sample)
+
+        // The ledger append is fire-and-forget BY DESIGN: the state transition never waits on a
+        // disk write, and a failed append is a ledger problem surfaced in the ledger's terms —
+        // the sink answers `nil` and the run on screen is unaffected (invariant 4: no state).
+        // The task handle is kept so a thumbs tap can await the id of the run it judges.
+        if let sink {
+            pendingRunAppend = Task { await sink.appendRun(sample, outcome) }
+        }
 
         guard let latency, let summary = latency.summarize(samples) else { return }
         readout = LatencyReadout(summary: summary, device: latency.device, os: latency.os)
+    }
+
+    // MARK: - The thumbs signal
+
+    /// Record the person's judgement of the current result.
+    ///
+    /// Never blocks and never fails the UI: the write happens in its own task, against the run id
+    /// the pending append produces. The echo (`givenSignal`) is optimistic — see its declaration.
+    /// A second tap supersedes: the ledger appends a new row, and its read rule (highest id wins)
+    /// makes the later judgement current — the policy recorded at the ledger's schema.
+    public func signal(_ verdict: SignalVerdict) {
+        // Captured at tap time: if a new run starts before this write lands, the reference here
+        // still names the run whose result was on screen when the person tapped — or is nil (no
+        // successful run, or no sink), making the tap a no-op. Misfiling a judgement onto a later
+        // run is impossible by construction, because `run(_:)` retires the reference at its start.
+        guard let pending = pendingRunAppend, let sink else { return }
+        givenSignal = verdict
+        pendingSignalDelivery = Task {
+            guard let runID = await pending.value else { return }
+            await sink.appendSignal(runID, verdict)
+        }
     }
 }
 

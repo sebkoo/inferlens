@@ -19,6 +19,8 @@ public struct ClassificationResultView: View {
     private let classifications: [Classification]
     private let backend: Backend
     private let readout: LatencyReadout?
+    private let signal: SignalVerdict?
+    private let onSignal: ((SignalVerdict) -> Void)?
 
     /// - Parameters:
     ///   - classifications: already sorted and already truncated by the caller. The contract
@@ -27,14 +29,21 @@ public struct ClassificationResultView: View {
     ///   - backend: the engine that produced this result.
     ///   - readout: p50/p95 with the machine that measured them, or `nil` when nothing summarizes
     ///     this session's samples. `nil` draws NOTHING — not a placeholder, not a row of dashes.
+    ///   - signal: the thumb already given for this result, so a redraw keeps it lit.
+    ///   - onSignal: what a tap records. `nil` draws no thumbs at all — a control whose tap goes
+    ///     nowhere is decoration, the same rule the readout follows.
     public init(
         classifications: [Classification],
         backend: Backend,
-        readout: LatencyReadout? = nil
+        readout: LatencyReadout? = nil,
+        signal: SignalVerdict? = nil,
+        onSignal: ((SignalVerdict) -> Void)? = nil
     ) {
         self.classifications = classifications
         self.backend = backend
         self.readout = readout
+        self.signal = signal
+        self.onSignal = onSignal
     }
 
     public var body: some View {
@@ -69,8 +78,39 @@ public struct ClassificationResultView: View {
             if let readout {
                 LatencyReadoutView(readout: readout)
             }
+
+            if onSignal != nil {
+                Divider()
+
+                // The signal: a judgement on the answer above, appended to the ledger beside the
+                // run — the `capture signal (thumbs)` clause of the loop. An ACTION available in
+                // `success`, not a state: tapping never changes what the machine shows
+                // (invariant 4), and a changed mind taps again — the ledger supersedes, it never
+                // edits.
+                HStack {
+                    Text("Was this right?")
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 12)
+                    thumb(.up, filled: signal == .up, label: "The answer was right")
+                    thumb(.down, filled: signal == .down, label: "The answer was wrong")
+                }
+                .font(.footnote)
+            }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private func thumb(_ verdict: SignalVerdict, filled: Bool, label: String) -> some View {
+        Button {
+            onSignal?(verdict)
+        } label: {
+            Image(systemName: verdict == .up
+                ? (filled ? "hand.thumbsup.fill" : "hand.thumbsup")
+                : (filled ? "hand.thumbsdown.fill" : "hand.thumbsdown"))
+        }
+        .buttonStyle(.borderless)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(filled ? .isSelected : [])
     }
 
     /// `0.823` as `"82.3%"`.

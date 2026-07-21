@@ -54,7 +54,9 @@ public struct ClassificationScreen: View {
                     ClassificationResultView(
                         classifications: model.topThree,
                         backend: outcome.backend,
-                        readout: model.readout
+                        readout: model.readout,
+                        signal: model.givenSignal,
+                        onSignal: { model.signal($0) }
                     )
                 }
             }

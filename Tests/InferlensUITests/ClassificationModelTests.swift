@@ -106,6 +106,41 @@ private final class SummarizerSpy {
     }
 }
 
+/// A ledger stand-in that records what crossed the RunSink seam and answers with the id a test
+/// told it to. Like the summarizer spy it computes nothing and stores nothing — the seam's whole
+/// point is that this module cannot.
+///
+/// `@MainActor`, not `@unchecked Sendable`, for the reason the summarizer spy states. The sink's
+/// closures are async, so recording hops back to the main actor with `MainActor.run` — no
+/// `assumeIsolated` needed.
+@MainActor
+private final class SinkSpy {
+    private(set) var appendedSamples: [LatencySample] = []
+    private(set) var appendedOutcomes: [InferenceOutcome] = []
+    private(set) var signalRunIDs: [Int64] = []
+    private(set) var signalVerdicts: [SignalVerdict] = []
+    /// The id the next `appendRun` answers with; `nil` plays a failed ledger write.
+    var nextRunID: Int64? = 7
+
+    func sink() -> RunSink {
+        RunSink(
+            appendRun: { sample, outcome in
+                await MainActor.run {
+                    self.appendedSamples.append(sample)
+                    self.appendedOutcomes.append(outcome)
+                    return self.nextRunID
+                }
+            },
+            appendSignal: { runID, verdict in
+                await MainActor.run {
+                    self.signalRunIDs.append(runID)
+                    self.signalVerdicts.append(verdict)
+                }
+            }
+        )
+    }
+}
+
 // MARK: - Fixtures
 
 private func buffer() throws -> ImageBuffer {
@@ -358,5 +393,116 @@ final class ClassificationModelTests: XCTestCase {
         await model.classify(try buffer())
 
         XCTAssertNil(model.readout)
+    }
+
+    // MARK: The ledger seam (the RunSink)
+
+    func testASuccessfulRunIsAppendedThroughTheSink() async throws {
+        let spy = SinkSpy()
+        let model = ClassificationModel(engine: FakeEngine(), sink: spy.sink())
+        await model.classify(try buffer())
+        _ = await model.pendingRunAppend?.value
+
+        // The sink is handed the engine's outcome and the driver's sample AS THEY ARE — the
+        // composition adds the device, the clock and the model descriptor, not this module.
+        XCTAssertEqual(spy.appendedOutcomes.count, 1)
+        XCTAssertEqual(
+            spy.appendedOutcomes.first?.classifications.map(\.label),
+            ["tabby", "tiger cat", "lynx"]
+        )
+        XCTAssertEqual(spy.appendedSamples.first?.isCold, true)
+    }
+
+    func testASignalIsDeliveredWithTheIdTheSinkReturned() async throws {
+        let spy = SinkSpy()
+        let model = ClassificationModel(engine: FakeEngine(), sink: spy.sink())
+        await model.classify(try buffer())
+
+        model.signal(.down)
+        _ = await model.pendingSignalDelivery?.value
+
+        XCTAssertEqual(spy.signalRunIDs, [7])
+        XCTAssertEqual(spy.signalVerdicts, [.down])
+        XCTAssertEqual(model.givenSignal, .down)
+        // The tap changed what the ledger holds, never what the machine shows (invariant 4).
+        XCTAssertEqual(model.state, .success(degraded: []))
+    }
+
+    func testASignalBeforeAnySuccessIsANoOp() async {
+        let spy = SinkSpy()
+        let model = ClassificationModel(engine: FakeEngine(), sink: spy.sink())
+
+        model.signal(.up)
+
+        XCTAssertNil(model.pendingSignalDelivery)
+        XCTAssertNil(model.givenSignal)
+        XCTAssertTrue(spy.signalVerdicts.isEmpty)
+    }
+
+    func testWithNoSinkATapChangesNothing() async throws {
+        let model = ClassificationModel(engine: FakeEngine())
+        await model.classify(try buffer())
+
+        model.signal(.up)
+
+        // No sink means no thumbs are offered; a tap that arrives anyway records nothing and the
+        // run on screen is untouched.
+        XCTAssertNil(model.givenSignal)
+        XCTAssertNil(model.pendingRunAppend)
+        XCTAssertEqual(model.state, .success(degraded: []))
+    }
+
+    /// A failed ledger write is the LEDGER's problem: the run stays on screen, the echo stays
+    /// lit, and no signal row is attempted against an id that does not exist.
+    func testAFailedAppendStillLeavesTheRunOnScreen() async throws {
+        let spy = SinkSpy()
+        spy.nextRunID = nil
+        let model = ClassificationModel(engine: FakeEngine(), sink: spy.sink())
+        await model.classify(try buffer())
+
+        model.signal(.up)
+        _ = await model.pendingSignalDelivery?.value
+
+        XCTAssertTrue(spy.signalVerdicts.isEmpty, "no id, so no signal write may be attempted")
+        XCTAssertEqual(model.state, .success(degraded: []))
+        XCTAssertEqual(model.givenSignal, .up, "the echo is optimistic by design")
+    }
+
+    /// The misfiling guard: a new run retires the previous run's id at its START, so a tap can
+    /// only ever judge the result that was on screen when the person tapped.
+    func testANewRunRetiresTheOldRunsIdAndClearsTheEcho() async throws {
+        let spy = SinkSpy()
+        let model = ClassificationModel(engine: FakeEngine(), sink: spy.sink())
+
+        await model.classify(try buffer())
+        model.signal(.up)
+        _ = await model.pendingSignalDelivery?.value
+
+        spy.nextRunID = 8
+        await model.classify(try buffer())
+        XCTAssertNil(model.givenSignal, "the echo belongs to the run it judged, not the screen")
+
+        model.signal(.down)
+        _ = await model.pendingSignalDelivery?.value
+
+        XCTAssertEqual(spy.signalRunIDs, [7, 8])
+        XCTAssertEqual(spy.signalVerdicts, [.up, .down])
+    }
+
+    /// A failed run has no row and takes no judgement: `run(_:)` retires the pending id at its
+    /// start and `record` is never reached, so the tap is a no-op rather than a misfile onto the
+    /// previous run.
+    func testAFailedRunCannotBeSignalled() async throws {
+        let spy = SinkSpy()
+        let model = ClassificationModel(engine: FakeEngine(), sink: spy.sink())
+        await model.classify(try buffer())
+
+        // The undecodable-photo path: the run starts (retiring run 7's id) and fails inside.
+        await model.classify(photo: UIImage())
+        model.signal(.down)
+
+        XCTAssertNil(model.pendingRunAppend)
+        XCTAssertNil(model.pendingSignalDelivery)
+        XCTAssertTrue(spy.signalVerdicts.isEmpty)
     }
 }
