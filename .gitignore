@@ -14,6 +14,10 @@ xcuserdata/
 *.xcframework
 *.xcframework.zip
 Vendor/
+# The label table is DERIVED from the pinned .mlmodel by make bootstrap (scripts/extract-labels.py)
+# and staged as an app resource. Derived, checksum-pinned, and fetched — never committed, exactly
+# like the model bytes it comes from.
+Sources/InferlensApp/Models/imagenet_labels.txt
 
 # Bench output
 bench-results/

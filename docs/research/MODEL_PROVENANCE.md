@@ -15,6 +15,8 @@ not a controlled variable.
 |------|----------|--------|--------------------|-------|----------|
 | Core ML | `MobileNetV2FP16.mlmodel` | `https://ml-assets.apple.com/coreml/models/Image/ImageClassification/MobileNetV2/MobileNetV2FP16.mlmodel` | FP16 (Apple's recommended baseline) | 12,393,551 B (~12.4 MB) | `sha256:c76832208ff4c936365f0f2609f7b77f7f1a6caf62b0b429056d5ad7e48635ad` |
 | TFLite | `mobilenet_v2_1.0_224.tflite` | Extracted from Google's `download.tensorflow.org/models/tflite_11_05_08/mobilenet_v2_1.0_224.tgz` | FP32 (Google's default float model) | 13,978,596 B (~14 MB) | `sha256:9f3bc29e38e90842a852bfed957dbf5e36f2d97a91dd17736b1e5c0aca8d3303` |
+| Labels | `imagenet_labels.txt` | **Derived**, not downloaded: extracted from the Apple `.mlmodel` above by [`scripts/extract-labels.py`](../../scripts/extract-labels.py) | n/a — 1001 lines of text | 21,686 B (~21 KB) | `sha256:b8aaeb5630c62626a7d124a05c0e14230a7ffdd2136a31d0190a4fb71c1d82f1` |
+| Fixture | `grace_hopper.bmp` | `raw.githubusercontent.com/tensorflow/tensorflow/61c6c84.../tensorflow/lite/examples/label_image/testdata/grace_hopper.bmp` (pinned at a commit, not a branch) | n/a — test input | 940,650 B (~919 KB) | `sha256:8c1165a143b3ac5c37fba13a918101133d549d3419c7fc474ae70a2f29263b80` |
 
 *The Apple `.mlmodel` URL was HEAD-checked live and its sha256 computed 2026-07-18 (200 OK,
 12,393,551 bytes, Core ML protobuf). The Google `.tflite` was pinned 2026-07-19: Google ships it
@@ -52,9 +54,39 @@ it rather than slipping in.*
   `[1, 224, 224, 3]`, RGB, normalized to `[-1, 1]` (`v/127.5 - 1`) — the caller normalizes; it is
   not baked in. Output `MobilenetV2/Predictions/Reshape_1`: FLOAT32 `[1, 1001]`, post-softmax (so
   each value is in `0…1`), where index 0 is a "background" class and 1…1000 are ImageNet-1k. The
-  raw `.tflite` carries no embedded label strings, so `LiteRTEngine` labels classes by index while
-  the Apple side carries real label strings — a divergence for rung 17's cross-model agreement to
-  reconcile, recorded here as provenance.
+  raw `.tflite` carries no embedded label strings. *(True, and it used to end: "so `LiteRTEngine`
+  names classes positionally while the Apple side carries real label strings — a divergence for the
+  cross-model agreement rung to reconcile." The first half stands; the attribution was corrected when
+  the label table landed — see the next note and [ADR-0012](../adr/0012-label-table-provenance.md).)*
+
+- **The ImageNet label table — derived from the Apple model, and the ordering is proved.** The
+  `.tflite` names nothing, so the words come from a table extracted at `make bootstrap` from the
+  Apple `.mlmodel`'s own embedded 1001-entry class-label vector. Both models emit 1001 values with
+  TF-slim's background class at index 0, and that the two orderings agree is established rather than
+  assumed ([ADR-0012](../adr/0012-label-table-provenance.md)):
+
+  - **Count** — the table's length equals the output dimension read from the loaded interpreter.
+  - **Eight spot-checks against upstream TensorFlow's published `label_image` output**, which prints
+    index/label pairs for a reference run: 458 `bow tie`, 466 `bulletproof vest`, 514 `cornet`,
+    543 `drumstick`, 611 `jersey`, 653 `military uniform`, 835 `suit`, 907 `Windsor tie` — all eight
+    agree with the table. That evidence comes from **Google's** side and is independent of the Apple
+    model the table was extracted from.
+  - **The fixture**, end to end: the reference photograph run through the real engine answers
+    `military uniform` (index 653) at 0.821.
+
+  Google's archive was re-listed while pinning this: seven members, **no labels file**. There was
+  nothing on that side to use, which is why the table is derived from Apple's model rather than
+  shipped by Google.
+
+- **A published "canonical ImageNet list" was refused.** Those are almost always 1000 entries with no
+  background class. Against a 1001-wide output every label shifts by one, every lookup still succeeds,
+  and the screen shows a confident wrong word — worse than the bare index it replaced, because a user
+  cannot tell it is wrong. The derived table cannot drift from the model it describes.
+
+- **Core ML returns 1000 classifications, not 1001.** `classLabelProbs` is a dictionary keyed by
+  label, and `"crane"` is the label of both index 135 (the bird) and index 518 (the machine) — two
+  output positions, one key. One probability is dropped before `CoreMLEngine` sees it. Recorded here
+  as a property of the artifact; the finding and its disposition are in `docs/ROADMAP.md`.
 
 ## Resolved input (pinned at rung 15)
 

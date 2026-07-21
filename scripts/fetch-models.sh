@@ -89,6 +89,73 @@ else
   echo "models: $GTFLITE_NAME ok (fetched from archive, archive + member sha256 verified)"
 fi
 
+# --- The ImageNet label table: DERIVED from the already-verified Apple .mlmodel, not downloaded.
+#     The model embeds its own 1001-entry class-label vector, and that vector is the ground truth for
+#     what index N means — so there is no new URL here, no second upstream to rot, and nothing to
+#     trust that is not already pinned above. A published "canonical ImageNet list" was refused for a
+#     concrete reason: those are almost always 1000 entries with no background class, and mapping a
+#     1001-wide output through them shifts every label by one (MODEL_PROVENANCE.md).
+#
+#     The DERIVED file is pinned too. The extractor is deterministic, so a changed .mlmodel or a
+#     changed extractor moves this sha and fails here — the same fail-closed property the download
+#     pins have. Without it the derivation would be the one unpinned link in the chain.
+LABELS_NAME="imagenet_labels.txt"
+LABELS_SHA256="b8aaeb5630c62626a7d124a05c0e14230a7ffdd2136a31d0190a4fb71c1d82f1"
+LABELS_COUNT=1001
+lpath="$DEST/$LABELS_NAME"
+
+if [ -f "$lpath" ] && [ "$(sha256_of "$lpath")" = "$LABELS_SHA256" ]; then
+  echo "models: $LABELS_NAME ok (cached, sha256 matches)"
+else
+  echo "models: deriving $LABELS_NAME from MobileNetV2FP16.mlmodel"
+  python3 scripts/extract-labels.py \
+    "$DEST/MobileNetV2FP16.mlmodel" "$lpath.tmp" --expect-count "$LABELS_COUNT"
+
+  got_labels="$(sha256_of "$lpath.tmp")"
+  if [ "$got_labels" != "$LABELS_SHA256" ]; then
+    rm -f "$lpath.tmp"
+    echo "models: DERIVED CHECKSUM MISMATCH for $LABELS_NAME — refusing a changed label table" >&2
+    echo "  expected $LABELS_SHA256" >&2
+    echo "  actual   $got_labels" >&2
+    echo "  A shifted table puts a WRONG WORD under the thumbs button, which is worse than an index." >&2
+    exit 1
+  fi
+  mv "$lpath.tmp" "$lpath"
+  echo "models: $LABELS_NAME ok (derived, sha256 verified, $LABELS_COUNT labels)"
+fi
+
+# --- The label-ordering FIXTURE: upstream TensorFlow's own reference image for `label_image`, the
+#     example whose published output is what this repo's table was cross-checked against. Pinned at a
+#     commit sha (not a branch) plus its own sha256. It is a US Navy portrait of Grace Hopper —
+#     a US federal government work, public domain — and the top-1 it is expected to produce
+#     ("military uniform") is judgeable by looking at the photograph, which is the whole point: the
+#     ordering proof's ground truth is what the picture IS, not what another model says it is.
+#
+#     Test data, so it is NOT staged as an app resource — nothing in the shipped app reads it.
+FIXTURE_DEST="Vendor/Fixtures"
+FIXTURE_NAME="grace_hopper.bmp"
+FIXTURE_SHA256="8c1165a143b3ac5c37fba13a918101133d549d3419c7fc474ae70a2f29263b80"
+FIXTURE_URL="https://raw.githubusercontent.com/tensorflow/tensorflow/61c6c84964b4aec80aeace187aab8cb2c3e55a72/tensorflow/lite/examples/label_image/testdata/grace_hopper.bmp"
+mkdir -p "$FIXTURE_DEST"
+fpath="$FIXTURE_DEST/$FIXTURE_NAME"
+
+if [ -f "$fpath" ] && [ "$(sha256_of "$fpath")" = "$FIXTURE_SHA256" ]; then
+  echo "models: $FIXTURE_NAME ok (cached, sha256 matches)"
+else
+  echo "models: fetching $FIXTURE_NAME (label-ordering fixture)"
+  curl -fSL --max-time 300 "$FIXTURE_URL" -o "$fpath.tmp"
+  got_fixture="$(sha256_of "$fpath.tmp")"
+  if [ "$got_fixture" != "$FIXTURE_SHA256" ]; then
+    rm -f "$fpath.tmp"
+    echo "models: CHECKSUM MISMATCH for $FIXTURE_NAME — refusing a changed fixture" >&2
+    echo "  expected $FIXTURE_SHA256" >&2
+    echo "  actual   $got_fixture" >&2
+    exit 1
+  fi
+  mv "$fpath.tmp" "$fpath"
+  echo "models: $FIXTURE_NAME ok (fetched, sha256 verified)"
+fi
+
 # --- Stage the verified models as APP RESOURCES. The app target bundles Sources/InferlensApp/Models
 #     via SPM `.copy` (the raw bytes — CoreMLEngine compiles the .mlmodel at runtime), and the global
 #     *.mlmodel / *.tflite ignore patterns keep these copies untracked exactly like Vendor/Models.
@@ -96,7 +163,7 @@ fi
 #     the build long after the fetch that broke it, with a worse message.
 APP_MODELS="Sources/InferlensApp/Models"
 mkdir -p "$APP_MODELS"
-for name in "MobileNetV2FP16.mlmodel" "$GTFLITE_NAME"; do
+for name in "MobileNetV2FP16.mlmodel" "$GTFLITE_NAME" "$LABELS_NAME"; do
   cp -f "$DEST/$name" "$APP_MODELS/$name"
   echo "models: $name staged into $APP_MODELS (app resource)"
 done
