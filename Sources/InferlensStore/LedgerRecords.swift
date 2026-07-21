@@ -122,6 +122,31 @@ public struct RunRecord: Sendable {
     }
 }
 
+extension RunRecord {
+    /// The composition's one-liner: a record from what the `RunSink` closure is handed — the
+    /// engine's outcome and the driver's measured sample — plus the three facts the composition
+    /// owns (the model descriptor, the device, the clock). Field-for-field delegation, so the
+    /// outcome travels VERBATIM: the full classification vector in the engine's order, never a
+    /// top-K, and every degradation (invariant 3) — nothing is summarized on the way to the row.
+    public init(
+        outcome: InferenceOutcome,
+        sample: LatencySample,
+        model: ModelDescriptor,
+        device: DeviceIdentity,
+        recordedAt: Date
+    ) {
+        self.init(
+            device: device,
+            recordedAt: recordedAt,
+            model: model,
+            backend: outcome.backend,
+            sample: sample,
+            classifications: outcome.classifications,
+            degradations: outcome.degradations
+        )
+    }
+}
+
 /// A run read back out of the ledger: the record plus the id the database assigned it.
 ///
 /// The id is monotonic and is the append order — the ledger's own sequence, independent of
