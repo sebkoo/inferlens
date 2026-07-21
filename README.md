@@ -82,7 +82,7 @@ Two lists, so no one has to guess which half of the repo they are reading.
   ([`ClassificationModel`](Sources/InferlensUI/ClassificationModel.swift)) is the first thing in the
   repo to emit the state machine's events from real control flow rather than from a test, and it holds
   an engine through the protocol only, so it does not know which one answers
-  ([the spec](Tests/InferlensUITests/ClassificationModelTests.swift), 25 tests). It shows p50/p95
+  ([the spec](Tests/InferlensUITests/ClassificationModelTests.swift), 26 tests). It shows p50/p95
   without being able to compute one — the summarizing function is injected, so exactly one definition
   of a percentile exists in the repo ([ADR-0008](docs/adr/0008-latency-summary-boundary.md)) — and
   it records runs and thumbs the same way, through an injected sink it cannot see past. The app that
