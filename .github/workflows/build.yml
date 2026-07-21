@@ -1,31 +1,95 @@
-name: build
+name: build + test
 
-# Deferred to rung 31. Manual dispatch only — it never runs on push, so it never reports red on every
-# commit (the failure mode that kept the whole Actions tab red under the old ci.yml). rung 31 wires it
-# to push, once the runner selects Xcode 26 and can boot an iOS 26 simulator. Until then `make test`
-# has no iOS 26 sim on the default hosted runner, and LiteRT does not exist until rung 15.
+# The iOS build+test gate — rung 31. This rewrites the workflow_dispatch placeholder that stood here
+# since rung 00: it was deferred until a hosted runner could boot an iOS 26 simulator, and that
+# condition is now met (actions/runner-images macos-15 carries Xcode 26.x, the iOS 26.1 runtime, and
+# the iPhone 17 Pro device type — the exact pinned pair the counted suite runs on).
+#
+# WHY THIS CALLS THE SAME SCRIPT AS THE LOCAL GREEN BAR, VERBATIM. The bar this repo commits against is
+# `bash scripts/test-clean.sh` (CLAUDE.md, Process), with its 0/1/2 exit contract, its fresh
+# -derivedDataPath isolation, and its pinned iPhone 17 Pro / iOS 26.1 destination. CI runs that one
+# script, unchanged — same gate, same contract — so there is ZERO drift between "green locally" and
+# "green in CI". test-clean resolves the pin itself; if a future image ever drops it, test-clean exits
+# 2 (harness could not run) and this job goes red, loud, rather than silently testing another OS.
+# test-clean is not edited for CI: no destination seam is needed (the pin is present), and TMPDIR — which
+# it already honors for its fresh -derivedDataPath — is what gives the failure artifact below a stable
+# path, so the trust-path script is untouched.
+#
+# WHAT THIS RUNG DELIBERATELY DOES NOT RUN: `make lint` / `make test`. Both are stubs that echo a TODO
+# and exit 0 (CLAUDE.md, Process), so running them here would be an empty target readable as a pass —
+# the exact lie this repo guards against. Wiring swiftformat/swiftlint and a contract-preserving
+# `make test` is the separate "wire swiftformat/swiftlint" Harness-backlog item (docs/ROADMAP.md).
+
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+
+# macOS minutes are billed 10x, so a superseded run is wasted spend: cancel an in-flight run when a
+# newer push to the same ref lands. One workflow, no matrix.
+concurrency:
+  group: build-test-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-test:
-    name: build + test (iOS 26 simulator)
-    runs-on: macos-15   # rung 31: pin a runner image that ships Xcode 26 / Swift 6.3
+    name: "build + test (iPhone 17 Pro / iOS 26.1 simulator)"
+    runs-on: macos-15   # GA image: Xcode 26.x + the iOS 26.1 runtime + the iPhone 17 Pro device type
     steps:
       - uses: actions/checkout@v4
 
-      # Block scalar deliberately: the single-line form of this echo (an unquoted `run:` with the
-      # colon-space in "31): sudo ...") is exactly what startup-failed ci.yml. rung 31 replaces the
-      # echo with the real `sudo xcode-select`.
-      - name: Select toolchain
+      # The default runner Xcode is 16.4, which cannot boot an iOS 26 simulator. Select 26.1.1: the
+      # lowest image Xcode that drives the pinned iOS 26.1 runtime and provides Swift 6.3 (>= the
+      # .xcode-version 26.0 local pin). The device+OS PAIR is identical to the counted suite — that is
+      # all invariant 7 governs — so this is not an invariant-7 deviation. If the image ever drops this
+      # exact patch, xcode-select fails loud (red job), never a silent fallback to a wrong toolchain.
+      - name: Select Xcode 26.1.1 (Swift 6.3; drives the iOS 26.1 sim)
         run: |
-          echo "TODO(rung 31): sudo xcode-select -s /Applications/Xcode_26.app  # Swift 6.3"
+          sudo xcode-select -s /Applications/Xcode_26.1.1.app
+          xcodebuild -version
+          swift --version
 
-      - name: Bootstrap (fetch checksum-pinned models; resolve LiteRT xcframework)
+      # Cache the checksum-pinned inputs, keyed on the pins THEMSELVES so a pin change busts the cache by
+      # construction — the key literally cannot outlive the thing it caches, so this can never mask a
+      # fetch regression. Restored: the fetched + derived model bytes (Vendor/Models, Vendor/Fixtures)
+      # and SwiftPM's shared download cache (which holds the LiteRT xcframework binaryTarget,
+      # checksum-pinned in Package.swift). NOT the per-run DerivedData — test-clean rebuilds that from
+      # scratch every run on purpose (its header: the shared swiftpm cache is a "shared but sound INPUT",
+      # a reused build product is not).
+      - name: Cache pinned deps (models + SwiftPM/LiteRT)
+        uses: actions/cache@v4
+        with:
+          path: |
+            Vendor/Models
+            Vendor/Fixtures
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-inferlens-deps-${{ hashFiles('scripts/fetch-models.sh', 'Package.swift') }}
+
+      # Fetches the checksum-pinned models and wires the git hooks. Fails CLOSED on any pin mismatch
+      # (fetch-models.sh exits 1), which reds the job — the whole point of pinning. A bare build has no
+      # engine (CLAUDE.md invariant 8), so bootstrap precedes the suite.
+      - name: Bootstrap (fetch checksum-pinned models)
         run: make bootstrap
 
-      - name: Lint
-        run: make lint
+      # Run the SAME script that is the local green bar, verbatim. TMPDIR is pointed at a known workspace
+      # dir only so the failure artifact below has a stable path — test-clean already honors
+      # ${TMPDIR:-/tmp} for its fresh -derivedDataPath, so this is an existing seam, not a code change to
+      # a trust-path script. The script's 0/1/2 exit maps straight onto this step's pass/fail.
+      - name: Build + test (fresh -derivedDataPath, pinned sim)
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/ci-derived"
+          export TMPDIR="$GITHUB_WORKSPACE/ci-derived"
+          bash scripts/test-clean.sh
 
-      - name: Build + test (iOS simulator)
-        run: make test
+      # On red — a test failure (exit 1) OR a could-not-run (exit 2) — keep the full xcodebuild log and
+      # the result bundle test-clean wrote inside its fresh DerivedData, so the failure is diagnosable
+      # from the run page without a re-run. Nothing is uploaded on green.
+      - name: Upload xcodebuild log + result bundle on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: |
+            ${{ github.workspace }}/ci-derived/inferlens-derived.*/xcodebuild.log
+            ${{ github.workspace }}/ci-derived/inferlens-derived.*/tests.xcresult
+          if-no-files-found: warn
+          retention-days: 14
