@@ -542,6 +542,21 @@ non-git working directory, and whatever internal failure line 40 guards — and 
 distinguishable from both a pass and a finding. Lands as a check with the CI rung; until then it is a
 manual step in the landing checklist, beside the workflow teeth test above.
 
+## Raised at rung 29 — the composed app builds, and is not yet installable
+
+The composition rung's green bar is real and is stated precisely in its commit: the composed app
+BUILDS for the simulator inside the test-clean run. What it does not produce is an installable
+`.app` — a pure-SPM `executableTarget` is a bare binary with no bundle, no `Info.plist`, and no
+code signature, so "runs on a phone" is not yet a sentence this repo can write. Closing that gap
+means an app shell, and an app shell touches invariant 5 ("No CocoaPods. The build is pure SPM"):
+whether the shell is an `.xcodeproj` that wraps the package, an XcodeGen/Tuist-generated project,
+or something else is a DECISION with an ADR's weight, not a chore — the invariant's wording was
+written before this fork existed, and the decision must either fit inside it or amend it the
+recorded way. Raised at rung 29 (where the gap became load-bearing) against the rung that will hit
+it first: rung 36's demo video needs the app running somewhere real. Until that decision is made,
+every claim about the app stays scoped to "builds under the package scheme on the simulator" —
+which is what the README's composition bullet says, verbatim.
+
 ## Correction of record — rung 36 ships an attachment-hosted video, not a tracked GIF
 
 Rung 36 read "add the 20s GIF" from the bootstrap commit forward.
