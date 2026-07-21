@@ -101,7 +101,14 @@ final class StateScreenshotTests: XCTestCase {
                 ),
                 device: "iPhone18,1",
                 os: "iOS 26.1"
-            )
+            ),
+            // The thumbs row, rendered as pure AFFORDANCE: `signal` stays nil so neither symbol
+            // is filled, and the tap goes to a no-op — the picture offers the control while
+            // claiming no judgement given and nothing written, which is the caption's sentence
+            // drawn. A filled thumb would put a fabricated signal into an image whose caption says
+            // no ledger row exists; unselected is the only honest rendering of this control.
+            signal: nil,
+            onSignal: { _ in }
         )
     }
 
