@@ -23,6 +23,8 @@ how a caption came within one commit of claiming iOS 26.1 for pixels drawn on 26
 An ordinary `bash scripts/test-clean.sh` writes nothing here: the render test skips unless an output
 directory is passed to it.
 
-Nothing yet checks the ceilings on what is committed here — that gate lands next
-([ADR-0007, Decision 4](../adr/0007-readme-media.md)). The render test asserts them at the moment each
-file is written, which covers these five files and nothing a human drops in by hand.
+[`media-check`](../../scripts/media-check.sh) checks the ceilings on what is committed here — the
+gate [ADR-0007, Decision 4](../adr/0007-readme-media.md) reserved, landed with the first screenshots
+and teeth-tested by planting the failures it exists to catch. The render test asserts the same
+ceilings at the moment each file is written, so a generated image over a ceiling fails the suite
+before it can reach the gate; the gate covers whatever is committed here, generated or not.
