@@ -499,9 +499,16 @@ Read these before the plan.
   `preprocess` figure is a number about a 1024 px input, not an arbitrary one
   ([the decoder](Sources/InferlensUI/ImageDecoding.swift)).
 - One architecture (MobileNetV2), one task (image classification).
-- The remote fallback is a stub; there is no server.
-- No App Store build — this is a code and benchmark artifact, not a shipping app.
-- No numbers yet. When they arrive, each will name its device and iOS version.
+- The remote fallback is a stub; there is no server
+  ([ADR-0010](docs/adr/0010-remote-leg-scope.md)) — and streaming is out by the same decision:
+  classification is one-shot, and a streaming state with no real producer would be the `warming`
+  mistake again.
+- No App Store build — this is a code and benchmark artifact, not a shipping app; the committed
+  shell is a run path, not a distribution channel ([ADR-0011](docs/adr/0011-app-shell.md)).
+- **No device numbers.** Simulator runs exist now — the [demo](#see-it-run) shows some — and each
+  is labeled a simulator's by its own row (`Simulator (iPhone18,1)`, invariant 7); none is quoted
+  as a device number. The comparison table stays empty until the on-device bench fills it, and
+  each figure will name its device and iOS version.
 
 ## vs MLPerf Mobile
 
