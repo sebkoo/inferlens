@@ -63,6 +63,15 @@ Two lists, so no one has to guess which half of the repo they are reading.
   conformance suite on the simulator
   ([the conformance test](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift)); real
   latency is the device-only rung-32 bench.
+- The fallback chain — [`FallbackEngine`](Sources/InferlensFallback/FallbackEngine.swift), a
+  chain of engines that is itself an engine, so the conformance suite runs over it too
+  ([the spec](Tests/InferlensFallbackTests/FallbackEngineTests.swift), 9 tests). The chain is
+  data walked in order; hops are derived from the walk, one `fellBack` per adjacent pair above
+  the leg that answered — the same ordinal shape the ledger row stores. Its remote leg is an
+  [always-throwing stub](Sources/InferlensFallback/RemoteStubEngine.swift): no fabricated result
+  can ever enter the ledger, and a step-down's on-demand load is reported as the fallback
+  backend's cold run under the rung-12 boundary — both maintainer-decided in
+  [ADR-0010](docs/adr/0010-remote-leg-scope.md).
 - The latency aggregation — [`LatencyRecorder`](Sources/InferlensBench/LatencyRecorder.swift): p50/p95
   over cold and warm runs by nearest-rank, pinned by 10 property tests
   ([the spec](Tests/InferlensBenchTests/LatencyRecorderTests.swift)). It aggregates the numbers; the
@@ -105,8 +114,10 @@ Two lists, so no one has to guess which half of the repo they are reading.
   self-contained line per run, device and OS in every line by construction (invariant 7), signals
   embedded in append order, byte-identical on re-export
   ([the spec](Tests/InferlensStoreTests/LedgerExportTests.swift)).
-- The app — [a thin composition](Sources/InferlensApp/InferlensApp.swift): it names the engine
-  (LiteRT, deliberately and reversibly, at a documented swap line), opens the ledger, hands the
+- The app — [a thin composition](Sources/InferlensApp/InferlensApp.swift): it composes the
+  fallback chain (LiteRT leading, Core ML behind it, the remote stub last — one swappable
+  assignment at a documented line), picks each ledger row's model descriptor from the backend
+  that actually answered (ADR-0010), opens the ledger, hands the
   screen the one summarize closure (ADR-0008) and the run/signal sink, and offers the NDJSON export
   from the toolbar. It builds for the simulator inside the suite run; it is not yet an installable
   `.app` — a pure-SPM executable has no bundle or signature, a gap raised in
@@ -115,7 +126,7 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
   [provenance](docs/research/MODEL_PROVENANCE.md)).
-- The decision record — nine ADRs
+- The decision record — ten ADRs
   ([module boundaries](docs/adr/0001-module-boundaries.md),
   [LiteRT distribution](docs/adr/0002-litert-distribution.md),
   [benchmark scope](docs/adr/0003-benchmark-comparison-scope.md),
@@ -124,13 +135,14 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [run ledger storage](docs/adr/0006-run-ledger-storage.md),
   [README media](docs/adr/0007-readme-media.md),
   [the latency-summary boundary](docs/adr/0008-latency-summary-boundary.md),
-  [document-store scope](docs/adr/0009-document-store-scope.md)), the
+  [document-store scope](docs/adr/0009-document-store-scope.md),
+  [the remote leg and the chain's cold rule](docs/adr/0010-remote-leg-scope.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
 - The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
   [`commit-msg` hook](.githooks/commit-msg) that rejects AI-attribution trailers
   ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
-- The module skeleton — an SPM workspace of seven local module packages (plus the conformance
+- The module skeleton — an SPM workspace of eight local module packages (plus the conformance
   test-support target), green under Swift 6 strict concurrency. Every package now carries code —
   `InferlensFlags` ships the [provider seam](Sources/InferlensFlags/InferlensFlags.swift) whose app
   wiring waits for the first real flag — and the app target is a composition, no longer a
@@ -139,7 +151,7 @@ Two lists, so no one has to guess which half of the repo they are reading.
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
 - OSSignposter spans around load / preprocess / infer
-- The fallback chain and cancel-on-input-change
+- Cancel-on-input-change (the chain landed at rung 21; cancellation is its own rung)
 - The first real feature flag and its app wiring (rung 28)
 - The on-device benchmark harness — the empty table's numbers
 
