@@ -1,6 +1,8 @@
 # ADR-0001: Module boundaries
 
-- Status: Accepted — 2026-07-17 (amended 2026-07-18: module set 6 → 7, added InferlensBench at rung 12)
+- Status: Accepted — 2026-07-17 (amended 2026-07-18: module set 6 → 7, added InferlensBench at
+  rung 12; amended 2026-07-21: 7 → 8, added InferlensFallback at the fallback-chain rung —
+  ADR-0010)
 - Deciders: maintainer
 - Relates to: the module-implementation ladder; JD must-haves (protocol-oriented design, Core ML,
   TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
@@ -33,8 +35,13 @@ Local SPM packages; the app target is thin (composition only).
   Core rather than in it (Core stays zero-dependency, value-types-only); the aggregation is
   agent-written, maintainer-decided per CLAUDE.md invariant 1 (third correction). Added at rung 12
   — the module set grew 6 → 7.
+- **InferlensFallback** — the fallback chain as a value, plus the always-throwing remote stub it
+  ends in (ADR-0010). The chain holds its legs as `any InferenceEngine` and is itself an engine,
+  so it depends on Core ONLY and never names a concrete engine — cross-engine work above the
+  engines, exactly where this ADR said it lives. Added at the fallback-chain rung — 7 → 8.
 
-**Dependency direction (one way):** `app → {UI, Store, Flags, CoreML, LiteRT, Bench} → Core`.
+**Dependency direction (one way):**
+`app → {UI, Store, Flags, CoreML, LiteRT, Bench, Fallback} → Core`.
 Core depends on nothing. Engines never depend on each other. UI depends on Core's value
 types and the engine *protocol*, never a concrete engine. A CI dependency-lint fails any
 arrow that points back toward an engine or into Core.
@@ -50,6 +57,7 @@ arrow that points back toward an engine or into Core.
 | InferlensFlags | feature-flag / remote-config seam; entitlement seam |
 | InferlensUI | SwiftUI; explicit state machine |
 | InferlensBench | latency optimization; the p50/p95 benchmark that fills the README table |
+| InferlensFallback | graceful degradation as data; the chain is one more engine (ADR-0010) |
 | app target | composition; Swift 6 strict concurrency; actor isolation |
 
 ## The equivalence argument (an interviewer will ask)

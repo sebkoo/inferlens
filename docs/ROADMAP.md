@@ -43,7 +43,10 @@ Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 [ADR-0005](adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency),
 [ADR-0006](adr/0006-run-ledger-storage.md) (run ledger storage),
 [ADR-0007](adr/0007-readme-media.md) (README media — screenshots, video, and the byte ceiling
-invariant 6 never gave).
+invariant 6 never gave),
+[ADR-0008](adr/0008-latency-summary-boundary.md) (the latency-summary boundary),
+[ADR-0009](adr/0009-document-store-scope.md) (document-store scope),
+[ADR-0010](adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 

@@ -12,7 +12,8 @@ boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0006](docs/adr/0006-run-ledger-storage.md) (run ledger storage),
 [0007](docs/adr/0007-readme-media.md) (README media),
 [0008](docs/adr/0008-latency-summary-boundary.md) (the latency-summary boundary),
-[0009](docs/adr/0009-document-store-scope.md) (document-store scope). Plan:
+[0009](docs/adr/0009-document-store-scope.md) (document-store scope),
+[0010](docs/adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -26,11 +27,13 @@ at that sentence. A module that serves no clause of it is cut.
 
 ```
 app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
-         InferlensCoreML, InferlensLiteRT}  →  InferlensCore
+         InferlensCoreML, InferlensLiteRT, InferlensFallback}  →  InferlensCore
 ```
 
 - `InferlensCore` depends on nothing. It is protocols + value types only.
 - Engines (`CoreML`, `LiteRT`) depend on Core, never on each other.
+- The fallback chain (`InferlensFallback`) depends on Core only: legs arrive as the protocol,
+  so cross-engine work lives above the engines without naming one (ADR-0010).
 - `InferlensUI` depends on Core's types and the engine *protocol*, never a concrete engine.
 - The app target is thin: composition only.
 - A CI dependency-lint fails any arrow pointing back toward an engine or into Core.
