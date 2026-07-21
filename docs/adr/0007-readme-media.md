@@ -284,6 +284,34 @@ that "we could take a screenshot now" is answered by the schedule rather than re
 - **After the on-device bench rung** — the comparison table with numbers in it, and any screenshot of
   those numbers carries its device and iOS by Decision 3, the same as the table does by invariant 7.
 
+## First use of the video rule — the simulator demo (recorded at first use, 2026-07-21)
+
+The loop-closes video of Decision 5 exists: one uninterrupted 29.8-second take through the
+installed shell on the pinned simulator (the rung-37 checkpoint, reduced to the simulator by
+maintainer decision — [ADR-0011](0011-app-shell.md)) — launch, pick, classify, thumbs, a second
+photo, export, the NDJSON leaving through the share sheet. View code at `b1c8fbe`. Decision 1
+already places it: a release asset, linked by URL, never tracked. The mechanics, settled here:
+the asset is the take remuxed `.mov` → `.mp4` (container only — no re-encode, no cut; "one take,
+no edits" is a rule about content, and the video bitstream is unchanged), published beside the
+NDJSON that same pass exported, under a release tag named for the tree that ran
+(`demo-sim-b1c8fbe` — the `litert-2.17.0` precedent: an artifact tag, never a `rung-*` tag,
+which the ladder reserves for landings). What the decisions were silent on, settled at first
+use: a **tracked poster frame** is an ordinary `docs/media/` image — same directory, same
+ceilings, same gate, same caption duties (device, iOS, sha) — extracted from the video's own
+pixels. The frame's form was decided on measured bytes: an unprocessed full-colour frame was
+preferred over a 147 KB 256-colour derivative — the directory budget permitted either, and an
+unprocessed frame's caption is one sentence where a quantized one needs its processing
+explained — but the 1200 px unprocessed frame (371,789 bytes) was refused by `media-check`'s
+per-file ceiling, and the resolution was **size, not processing and not a ceiling change**:
+the same frame at 900 px long edge, 221,932 bytes, downscaled only. The ceiling held exactly
+as written, which is the first time it has been tested by a real image wanting past it.
+And rule 3 runs **both ways**: the fabricated-values sentence is mandatory on constructed
+renders and forbidden on real-run media — a frame of a run carrying that disclaimer would be as
+false as a render without it. Real-run media state what they are instead: the run, the simulator
+labeled as a simulator, and where the exported rows live. Decision 5's "exactly one video" binds
+the README — one linked video at a time; a device-run successor would move the link, not erase
+the release.
+
 ## A contradiction this ADR creates, named rather than left to be found
 
 [ROADMAP](../ROADMAP.md) rung 36 reads "add the 20s GIF". Decision 1 forbids a tracked `.gif`

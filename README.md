@@ -28,9 +28,28 @@ AI-trailer lint passes on every push, so a reader can click through and check wh
 There is still no generic CI or coverage badge: build and test do not run in CI until rung 31,
 so a `CI | passing` badge would imply coverage that does not exist.*
 
+## See it run
+
+Thirty seconds, one take, no cuts: launch, classify, thumbs, a second photo, export.
+
+<a href="https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo.mp4"><img src="docs/media/demo-poster.png" width="300" alt="The running app showing a classified waterfall photo: three class labels with confidence, answered by TensorFlow Lite, cold and warm p50/p95 in milliseconds, and the line Simulator (iPhone18,1) · iOS 26.1 — a frame of the 30-second demo recording; the image links to the video."></a>
+
+*A frame of
+[the 30-second recording](https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo.mp4)
+— real runs through the installed app on the pinned simulator, one uninterrupted take: launch →
+classify → thumbs → a second photo → export, the NDJSON leaving through the share sheet
+([the exported rows](https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/exported-runs.ndjson)).
+This is the first media on this page **not** rendered from fabricated values: an engine ran, and the
+rows it wrote are in that export. iPhone 17 Pro simulator (iPhone18,1), iOS 26.1, view code at
+`b1c8fbe`. Every number in the frame is a simulator number and its own row says so — no device has
+been measured, and the [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster)
+below stays empty until one has ([Limitations](#limitations)). The video and the rows are release
+assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's provenance is
+[recorded beside it](docs/media/demo-poster-provenance.txt).*
+
 ## Contents
 
-[Start here](#start-here) · [What it does](#what-it-does) ·
+[See it run](#see-it-run) · [Start here](#start-here) · [What it does](#what-it-does) ·
 [Where this project is](#where-this-project-is) ·
 [What the screen looks like](#what-the-screen-looks-like) · [Tech stack](#tech-stack) ·
 [What the job asks for](#what-the-job-asks-for) ·
@@ -313,7 +332,8 @@ an engine. See [ADR-0002](docs/adr/0002-litert-distribution.md).
 ## What the screen looks like
 
 Six pictures: the five states the screen can be in, and the result it shows when one arrives. All of
-them are rendered from fabricated values, because no run has produced them yet.
+them are rendered from fabricated values — real runs exist now ([See it run](#see-it-run)), but no
+run produced these six; they are the layout, drawn from typed values.
 
 **Read that against the paragraph above, because the pictures will try to overwrite it.** These are
 still renders from typed values, not captures of a run: the composition exists now and a real run

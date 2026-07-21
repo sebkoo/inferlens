@@ -1,0 +1,17 @@
+# demo-poster.png — provenance. Hand-authored, deliberately NOT a line in capture-manifest.txt:
+# the render test rewrites that file wholesale (StateScreenshotTests.writeManifest, atomic write),
+# so a hand-added line there would be erased at the next regeneration — planted drift. This file
+# holds the one image the render test did not draw, and the README caption is written from it
+# (ADR-0007, invariant 7).
+
+source: inferlens-shell-demo.mov — the 29.8 s uninterrupted simulator demo take, hosted as a
+        release asset at tag demo-sim-b1c8fbe (never tracked; ADR-0007 Decision 1)
+frame-at: 22.5 s
+device: iPhone 17 Pro simulator
+model-identifier: iPhone18,1
+os: iOS 26.1
+view-code: b1c8fbe
+processing: downscaled 1206x2622 -> 414x900; no crop, no quantization, no retouch, no compositing
+
+files:
+  demo-poster.png  414x900 px  221932 bytes

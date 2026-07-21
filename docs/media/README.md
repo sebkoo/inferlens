@@ -4,6 +4,12 @@ Screenshots only, 250,000 bytes per file and 2,000,000 bytes for this directory,
 video is **never** committed here or anywhere in this repo — it is linked as a GitHub attachment.
 The rules, the numbers and where they came from: [ADR-0007](../adr/0007-readme-media.md).
 
+**One file is not a state render: `demo-poster.png`** — a frame of the simulator demo recording
+(ADR-0007, first use of the video rule). Its provenance lives in
+[`demo-poster-provenance.txt`](demo-poster-provenance.txt), hand-authored and separate from
+`capture-manifest.txt` because the render test rewrites the manifest wholesale — a hand-added line
+there would be erased at the next regeneration.
+
 **Naming: `state-NN-<kebab-case-state>.png`**, where `NN` is the order a user meets the state in a run.
 The name is not a convention held in someone's head — it is data in
 [`StateScreenshotTests`](../../Tests/InferlensUITests/StateScreenshotTests.swift), paired with the state
