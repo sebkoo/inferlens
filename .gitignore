@@ -22,5 +22,9 @@ bench-results/
 NOTES.local.md
 .claude/
 
+# The maintainer's signing team (ADR-0011): the app shell's xcconfig reads it via an optional
+# include; create with  echo 'DEVELOPMENT_TEAM = <your team id>' > App/Signing.local.xcconfig
+App/Signing.local.xcconfig
+
 # macOS
 .DS_Store

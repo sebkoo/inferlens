@@ -1,0 +1,37 @@
+// App/Inferlens.xcconfig — the app shell's build settings, in a reviewable text file instead of
+// scattered pbxproj dictionaries (ADR-0011). The pbxproj carries only the per-configuration
+// optimization pair; everything project-specific is here.
+
+// PERMANENT, chosen as such: if the App Store path is ever taken, the app record binds to this
+// identifier and changing it later means a new app. It is anchored to the repo's real home
+// (github.com/sebkoo/inferlens) — honest for as long as the repo lives at that address, the same
+// lifetime every doc link in this repo already bets on.
+PRODUCT_BUNDLE_IDENTIFIER = io.github.sebkoo.inferlens
+
+// The pinned OS the suite already names (test-clean pins iPhone 17 Pro / iOS 26.1); the phone at
+// the manual checkpoint must run >= this. Lowering it is a recorded decision, never a silent edit.
+IPHONEOS_DEPLOYMENT_TARGET = 26.1
+
+// Match the package: Swift 6 language mode (swiftLanguageModes: [.v6] in Package.swift), under
+// which strict concurrency is mandatory — the setting below is explicit, not load-bearing.
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+
+// The Info.plist is fully generated: the app needs no privacy strings (PhotosPicker runs
+// out-of-process) and no capabilities — ADR-0011's "what this does NOT decide".
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_UILaunchScreen_Generation = YES
+
+PRODUCT_NAME = $(TARGET_NAME)
+TARGETED_DEVICE_FAMILY = 1
+ALWAYS_SEARCH_USER_PATHS = NO
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks
+
+// Signing: automatic style is committed; the TEAM is not. The optional include below reads the
+// git-ignored App/Signing.local.xcconfig — create it with one line:
+//   echo 'DEVELOPMENT_TEAM = <your team id>' > App/Signing.local.xcconfig
+// A clean clone builds unsigned (simulator, or CODE_SIGNING_ALLOWED=NO for the device slice).
+CODE_SIGN_STYLE = Automatic
+#include? "Signing.local.xcconfig"

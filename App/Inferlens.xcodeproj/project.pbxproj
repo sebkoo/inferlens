@@ -1,0 +1,279 @@
+// !$*UTF8*$!
+// App/Inferlens.xcodeproj — the app shell, hand-authored and minimal (ADR-0011).
+// One app target wrapping the local package: it compiles the SAME composition source the
+// package's executable target builds (../Sources/InferlensApp/InferlensApp.swift), links the
+// same eight library products, and bundles ../Sources/InferlensApp/Models as a FOLDER REFERENCE
+// so the checksum-verified model bytes ship un-processed (never through coremlc). Dependencies
+// resolve through SPM against ../Package.swift — this file holds no pins and no overrides.
+// Settings live in Inferlens.xcconfig; signing in the git-ignored Signing.local.xcconfig.
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1FEEDA7A0000000000000011 /* InferlensApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEEDA7A0000000000000001 /* InferlensApp.swift */; };
+		1FEEDA7A0000000000000012 /* BundleModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FEEDA7A0000000000000002 /* BundleModule.swift */; };
+		1FEEDA7A0000000000000013 /* Models in Resources */ = {isa = PBXBuildFile; fileRef = 1FEEDA7A0000000000000003 /* Models */; };
+		1FEEDA7A0000000000000021 /* InferlensCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000031 /* InferlensCore */; };
+		1FEEDA7A0000000000000022 /* InferlensUI in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000032 /* InferlensUI */; };
+		1FEEDA7A0000000000000023 /* InferlensStore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000033 /* InferlensStore */; };
+		1FEEDA7A0000000000000024 /* InferlensFlags in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000034 /* InferlensFlags */; };
+		1FEEDA7A0000000000000025 /* InferlensCoreML in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000035 /* InferlensCoreML */; };
+		1FEEDA7A0000000000000026 /* InferlensLiteRT in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000036 /* InferlensLiteRT */; };
+		1FEEDA7A0000000000000027 /* InferlensBench in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000037 /* InferlensBench */; };
+		1FEEDA7A0000000000000028 /* InferlensFallback in Frameworks */ = {isa = PBXBuildFile; productRef = 1FEEDA7A0000000000000038 /* InferlensFallback */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1FEEDA7A0000000000000001 /* InferlensApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = InferlensApp.swift; path = ../Sources/InferlensApp/InferlensApp.swift; sourceTree = "<group>"; };
+		1FEEDA7A0000000000000002 /* BundleModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleModule.swift; sourceTree = "<group>"; };
+		1FEEDA7A0000000000000003 /* Models */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Models; path = ../Sources/InferlensApp/Models; sourceTree = "<group>"; };
+		1FEEDA7A0000000000000004 /* Inferlens.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Inferlens.xcconfig; sourceTree = "<group>"; };
+		1FEEDA7A0000000000000005 /* Inferlens.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Inferlens.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1FEEDA7A0000000000000062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FEEDA7A0000000000000021 /* InferlensCore in Frameworks */,
+				1FEEDA7A0000000000000022 /* InferlensUI in Frameworks */,
+				1FEEDA7A0000000000000023 /* InferlensStore in Frameworks */,
+				1FEEDA7A0000000000000024 /* InferlensFlags in Frameworks */,
+				1FEEDA7A0000000000000025 /* InferlensCoreML in Frameworks */,
+				1FEEDA7A0000000000000026 /* InferlensLiteRT in Frameworks */,
+				1FEEDA7A0000000000000027 /* InferlensBench in Frameworks */,
+				1FEEDA7A0000000000000028 /* InferlensFallback in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1FEEDA7A0000000000000051 = {
+			isa = PBXGroup;
+			children = (
+				1FEEDA7A0000000000000001 /* InferlensApp.swift */,
+				1FEEDA7A0000000000000002 /* BundleModule.swift */,
+				1FEEDA7A0000000000000003 /* Models */,
+				1FEEDA7A0000000000000004 /* Inferlens.xcconfig */,
+				1FEEDA7A0000000000000052 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1FEEDA7A0000000000000052 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1FEEDA7A0000000000000005 /* Inferlens.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		1FEEDA7A0000000000000071 /* Inferlens */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1FEEDA7A00000000000000A2 /* Build configuration list for PBXNativeTarget "Inferlens" */;
+			buildPhases = (
+				1FEEDA7A0000000000000061 /* Sources */,
+				1FEEDA7A0000000000000062 /* Frameworks */,
+				1FEEDA7A0000000000000063 /* Resources */,
+				1FEEDA7A0000000000000064 /* Remove dead embedded static framework */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Inferlens;
+			packageProductDependencies = (
+				1FEEDA7A0000000000000031 /* InferlensCore */,
+				1FEEDA7A0000000000000032 /* InferlensUI */,
+				1FEEDA7A0000000000000033 /* InferlensStore */,
+				1FEEDA7A0000000000000034 /* InferlensFlags */,
+				1FEEDA7A0000000000000035 /* InferlensCoreML */,
+				1FEEDA7A0000000000000036 /* InferlensLiteRT */,
+				1FEEDA7A0000000000000037 /* InferlensBench */,
+				1FEEDA7A0000000000000038 /* InferlensFallback */,
+			);
+			productName = Inferlens;
+			productReference = 1FEEDA7A0000000000000005 /* Inferlens.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1FEEDA7A0000000000000081 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2600;
+			};
+			buildConfigurationList = 1FEEDA7A00000000000000A1 /* Build configuration list for PBXProject "Inferlens" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1FEEDA7A0000000000000051;
+			packageReferences = (
+				1FEEDA7A0000000000000041 /* XCLocalSwiftPackageReference ".." */,
+			);
+			productRefGroup = 1FEEDA7A0000000000000052 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1FEEDA7A0000000000000071 /* Inferlens */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		1FEEDA7A0000000000000063 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FEEDA7A0000000000000013 /* Models in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1FEEDA7A0000000000000064 /* Remove dead embedded static framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Remove dead embedded static framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# TensorFlowLiteC is a STATIC framework (its binary is a Mach-O object — ADR-0002): its code\n# is already linked into the app executable. The build system's static-detection misreads the\n# MH_OBJECT binary and embeds a dead copy into the bundle, whose missing Info.plist then fails\n# the final Validate step. This phase deletes the dead copy before Validate; nothing the app\n# loads at runtime changes, and the bundle stops carrying the already-linked bytes (measured:\n# 23 MB device slice, 51 MB two-arch simulator slice).\nfor dead in \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Frameworks/TensorFlowLiteC.framework\" \\\n            \"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/TensorFlowLiteC.framework\"; do\n  if [ -d \"$dead\" ]; then\n    rm -rf \"$dead\"\n    echo \"removed dead embedded static framework: $dead\"\n  fi\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1FEEDA7A0000000000000061 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FEEDA7A0000000000000011 /* InferlensApp.swift in Sources */,
+				1FEEDA7A0000000000000012 /* BundleModule.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1FEEDA7A0000000000000091 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+		1FEEDA7A0000000000000092 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				SDKROOT = iphoneos;
+			};
+			name = Release;
+		};
+		1FEEDA7A0000000000000093 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1FEEDA7A0000000000000004 /* Inferlens.xcconfig */;
+			buildSettings = {
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		1FEEDA7A0000000000000094 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 1FEEDA7A0000000000000004 /* Inferlens.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1FEEDA7A00000000000000A1 /* Build configuration list for PBXProject "Inferlens" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FEEDA7A0000000000000091 /* Debug */,
+				1FEEDA7A0000000000000092 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1FEEDA7A00000000000000A2 /* Build configuration list for PBXNativeTarget "Inferlens" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FEEDA7A0000000000000093 /* Debug */,
+				1FEEDA7A0000000000000094 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1FEEDA7A0000000000000041 /* XCLocalSwiftPackageReference ".." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1FEEDA7A0000000000000031 /* InferlensCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensCore;
+		};
+		1FEEDA7A0000000000000032 /* InferlensUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensUI;
+		};
+		1FEEDA7A0000000000000033 /* InferlensStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensStore;
+		};
+		1FEEDA7A0000000000000034 /* InferlensFlags */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensFlags;
+		};
+		1FEEDA7A0000000000000035 /* InferlensCoreML */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensCoreML;
+		};
+		1FEEDA7A0000000000000036 /* InferlensLiteRT */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensLiteRT;
+		};
+		1FEEDA7A0000000000000037 /* InferlensBench */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensBench;
+		};
+		1FEEDA7A0000000000000038 /* InferlensFallback */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = InferlensFallback;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1FEEDA7A0000000000000081 /* Project object */;
+}
