@@ -206,6 +206,11 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   built to avoid hardcoding it would have been the module-with-no-producer this section already
   warns about.
 
+- Rung 37 landed before 30–36. The measurement rungs — the on-device bench (32), the method doc's
+  numbers (33), the demo video (36) — require an installable app, and nothing in 30–36 is a
+  prerequisite for the shell. That is the whole reason; the decision record is
+  [ADR-0011](adr/0011-app-shell.md), and the launchability raise below records the closure.
+
 ## Product finding, recorded against rung 24 — two states look identical and mean different things
 
 > `loadingModel` and `inferring` render identically — same spinner, one differing label. They mean
@@ -260,6 +265,37 @@ about a load, unload a model that is perfectly good, or teach the machine a noti
 not have. The third is the real fix and it is a **state-machine change, not a screen change** — which
 is why this is recorded rather than done at the screen rung. Choosing another photo is legal from
 `success` and from `failed`, so nothing is blocked meanwhile.
+
+## Finding, recorded against the composition — the export affordance can lag the first run
+
+Driving the shell-installed app end to end at rung 37 surfaced this; the same genre as the
+`warming` and `.reset` corrections — found by using the thing, invisible to every gate.
+
+> `ComposedScreen` refreshes `canExport` on `.task` (the ledger just opened, zero rows) and on
+> every `model.state` change. `ClassificationModel` appends a finished run to the ledger in an
+> UNSTRUCTURED task (`pendingRunAppend`) that nothing awaits before the state becomes `success`.
+> The refresh and the append therefore race: after the FIRST run of a fresh install, the export
+> button can stay disabled although the row is already in the ledger, until any later state
+> change refreshes it again.
+
+By construction, not by observation: on this rung's simulator drive the button was enabled by the
+time it was tapped (a second run had refreshed it), and the taps that missed earlier did so for a
+window-coordinate reason unrelated to the app. The thumbs path does NOT race — it awaits
+`pendingRunAppend` before appending its signal, which is why both verdicts landed. The fix
+belongs to the composition (refresh after the pending append completes, not merely on state
+change); recorded here rather than patched at this rung — the shell rung ships a run/install
+path, not a behavior change.
+
+## Harness backlog — a standing shell-build gate (recorded at rung 37)
+
+The shell's proof at this rung is manual: `xcodebuild build` against `App/Inferlens.xcodeproj`
+for the simulator and (unsigned) for the device slice, the bundled model bytes hash-compared to
+the fetched originals, a simulator install+launch, and `test-clean` re-run with the project in
+the tree — the last one because a root-placed project would enter xcodebuild's container
+discovery and break the bare `-scheme Inferlens-Package` resolution (probed at the rung-37
+landing; the shell lives under `App/` for exactly that reason). Wire it as a scripted gate with
+the 0/1/2 contract at the CI rung; until then it is a manual step in the landing checklist,
+beside the others this file already names.
 
 ## Product finding, recorded against rung 19 — model metadata already lives in three places
 
@@ -550,7 +586,7 @@ non-git working directory, and whatever internal failure line 40 guards — and 
 distinguishable from both a pass and a finding. Lands as a check with the CI rung; until then it is a
 manual step in the landing checklist, beside the workflow teeth test above.
 
-## Raised at rung 29 — the composed app builds, and is not yet installable
+## The launchability raise — raised at rung 29, closed at rung 37 on the shell side
 
 The composition rung's green bar is real and is stated precisely in its commit: the composed app
 BUILDS for the simulator inside the test-clean run. What it does not produce is an installable
@@ -563,7 +599,35 @@ written before this fork existed, and the decision must either fit inside it or 
 recorded way. Raised at rung 29 (where the gap became load-bearing) against the rung that will hit
 it first: rung 36's demo video needs the app running somewhere real. Until that decision is made,
 every claim about the app stays scoped to "builds under the package scheme on the simulator" —
-which is what the README's composition bullet says, verbatim.
+which is what the README's composition bullet says, verbatim. (True when written; the decision and
+its landing are recorded below.)
+
+**Closed at rung 37 — on the SHELL side, and corrected from rung 36.** The decision is
+[ADR-0011](adr/0011-app-shell.md): a committed, hand-authored minimal project at
+`App/Inferlens.xcodeproj`, dependencies still resolving through SPM, invariant 5 precised in
+CLAUDE.md — its target was always dependency management. Two corrections to this section's own
+text, recorded rather than silently reworded:
+
+- **Ownership.** The raise pointed at rung 36 as the rung that would hit the gap first — right as
+  PREDICTION (the demo video cannot exist before an installed app), wrong as OWNERSHIP: rung 36's
+  ladder line is the README's completion, and a `rung-36` tag on a shell commit would have made
+  the derived status block claim work that has not happened. The rung-31 lint clause "every
+  `rung-*` tag names a real ladder rung" is the reason a 36-tag was refused — enforced early, by
+  refusal, before the lint exists. The shell got its own line, rung 37, in the Measurement phase:
+  it exists because the measurement rungs require an installable app.
+- **The heading.** It asserted the gap in the exact words this rung's keyed claims-audit sweeps
+  for, so the closure rewrites it; the original assertion stands in the paragraph above as the
+  historical record — true when written, retired by the shell.
+
+**The DEVICE run is the OPEN half, owned by the measurement rungs.** The first-run checkpoint was
+reduced to a SIMULATOR run through the shell BY MAINTAINER DECISION — a decision on record, not a
+silent skip. What the simulator run produced: the shell-built `.app` installed and launched on the
+pinned iPhone 17 Pro / iOS 26.1 simulator; the loop driven end to end in the installed app (run →
+ledger row → thumbs, a down superseded by an up with history kept → export tapped, NDJSON pulled
+from the app container); every exported row carrying `Simulator (iPhone18,1)` and `iOS 26.1` in
+its own columns — the `DeviceIdentity` guard labelling the simulator as such, so no row can pose
+as a phone (invariant 7 doing its job either way). Nothing at this rung claims hardware; hand-run
+simulator numbers are not bench numbers and are quoted nowhere.
 
 ## Correction of record — rung 36 ships an attachment-hosted video, not a tracked GIF
 
