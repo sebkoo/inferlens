@@ -596,7 +596,7 @@ one that does not work would be worse than the honest gap. Recorded as a gap, no
 The first six were one-off misses — a check that ran and read the wrong thing. This one is
 structural, and it does not get better on its own.
 
-The suite at that rung reported **83 tests: 82 run, 1 skipped** (108/107/1 since rungs 19–20). The
+The suite at that rung reported **83 tests: 82 run, 1 skipped** (132/131/1 since rungs 25–29). The
 skipped one is `StateScreenshotTests` — the test that GENERATES the six README images. It skips
 unless `TEST_RUNNER_INFERLENS_MEDIA_OUT` is set,
 which is correct (an ordinary run must not be conscripted into writing files), and the consequence is
