@@ -339,7 +339,18 @@ public final class ClassificationModel {
     /// discarded (c). The percentiles are computed by the injected summarizer, in InferlensBench,
     /// never here.
     private func record(_ outcome: InferenceOutcome) {
-        let load: LoadTiming = pendingLoad.map { .cold($0) } ?? .warm
+        // INVARIANT 1 — the on-demand precedence (ADR-0010, Decision 2, maintainer-ratified). A
+        // step-down's on-demand load IS a load under ratified (b), so an outcome that carries one
+        // wins: the step-down run is reported as the answering backend's COLD run, `.cold` built
+        // from the outcome's own `Duration` with no unit conversion. `pendingLoad` is cleared on
+        // BOTH branches: when the outcome reports its own load, the bracketed load belongs to a
+        // leg that did not answer — the failed attempt's wasted time, ADR-0010's one disclosed
+        // residue — and attaching it to a later run that paid no load would misreport that run.
+        let load: LoadTiming = if let onDemand = outcome.onDemandLoad {
+            .cold(onDemand)
+        } else {
+            pendingLoad.map { .cold($0) } ?? .warm
+        }
         pendingLoad = nil
         let sample = LatencySample(load: load, run: outcome.timing)
         samples.append(sample)

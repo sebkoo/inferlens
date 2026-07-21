@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-21%2F37-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-22%2F37-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -252,12 +252,12 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [x] 13 build(litert): produce & publish the vendored TensorFlowLiteC.xcframework release — extract from the dl.google.com archive; read Info.plist AvailableLibraries and ASSERT ios-arm64_x86_64-simulator FIRST; re-zip; tag GitHub release
 - [x] 14 build(litert): declare binaryTarget(url:checksum:) + simulator link smoke test
 
-**Engines** — 2/6 landed
+**Engines** — 3/6 landed
 - [x] 10 feat(coreml): CoreMLEngine over the fetched FP16 .mlmodel, conforms to the contract
 - [ ] 11 perf(coreml): OSSignposter spans around load / preprocess / infer
 - [x] 15 feat(litert): LiteRTEngine over the C API — actor-isolated, ONE @unchecked Sendable boundary (required to compile under strict concurrency); uses FP32 .tflite
 - [ ] 16 ci(litert): document the Sendable boundary + CI lint enforcing AT MOST ONE @unchecked-Sendable (the on-actor rung-15 engine ships ZERO; ADR-0005) + a strict-concurrency data-race test
-- [ ] 21 feat(engine): fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)
+- [x] 21 feat(engine): fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)
 - [ ] 22 refactor(engine): engine actor; cancel in-flight Tasks when input changes
 
 **Measurement** — 1/5 landed

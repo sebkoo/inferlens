@@ -39,18 +39,24 @@ private actor FakeEngine: InferenceEngine {
     private let loadError: InferenceError?
     private let classifyError: InferenceError?
     private let result: InferenceOutcome
+    private let firstResult: InferenceOutcome?
 
     private(set) var loadCount = 0
     private(set) var classifyCount = 0
 
+    /// - Parameter firstResult: when set, the first `classify` returns it and later calls return
+    ///   `result` — the `StubEngine.firstRun` seam, here for driving a run whose OUTCOME differs
+    ///   (a chain step-down) rather than one whose timing does.
     init(
         loadError: InferenceError? = nil,
         classifyError: InferenceError? = nil,
-        result: InferenceOutcome = FakeEngine.defaultOutcome
+        result: InferenceOutcome = FakeEngine.defaultOutcome,
+        firstResult: InferenceOutcome? = nil
     ) {
         self.loadError = loadError
         self.classifyError = classifyError
         self.result = result
+        self.firstResult = firstResult
     }
 
     static let defaultOutcome = InferenceOutcome(
@@ -69,9 +75,10 @@ private actor FakeEngine: InferenceEngine {
     }
 
     func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
+        let answer = (classifyCount == 0 ? firstResult : nil) ?? result
         classifyCount += 1
         if let classifyError { throw classifyError }
-        return result
+        return answer
     }
 }
 
@@ -322,6 +329,34 @@ final class ClassificationModelTests: XCTestCase {
         let warm = model.samples[1]
         XCTAssertEqual(warm.total, warm.run.compute)
         XCTAssertGreaterThan(cold.total, cold.run.compute)
+    }
+
+    /// ADR-0010, Decision 2 (maintainer-ratified): an outcome carrying an on-demand load is the
+    /// answering backend's COLD run. The fixed `Duration` proves precedence — the driver used the
+    /// outcome's own value, not its wall-clock load bracket — and the second run proves the
+    /// residue rule: the bracketed pending load was cleared as the failed attempt's wasted time,
+    /// never attached to a later run that paid no load.
+    func testAnOnDemandLoadMakesTheRunColdAndClearsThePendingLoad() async throws {
+        let steppedDown = InferenceOutcome(
+            classifications: [Classification(label: "x", confidence: 0.5)],
+            timing: RunTiming(preprocess: .milliseconds(1), infer: .milliseconds(1)),
+            backend: .coreML,
+            degradations: [.fellBack(from: .liteRT, to: .coreML)],
+            onDemandLoad: .milliseconds(41)
+        )
+        let model = ClassificationModel(engine: FakeEngine(firstResult: steppedDown))
+        await model.classify(try buffer())
+        await model.classify(try buffer())
+
+        XCTAssertEqual(model.samples.count, 2)
+        guard case .cold(let reported) = model.samples[0].load else {
+            return XCTFail("a step-down run must land in the cold bucket")
+        }
+        XCTAssertEqual(reported, .milliseconds(41))
+        XCTAssertFalse(
+            model.samples[1].isCold,
+            "the cleared residue must not surface as a later cold run"
+        )
     }
 
     /// A failed load records no sample at all — there was no run to measure.

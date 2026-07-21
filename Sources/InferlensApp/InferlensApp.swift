@@ -8,6 +8,8 @@
 
 import InferlensBench
 import InferlensCore
+import InferlensCoreML
+import InferlensFallback
 import InferlensLiteRT
 import InferlensStore
 import InferlensUI
@@ -24,15 +26,25 @@ struct InferlensApp: App {
         let ledgerURL = Self.ledgerLocation()
         let ledger = RunLedger(location: .file(ledgerURL))
 
-        // LiteRT, deliberately and reversibly: the vendored artifact's device slice is verified
-        // and a device-destination build has succeeded (ADR-0002), but the engine has never yet
-        // run on hardware — if a real device link ever fails, swap in CoreMLEngine here and
-        // record the reason at this line. A missing model file is not a crash: the URL flows into
-        // loadModel -> .modelLoadFailed -> failed(retryable: false), an honest observable trigger.
-        let modelURL = Bundle.module.url(
+        // The chain, deliberately and reversibly: LiteRT leads (the vendored artifact's device
+        // slice is verified — ADR-0002 — though the engine has never yet run on hardware), Core
+        // ML backs it up, and the remote leg is ADR-0010's always-throwing stub. This line is
+        // the whole swap: assign a bare engine here to reverse it, and record the reason at this
+        // line. A missing model file is no longer a dead end (the rung-24 comment's
+        // "failed(retryable: false)" claim was retired by this chain): a failed LiteRT load
+        // walks to Core ML and the run succeeds degraded — fellBack(liteRT -> coreML) on screen
+        // and in the ledger row, the same fact in both places (invariant 3).
+        let tfliteURL = Bundle.module.url(
             forResource: "mobilenet_v2_1.0_224", withExtension: "tflite", subdirectory: "Models"
         ) ?? Bundle.module.bundleURL.appendingPathComponent("Models/mobilenet_v2_1.0_224.tflite")
-        let engine = LiteRTEngine(modelURL: modelURL)
+        let coreMLURL = Bundle.module.url(
+            forResource: "MobileNetV2FP16", withExtension: "mlmodel", subdirectory: "Models"
+        ) ?? Bundle.module.bundleURL.appendingPathComponent("Models/MobileNetV2FP16.mlmodel")
+        let engine = FallbackEngine(legs: [
+            .init(engine: LiteRTEngine(modelURL: tfliteURL), backend: .liteRT),
+            .init(engine: CoreMLEngine(modelURL: coreMLURL), backend: .coreML),
+            .init(engine: RemoteStubEngine(), backend: .remote),
+        ])
 
         // The sink may run before open() completes: an early append throws .notOpen, `try?`
         // answers nil, and the screen is untouched — the seam's contract, not an edge case.
@@ -43,7 +55,7 @@ struct InferlensApp: App {
                     RunRecord(
                         outcome: outcome,
                         sample: sample,
-                        model: .googleMobileNetV2FP32,
+                        model: Self.descriptor(for: outcome.backend),
                         device: device,
                         recordedAt: Date()
                     )
@@ -73,6 +85,19 @@ struct InferlensApp: App {
     var body: some Scene {
         WindowGroup {
             ComposedScreen(model: model, ledger: ledger, ledgerURL: ledgerURL)
+        }
+    }
+
+    /// The ledger row names the model that ACTUALLY answered (ADR-0010): the chain's own
+    /// descriptor is fixed to its preferred leg, so the composition — the one place that knows
+    /// which engine wears which backend — picks per row from `outcome.backend`. Exhaustive on
+    /// purpose: a new `Backend` case must force a decision here. `.remote` never reaches a row
+    /// today (the stub always throws); it maps to the stub's descriptor for exhaustiveness.
+    private static func descriptor(for backend: Backend) -> ModelDescriptor {
+        switch backend {
+        case .liteRT: .googleMobileNetV2FP32
+        case .coreML: .appleMobileNetV2FP16
+        case .remote: .remoteStub
         }
     }
 

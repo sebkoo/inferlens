@@ -21,6 +21,7 @@ let package = Package(
         .library(name: "InferlensFlags", targets: ["InferlensFlags"]),
         .library(name: "InferlensUI", targets: ["InferlensUI"]),
         .library(name: "InferlensBench", targets: ["InferlensBench"]),
+        .library(name: "InferlensFallback", targets: ["InferlensFallback"]),
     ],
     targets: [
         // The contract. Zero dependencies, enforced here and by review.
@@ -53,6 +54,12 @@ let package = Package(
         // amended 6 -> 7 modules). The aggregation is agent-written, maintainer-decided (CLAUDE.md
         // invariant 1, third correction).
         .target(name: "InferlensBench", dependencies: ["InferlensCore"]),
+
+        // The fallback chain (rung 21): a chain of engines that is itself an engine, plus the
+        // always-throwing remote stub it ends in (ADR-0010). Depends on the contract ONLY — the
+        // legs arrive as `any InferenceEngine`, so cross-engine work stays above the engines
+        // without this module ever naming one (ADR-0001, amended 7 -> 8 modules).
+        .target(name: "InferlensFallback", dependencies: ["InferlensCore"]),
 
         // The vendored TensorFlow Lite C runtime: Google's released TensorFlowLiteC.xcframework
         // 2.17.0, re-zipped single-xcframework and self-hosted as this repo's own GitHub release
@@ -88,6 +95,7 @@ let package = Package(
                 "InferlensCoreML",
                 "InferlensLiteRT",
                 "InferlensBench",
+                "InferlensFallback",
             ],
             resources: [.copy("Models")]
         ),
@@ -146,6 +154,15 @@ let package = Package(
         .testTarget(
             name: "InferlensFlagsTests",
             dependencies: ["InferlensFlags", "InferlensStore", "InferlensCore"]
+        ),
+
+        // The chain's spec: the conformance suite over the CHAIN as one more engine (never over
+        // the remote stub alone — ADR-0010), the walk's hop derivation, and the failure
+        // semantics. The same asymmetry as the engine test targets: the LIBRARY depends only on
+        // the contract; the TEST target adds Conformance for the suite and the StubEngine legs.
+        .testTarget(
+            name: "InferlensFallbackTests",
+            dependencies: ["InferlensFallback", "InferlensConformance", "InferlensCore"]
         ),
 
         // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on

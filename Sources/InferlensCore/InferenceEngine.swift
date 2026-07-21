@@ -155,16 +155,29 @@ public struct InferenceOutcome: Sendable {
     /// 3, and CLAUDE.md invariant 4's first correction).
     public let degradations: [DegradationReason]
 
+    /// The load a step-down paid INSIDE this call, or `nil` for every engine that loads only in
+    /// `loadModel()` — plain engines never set it; only a composing engine (the fallback chain)
+    /// can, when it loaded a fallback leg on demand mid-call. It carries the sample's own unit
+    /// (`Duration`, exactly what `LoadTiming.cold` holds), so the driver composes `.cold` from it
+    /// with no conversion and the store keeps sole ownership of the nanosecond encoding.
+    ///
+    /// INVARIANT 1 (ADR-0010, Decision 2, maintainer-ratified): an on-demand load IS a load under
+    /// the rung-12 boundary — "cold is the first run after a load" — so the driver gives this
+    /// field precedence and records the step-down run as the answering backend's COLD run.
+    public let onDemandLoad: Duration?
+
     public init(
         classifications: [Classification],
         timing: RunTiming,
         backend: Backend,
-        degradations: [DegradationReason] = []
+        degradations: [DegradationReason] = [],
+        onDemandLoad: Duration? = nil
     ) {
         self.classifications = classifications
         self.timing = timing
         self.backend = backend
         self.degradations = degradations
+        self.onDemandLoad = onDemandLoad
     }
 
     public var isDegraded: Bool { !degradations.isEmpty }
