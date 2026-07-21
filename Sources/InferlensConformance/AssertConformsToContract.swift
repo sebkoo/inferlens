@@ -51,7 +51,10 @@ public func assertConformsToContract(_ engine: some InferenceEngine) async throw
     try assertOutcomeShape(second)
 
     // The suite can't know the correct backend, only that it doesn't change across runs.
-    guard sameBackend(first.backend, second.backend) else {
+    // `==` because `Backend` IS `Equatable` in the contract — its doc names the two consumers
+    // that compare backends as data. An earlier comment here claimed the opposite; it was
+    // falsified when the contract gained the conformance, and a pattern-match helper survived it.
+    guard first.backend == second.backend else {
         throw ConformanceViolation.backendChangedBetweenRuns
     }
 
@@ -120,12 +123,4 @@ private func conformingImage(for descriptor: ModelDescriptor) throws -> ImageBuf
         pixelFormat: .rgba8,
         bytes: [UInt8](repeating: 0, count: count)
     )
-}
-
-/// `Backend` is intentionally not `Equatable` in the contract, so compare by pattern-match.
-private func sameBackend(_ lhs: Backend, _ rhs: Backend) -> Bool {
-    switch (lhs, rhs) {
-    case (.coreML, .coreML), (.liteRT, .liteRT), (.remote, .remote): true
-    default: false
-    }
 }

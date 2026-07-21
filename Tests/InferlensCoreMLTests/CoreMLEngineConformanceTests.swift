@@ -81,7 +81,8 @@ final class CoreMLEngineConformanceTests: XCTestCase {
         XCTAssertEqual(engine.descriptor.name, "MobileNetV2 (Apple, FP16)")
         XCTAssertEqual(engine.descriptor.inputSize.width, 224)
         XCTAssertEqual(engine.descriptor.inputSize.height, 224)
-        // Precision is a plain contract enum; pattern-match (the codebase does not lean on Equatable).
+        // Pattern-match because `Precision` declares no `Equatable` — nothing compares precisions
+        // as data. (`Backend` and `DegradationReason` DO: state machine, ledger, chain tests.)
         guard case .fp16 = engine.descriptor.precision else {
             return XCTFail("Apple's MobileNetV2 is FP16")
         }
