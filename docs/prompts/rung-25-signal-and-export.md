@@ -117,3 +117,30 @@ back. The prompt is the plan; the commits are what happened.
    first real caller; rung 29's composition carries one line naming the absence as deliberate; and
    the FlagsTests header sentence that promised the adapter to "the app composition rung" is
    corrected to name rung 28 — recorded, not silently edited, the rung-15 way.
+
+2. **The media landing split in two, and the split preserved a decision point the plan had folded
+   flat.** The plan had the state-06 fixture gain the thumbs row inside the one docs/media commit.
+   Execution found the regeneration came back byte-identical first — the fixture passed no
+   `onSignal`, and the view draws no thumbs for a nil handler — so the caption commit landed as
+   pure provenance with the disclosure question (a signal control in an image captioned "nothing
+   was written") recorded as OPEN in its message. The maintainer then decided — unselected thumbs
+   over a no-op handler, the affordance shown while the picture claims nothing recorded — and the
+   decision landed as its own commit rather than an amend, so the history keeps the moment the
+   question was open. Two commits where the plan drew one, and the second exists because the first
+   refused to make a decision in passing.
+
+3. **The keyed sweep fired on its own landing commit's message — mention, not use.** The
+   truth-rewrite commit quoted the stale phrases it was removing, and the keyed A2 sweep cannot
+   tell a quotation from a claim, so it went red on the very commit that fixed the tree. The same
+   class media-check already solved for images by stripping code spans; claims-audit has no such
+   stripping. Resolved by rewording the message (an amend, pre-push, so A2 re-swept the reworded
+   text) rather than by reading the red as expected — the habit the amended contract exists to
+   prevent. Recorded because the next truth-rewrite will meet it again: quote stale claims in a
+   landing message by paraphrase, or teach the gate to strip quotation.
+
+4. **The count prediction held, with one asterisk the plan had pre-written.** "All three rungs
+   move it" landed as 108 → 123 (rung 25, both halves) → 131 (rung 26) → 132 (rung 29) — but rung
+   29's movement came from its store commit; the feat(app) commit itself moves no count, because
+   there is no app test target (deliberate — its green bar is the composed app building inside the
+   suite run). The plan predicted exactly this shape and asked for it to be recorded rather than
+   for a test to be forced into existence.
