@@ -312,6 +312,22 @@ labeled as a simulator, and where the exported rows live. Decision 5's "exactly 
 the README — one linked video at a time; a device-run successor would move the link, not erase
 the release.
 
+**The inline preview — recorded when the embed landed (2026-07-21).** The README section also
+carries the take as an inline player: a GitHub user-attachment URL on its own line, the one form
+GitHub renders as a player (a release-asset link renders as a link, never a player). The
+attachment is untracked — zero bytes enter the repo, so invariant 6 and `media-check` are
+untouched, and the accepted cost is Decision 1's, unchanged: an external URL can rot, and a fork
+does not carry it. The platform forced a derivative: GitHub embeds inline only under a 10 MB
+ceiling, and the 27 MB take does not fit, so the embed is a re-encode — compressed, never cut;
+frame count and duration were verified against the take, and the uploaded bytes were verified by
+sha256 against the encode of record before the URL entered this page. The disclosure rule: the
+preview never carries a claim — no checksum in the README, no number quoted from it, no caption
+duty discharged by it; the artifact of record is the release, and checksums live only on the
+release. The preview's own bytes are mirrored there as a third asset, so even the derivative has
+a digest of record (GitHub records a per-asset sha256), and the attachment was verified against
+it before the URL entered the page. A reader who wants provable bytes follows the release link
+one line below the player.
+
 ## A contradiction this ADR creates, named rather than left to be found
 
 [ROADMAP](../ROADMAP.md) rung 36 reads "add the 20s GIF". Decision 1 forbids a tracked `.gif`

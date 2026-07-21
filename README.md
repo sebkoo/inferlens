@@ -32,6 +32,14 @@ so a `CI | passing` badge would imply coverage that does not exist.*
 
 Thirty seconds, one take, no cuts: launch, classify, thumbs, a second photo, export.
 
+https://github.com/user-attachments/assets/05796cd4-0c9f-490e-ba37-d4111702110c
+
+*The player above is a compressed preview: the same 29.8 s take, re-encoded to fit GitHub's 10 MB
+inline ceiling — compressed, never cut (frame count and duration match the take). A preview
+carries no claim; the artifact of record is the release, one line below — the full take, and
+[the preview's own bytes](https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo-preview.mp4)
+mirrored beside it, each with a sha256 digest recorded per asset on the release.*
+
 <a href="https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo.mp4"><img src="docs/media/demo-poster.png" width="300" alt="The running app showing a classified waterfall photo: three class labels with confidence, answered by TensorFlow Lite, cold and warm p50/p95 in milliseconds, and the line Simulator (iPhone18,1) · iOS 26.1 — a frame of the 30-second demo recording; the image links to the video."></a>
 
 *A frame of
