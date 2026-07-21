@@ -40,9 +40,23 @@ struct InferlensApp: App {
         let coreMLURL = Bundle.module.url(
             forResource: "MobileNetV2FP16", withExtension: "mlmodel", subdirectory: "Models"
         ) ?? Bundle.module.bundleURL.appendingPathComponent("Models/MobileNetV2FP16.mlmodel")
+        // ONE table, both engines. Loading is composition's job — `LabelTable` is a value and Core
+        // reads no files — so the bytes are read here, once, and handed to whichever engines answer.
+        // That is what makes the word on screen independent of which leg the chain reached: a
+        // fallback from LiteRT to Core ML changes the backend line, never the vocabulary.
+        //
+        // `nil` when the resource is missing, and that is a real path rather than a defensive
+        // gesture: the table is derived by `make bootstrap` (invariant 8), so a tree that skipped
+        // bootstrap has no file here. The app then labels classes `"class 653"` exactly as it did
+        // before this rung — readable-by-nobody, but true.
+        let labels = Bundle.module.url(
+            forResource: "imagenet_labels", withExtension: "txt", subdirectory: "Models"
+        ).flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+            .map(LabelTable.init(text:))
+
         let engine = FallbackEngine(legs: [
-            .init(engine: LiteRTEngine(modelURL: tfliteURL), backend: .liteRT),
-            .init(engine: CoreMLEngine(modelURL: coreMLURL), backend: .coreML),
+            .init(engine: LiteRTEngine(modelURL: tfliteURL, labels: labels), backend: .liteRT),
+            .init(engine: CoreMLEngine(modelURL: coreMLURL, labels: labels), backend: .coreML),
             .init(engine: RemoteStubEngine(), backend: .remote),
         ])
 

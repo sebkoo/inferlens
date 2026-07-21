@@ -184,13 +184,38 @@ public struct InferenceOutcome: Sendable {
 }
 
 public struct Classification: Sendable {
+    /// What the class is called. When an engine has a `LabelTable`, this is the word from it; with
+    /// no table (or an index the table cannot map) it is `LabelTable.fallbackLabel(for:)` — the
+    /// `"class N"` the LiteRT engine emitted before labels existed.
     public let label: String
     /// A probability in `0...1` (an engine-output invariant the conformance suite asserts).
     public let confidence: Float
 
-    public init(label: String, confidence: Float) {
+    /// The model's own output position for this class, when it is known.
+    ///
+    /// Optional because the two engines know it by different routes and one of them can genuinely
+    /// fail to. LiteRT reads a positional vector, so it always knows. Core ML emits a
+    /// label→probability dictionary with no positions in it at all, so its index is recovered by
+    /// looking the label up in the same table — which answers `nil` for a label the table does not
+    /// hold, and for `"crane"`, which the table holds twice (`LabelTable.index(of:)`).
+    ///
+    /// It is carried because the index is the model's raw, stable identity for a class where the
+    /// word is a rendering of it: two models can phrase a class differently and still mean the same
+    /// position. The screen shows it beside the label so a reader can trace a word back to the
+    /// output it came from.
+    ///
+    /// **Not persisted.** The ledger stores `label` and `confidence` and gains no column here, so a
+    /// `Classification` read back from a ledger row has `index == nil` even when the one written had
+    /// an index. That is a deliberate deferral, not an oversight: the ledger records the fact a
+    /// person judged — the word they saw — and adding a column is a schema migration whose caller
+    /// does not exist yet. Recorded as a finding in docs/ROADMAP.md against the cross-model
+    /// agreement rung, which is the first thing that would want index-keyed comparison.
+    public let index: Int?
+
+    public init(label: String, confidence: Float, index: Int? = nil) {
         self.label = label
         self.confidence = confidence
+        self.index = index
     }
 }
 

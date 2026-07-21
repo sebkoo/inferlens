@@ -49,6 +49,27 @@ public actor LiteRTEngine: InferenceEngine {
     /// Shapes read from the model at load — a `Sendable` value. Non-nil iff `handles` is.
     private var shape: Shape?
 
+    /// The table supplied by the composition, as given. Never consulted directly: `acceptedLabels`
+    /// is what `classify` reads, and it is set only once the table has been checked against the
+    /// model this engine actually loaded.
+    private let labels: LabelTable?
+
+    /// The table, once it has EARNED the right to name this model's classes: non-nil only when a
+    /// table was supplied and its count equals the model's output width. `nil` otherwise, which
+    /// sends every class to `LabelTable.fallbackLabel(for:)`.
+    ///
+    /// A size check rather than a trust exercise. A 1000-entry list against this 1001-wide output is
+    /// the exact off-by-one that ImageNet tables invite (index 0 is TF-slim's background class), and
+    /// it does not announce itself: every lookup succeeds and every word is one class off. Refusing
+    /// the whole table on a count mismatch is what makes that failure loud — the screen falls back
+    /// to `"class 653"`, which is unreadable but true, instead of showing a confident wrong word.
+    ///
+    /// It is a refusal, not a thrown error: a table that does not fit is a labelling problem, and a
+    /// model that classifies correctly should not be turned into a dead app by one. What the count
+    /// check does NOT read is ORDERING — a wrong table of the right length passes it. Ordering is
+    /// established by the fixture test in Tests/InferlensLiteRTTests, not here.
+    private var acceptedLabels: LabelTable?
+
     /// Owns the two `TfLiteInterpreter*`/`TfLiteModel*` handles and frees them in its own synchronous
     /// `deinit`. A plain (non-actor) class, so its `deinit` may read its own non-Sendable stored
     /// properties freely; held only inside the actor and never shared, so it needs no Sendable
@@ -79,9 +100,19 @@ public actor LiteRTEngine: InferenceEngine {
         var inputElementCount: Int { inputSize.width * inputSize.height * 3 }
     }
 
-    public init(modelURL: URL, descriptor: ModelDescriptor = .googleMobileNetV2FP32) {
+    /// - Parameters:
+    ///   - labels: how to name this model's output positions. `nil` — the default — keeps the
+    ///     engine's original behaviour exactly: every class is `"class N"`. The composition supplies
+    ///     the table derived from the pinned `.mlmodel` at `make bootstrap`; tests that care about
+    ///     shape rather than words pass nothing.
+    public init(
+        modelURL: URL,
+        descriptor: ModelDescriptor = .googleMobileNetV2FP32,
+        labels: LabelTable? = nil
+    ) {
         self.modelURL = modelURL
         self.descriptor = descriptor
+        self.labels = labels
     }
 
     // MARK: - Load
@@ -126,6 +157,9 @@ public actor LiteRTEngine: InferenceEngine {
 
         handles = Handles(model: loadedModel, interpreter: loadedInterpreter)
         shape = resolvedShape
+        // The table is checked against the model that was actually loaded, not against a constant:
+        // the engine adapts to its model everywhere else, and labelling is no exception.
+        acceptedLabels = labels.flatMap { $0.count == resolvedShape.outputCount ? $0 : nil }
     }
 
     /// Read the input and output tensors and validate this is a model this engine can drive: a float32
@@ -216,7 +250,9 @@ public actor LiteRTEngine: InferenceEngine {
         // --- end timing split
 
         return InferenceOutcome(
-            classifications: try classifications(interpreter: interpreter, outputCount: shape.outputCount),
+            classifications: try classifications(
+                interpreter: interpreter, outputCount: shape.outputCount, labels: acceptedLabels
+            ),
             timing: RunTiming(
                 preprocess: preprocessStart.duration(to: inferStart),
                 infer: inferStart.duration(to: inferEnd)
@@ -299,8 +335,17 @@ public actor LiteRTEngine: InferenceEngine {
     /// descending. The full vector is returned, not a top-N: "top labels" is any prefix a consumer
     /// takes. The model emits post-softmax probabilities already in 0...1, so there is no clamp — a
     /// value outside the range would be real signal the conformance suite should catch, not something
-    /// to quietly repair. The raw `.tflite` has no embedded labels, so classes are named by index.
-    private func classifications(interpreter: OpaquePointer, outputCount: Int) throws(InferenceError) -> [Classification] {
+    /// to quietly repair.
+    ///
+    /// The raw `.tflite` has no embedded labels (MODEL_PROVENANCE.md), so the WORDS come from the
+    /// supplied table and the INDEX comes from the output vector's own position. Both travel on the
+    /// `Classification`: the index is the model's raw identity for the class, the label is a
+    /// rendering of it, and keeping both means a word on screen can be traced back to the number
+    /// that produced it. With no accepted table every class falls back to `"class N"` — this
+    /// engine's behaviour before labels existed.
+    private func classifications(
+        interpreter: OpaquePointer, outputCount: Int, labels: LabelTable?
+    ) throws(InferenceError) -> [Classification] {
         guard let output = TfLiteInterpreterGetOutputTensor(interpreter, 0) else {
             throw InferenceError.inferenceFailed
         }
@@ -313,7 +358,11 @@ public actor LiteRTEngine: InferenceEngine {
         var results: [Classification] = []
         results.reserveCapacity(scores.count)
         for (index, score) in scores.enumerated() {
-            results.append(Classification(label: "class \(index)", confidence: score))
+            results.append(Classification(
+                label: labels?.label(at: index) ?? LabelTable.fallbackLabel(for: index),
+                confidence: score,
+                index: index
+            ))
         }
         results.sort { $0.confidence > $1.confidence }
         return results

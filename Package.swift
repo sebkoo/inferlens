@@ -101,6 +101,16 @@ let package = Package(
         ),
 
         // Rung 05: the StubEngine's own smoke tests. Rung 06 adds the suite run against it.
+        // The contract's own first test target. Core was protocols and field-holding value types
+        // until the label table arrived, and there was nothing in it a test could be wrong about —
+        // which is why this target did not exist before. `LabelTable` has behaviour (bounds, the
+        // parse, the refusal to resolve an ambiguous label), so it gets a spec. Depends on
+        // InferlensCore and nothing else, which is the same claim the module makes about itself.
+        .testTarget(
+            name: "InferlensCoreTests",
+            dependencies: ["InferlensCore"]
+        ),
+
         .testTarget(
             name: "InferlensConformanceTests",
             dependencies: ["InferlensConformance", "InferlensCore"]

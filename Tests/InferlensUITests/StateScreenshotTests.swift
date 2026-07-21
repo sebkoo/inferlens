@@ -78,10 +78,15 @@ final class StateScreenshotTests: XCTestCase {
     @MainActor
     private static var resultSubject: some View {
         ClassificationResultView(
+            // The confidences are fabricated, as the caption says. The INDICES are not: 208, 209 and
+            // 223 are where those three labels actually sit in the shipped table. A picture of this
+            // screen showing a made-up index beside a real label would be the precise failure the
+            // labelling rung exists to prevent — a confident, checkable, wrong number — and it would
+            // be worse in a README than in the app, because a reader cannot re-run it.
             classifications: [
-                Classification(label: "golden retriever", confidence: 0.871),
-                Classification(label: "Labrador retriever", confidence: 0.062),
-                Classification(label: "kuvasz", confidence: 0.011),
+                Classification(label: "golden retriever", confidence: 0.871, index: 208),
+                Classification(label: "Labrador retriever", confidence: 0.062, index: 209),
+                Classification(label: "kuvasz", confidence: 0.011, index: 223),
             ],
             backend: .coreML,
             readout: LatencyReadout(

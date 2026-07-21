@@ -50,9 +50,22 @@ public struct ClassificationResultView: View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 ForEach(Array(classifications.enumerated()), id: \.offset) { _, classification in
-                    HStack {
-                        Text(classification.label)
+                    HStack(spacing: 6) {
+                        Text(LabelDisplay.primaryName(of: classification.label))
                             .lineLimit(1)
+                        // The model's own output position, when the engine knows it. Shown because
+                        // the word is a RENDERING of the class and the index is its raw identity:
+                        // a reader who doubts a label can trace it back to the number it came from,
+                        // which is the difference between a result and a claim. Absent rather than
+                        // faked when unknown — the Core ML side cannot resolve `"crane"`, and an
+                        // invented number there would be exactly the confident falsehood this
+                        // screen exists to stop showing.
+                        if let index = classification.index {
+                            Text("#\(index)")
+                                .font(.caption2)
+                                .monospacedDigit()
+                                .foregroundStyle(.tertiary)
+                        }
                         Spacer(minLength: 12)
                         // A percentage, not the raw Float. `0.8231` on a screen is a number a
                         // person has to convert; the model's own precision is not the point here.
@@ -116,6 +129,28 @@ public struct ClassificationResultView: View {
     /// `0.823` as `"82.3%"`.
     static func percent(_ confidence: Float) -> String {
         String(format: "%.1f%%", confidence * 100)
+    }
+}
+
+// MARK: - Rendering a label
+
+/// How a class label is drawn, as distinct from what it IS.
+enum LabelDisplay {
+    /// The first synonym of an ImageNet label: `"cornet, horn, trumpet, trump"` draws as `"cornet"`.
+    ///
+    /// ImageNet labels are comma-separated synonym lists, and the longest in this table runs 121
+    /// characters. Drawn whole at this width they ellipsise mid-phrase — the horizontal-truncation
+    /// failure this repo has already recorded once, where the one sentence that answered the user's
+    /// question was cut mid-word. The first synonym is the class's ordinary name, is at most 30
+    /// characters across the whole table, and is what a person actually judges.
+    ///
+    /// **The ledger keeps the full string.** This is a rendering, not a rewrite: the row records the
+    /// engine's label verbatim, so the screen and the ledger name the same class, one of them
+    /// abbreviated. Stated because "the screen and the ledger say the same thing" is a rule here, and
+    /// this is the one place the two are not character-identical.
+    static func primaryName(of label: String) -> String {
+        guard let first = label.split(separator: ",").first else { return label }
+        return String(first).trimmingCharacters(in: .whitespaces)
     }
 }
 

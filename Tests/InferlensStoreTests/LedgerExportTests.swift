@@ -259,6 +259,51 @@ final class LedgerExportTests: XCTestCase {
         )
     }
 
+    /// The labelling rung added `Classification.index`, and the export must not have noticed.
+    ///
+    /// Stated as data rather than as a snapshot of a previous revision: the SAME record is exported
+    /// twice, once with indices on its classifications and once without, and the two files must be
+    /// byte-identical. A golden string copied from before the change would prove the same thing only
+    /// until someone regenerated it; this cannot be satisfied by regenerating anything.
+    ///
+    /// Why it matters beyond tidiness: the NDJSON is the offline-eval half of the loop, so its shape
+    /// is a published interface. A field that silently appeared in it would change what every
+    /// downstream reader parses, and it would do so as a side effect of a UI-facing change — which
+    /// is exactly the kind of drift that should have to be typed on purpose.
+    func testAnIndexOnAClassificationDoesNotReachTheExport() async throws {
+        let withIndices = [
+            Classification(label: "golden retriever", confidence: 0.871, index: 208),
+            Classification(label: "kuvasz", confidence: 0.011, index: 222),
+        ]
+        let withoutIndices = [
+            Classification(label: "golden retriever", confidence: 0.871),
+            Classification(label: "kuvasz", confidence: 0.011),
+        ]
+
+        func exportBytes(_ classifications: [Classification], _ name: String) async throws -> Data {
+            let databaseURL = try temporaryURL("\(name).sqlite3")
+            let ledger = RunLedger(location: .file(databaseURL))
+            try await ledger.open()
+            try await ledger.append(run(load: .cold(.milliseconds(214)), classifications: classifications))
+            let destination = try temporaryURL("\(name).ndjson")
+            try LedgerExport.export(ledgerAt: databaseURL, to: destination)
+            return try Data(contentsOf: destination)
+        }
+
+        let indexed = try await exportBytes(withIndices, "indexed")
+        let plain = try await exportBytes(withoutIndices, "plain")
+
+        XCTAssertFalse(indexed.isEmpty)
+        XCTAssertEqual(
+            indexed, plain,
+            "the ledger stores label + confidence; an index on the value type must change no byte"
+        )
+        XCTAssertFalse(
+            try XCTUnwrap(String(data: indexed, encoding: .utf8)).contains("\"index\""),
+            "no index key may appear in the exported classifications"
+        )
+    }
+
     // MARK: - Refusals, named
 
     func testAWrongVersionFileIsRefusedNamingBothVersions() throws {

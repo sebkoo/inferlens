@@ -54,9 +54,23 @@ public actor CoreMLEngine: InferenceEngine {
         let probabilitiesName: String
     }
 
-    public init(modelURL: URL, descriptor: ModelDescriptor = .appleMobileNetV2FP16) {
+    /// The table used to recover an output POSITION for a label. This engine never needs it to
+    /// produce words — a Core ML classifier carries its own label strings and always has — so a
+    /// `nil` table (the default) changes nothing a user sees.
+    ///
+    /// It is here so both engines answer through ONE table. The table is derived from this very
+    /// model's embedded labels, so a lookup that fails is a real signal: the model no longer matches
+    /// the table the app was built against.
+    private let labels: LabelTable?
+
+    public init(
+        modelURL: URL,
+        descriptor: ModelDescriptor = .appleMobileNetV2FP16,
+        labels: LabelTable? = nil
+    ) {
         self.modelURL = modelURL
         self.descriptor = descriptor
+        self.labels = labels
     }
 
     // MARK: - Load
@@ -298,7 +312,21 @@ public actor CoreMLEngine: InferenceEngine {
     /// Map the classifier's probability dictionary (label → probability) to the contract's
     /// classifications, sorted by confidence descending. The full label set is returned, not a
     /// top-N: "top labels" is then any prefix a consumer takes, and the engine bakes in no UI
-    /// concern. Softmax probabilities are already in `0...1` with each ≤ 1, so there is no clamp —
+    /// concern.
+    ///
+    /// **A class is lost here, and it is Core ML's shape that loses it.** `classLabelProbs` is a
+    /// dictionary keyed by LABEL, and this model has 1001 output positions but 1000 distinct labels:
+    /// `"crane"` names both index 135 (the bird) and index 518 (the machine). Two positions collapse
+    /// onto one key, so one probability never reaches this method — silently, with no error, and not
+    /// deterministically the same one. This engine therefore returns 1000 classifications, not 1001.
+    ///
+    /// Discovered when the label table made the count checkable; before that it was a class nobody
+    /// could count over a name nobody could disambiguate. Not repaired here: the fix is to read the
+    /// raw output vector positionally instead of the label dictionary, which changes how this engine
+    /// talks to Core ML. Recorded as a finding in docs/ROADMAP.md and asserted in CoreMLLabelTests so
+    /// the number is a stated fact rather than a surprise.
+    ///
+    /// Softmax probabilities are already in `0...1` with each ≤ 1, so there is no clamp —
     /// a value outside the range would be real signal the conformance suite should catch, not
     /// something to quietly repair.
     private func classifications(from prediction: MLFeatureProvider, named name: String) throws(InferenceError) -> [Classification] {
@@ -310,7 +338,15 @@ public actor CoreMLEngine: InferenceEngine {
         results.reserveCapacity(probabilities.count)
         for (key, probability) in probabilities {
             guard let label = key as? String else { continue }
-            results.append(Classification(label: label, confidence: probability.floatValue))
+            // The label is the model's own; the INDEX is recovered from the table, because a Core ML
+            // classifier's output dictionary carries no positions. `nil` is a truthful answer here —
+            // for a label the table does not hold, and for `"crane"`, which it holds twice
+            // (`LabelTable.index(of:)`). Showing no index beats showing one that is wrong.
+            results.append(Classification(
+                label: label,
+                confidence: probability.floatValue,
+                index: labels?.index(of: label)
+            ))
         }
         results.sort { $0.confidence > $1.confidence }
         return results
