@@ -88,3 +88,15 @@ else
   mv "$tmp/$GTFLITE_NAME" "$gpath"
   echo "models: $GTFLITE_NAME ok (fetched from archive, archive + member sha256 verified)"
 fi
+
+# --- Stage the verified models as APP RESOURCES. The app target bundles Sources/InferlensApp/Models
+#     via SPM `.copy` (the raw bytes — CoreMLEngine compiles the .mlmodel at runtime), and the global
+#     *.mlmodel / *.tflite ignore patterns keep these copies untracked exactly like Vendor/Models.
+#     A plain COPY, not a symlink: SPM resolves resources at build, and a dangling link would fail
+#     the build long after the fetch that broke it, with a worse message.
+APP_MODELS="Sources/InferlensApp/Models"
+mkdir -p "$APP_MODELS"
+for name in "MobileNetV2FP16.mlmodel" "$GTFLITE_NAME"; do
+  cp -f "$DEST/$name" "$APP_MODELS/$name"
+  echo "models: $name staged into $APP_MODELS (app resource)"
+done

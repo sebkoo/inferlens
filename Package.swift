@@ -69,8 +69,16 @@ let package = Package(
         // the engine-agnostic conformance suite. Depends only on the contract, like an engine.
         .target(name: "InferlensConformance", dependencies: ["InferlensCore"]),
 
-        // Thin app placeholder — composition only. The real iOS app target lands at
-        // rung 25; this exists now to exercise the app -> modules -> Core graph.
+        // The app target — composition only, per CLAUDE.md's word "thin". It is the ONE place
+        // allowed to name concrete engines and to depend on Bench: the ADR-0008 summarize closure
+        // (`{ try? LatencyRecorder().summarize($0) }`) is composed here, which is why the arrow
+        // app -> Bench exists at all.
+        //
+        // Models are bundled as resources with `.copy`, NOT `.process`: CoreMLEngine compiles the
+        // raw `.mlmodel` at runtime, and coremlc processing differs across build systems — the app
+        // must ship the same bytes `make bootstrap` verified. The directory holds a `.gitkeep`
+        // only; `scripts/fetch-models.sh` stages the checksum-verified files into it, and the
+        // global `*.mlmodel` / `*.tflite` ignore patterns keep them untracked (invariant 6).
         .executableTarget(
             name: "InferlensApp",
             dependencies: [
@@ -79,7 +87,9 @@ let package = Package(
                 "InferlensFlags",
                 "InferlensCoreML",
                 "InferlensLiteRT",
-            ]
+                "InferlensBench",
+            ],
+            resources: [.copy("Models")]
         ),
 
         // Rung 05: the StubEngine's own smoke tests. Rung 06 adds the suite run against it.
