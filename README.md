@@ -119,14 +119,17 @@ Two lists, so no one has to guess which half of the repo they are reading.
   assignment at a documented line), picks each ledger row's model descriptor from the backend
   that actually answered (ADR-0010), opens the ledger, hands the
   screen the one summarize closure (ADR-0008) and the run/signal sink, and offers the NDJSON export
-  from the toolbar. It builds for the simulator inside the suite run; it is not yet an installable
-  `.app` — a pure-SPM executable has no bundle or signature, a gap raised in
-  [the roadmap](docs/ROADMAP.md), not glossed.
+  from the toolbar. It builds for the simulator inside the suite run, and it installs and runs as
+  a real `.app` through the committed shell
+  ([`App/Inferlens.xcodeproj`](App/Inferlens.xcodeproj/project.pbxproj),
+  [ADR-0011](docs/adr/0011-app-shell.md)) — the launchability gap raised in
+  [the roadmap](docs/ROADMAP.md) is closed on the shell side. The device slice builds unsigned;
+  signing stays the maintainer's.
 - The model pipeline — a checksum-pinned MobileNetV2 fetched by
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
   [provenance](docs/research/MODEL_PROVENANCE.md)).
-- The decision record — ten ADRs
+- The decision record — eleven ADRs
   ([module boundaries](docs/adr/0001-module-boundaries.md),
   [LiteRT distribution](docs/adr/0002-litert-distribution.md),
   [benchmark scope](docs/adr/0003-benchmark-comparison-scope.md),
@@ -136,7 +139,8 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [README media](docs/adr/0007-readme-media.md),
   [the latency-summary boundary](docs/adr/0008-latency-summary-boundary.md),
   [document-store scope](docs/adr/0009-document-store-scope.md),
-  [the remote leg and the chain's cold rule](docs/adr/0010-remote-leg-scope.md)), the
+  [the remote leg and the chain's cold rule](docs/adr/0010-remote-leg-scope.md),
+  [the app shell](docs/adr/0011-app-shell.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
 - The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
@@ -466,9 +470,11 @@ between engines a visible state. Measurement is the neighbour. The closed loop i
 
 ## FAQ
 
-**Is this an App Store app?** No — it is a code and benchmark artifact. A reviewer reads the source;
-nobody installs it, so device coverage is deliberately
-[out of scope](docs/adr/0001-module-boundaries.md).
+**Is this an App Store app?** No — it is a code and benchmark artifact. A reviewer reads the source,
+and there is no App Store install base, so broad device coverage is deliberately
+[out of scope](docs/adr/0001-module-boundaries.md). The committed shell
+([ADR-0011](docs/adr/0011-app-shell.md)) exists so the maintainer can install and run it — a run
+path, not a distribution channel.
 
 **Why build both Core ML and TensorFlow Lite?** The question the repo exists to answer is which is
 faster on iOS, and a comparison needs both sides, each at its ecosystem's native precision. The
@@ -507,7 +513,7 @@ Built with an AI agent, with the method kept in the repo rather than in a commit
 pillars, each with a plain verdict — `working`, `partial`, or `design-stage` — and the artifact that
 proves it. Where a claim outran its evidence, the weaker truth is written here.
 
-**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the eight [ADRs](docs/adr), and the
+**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the eleven [ADRs](docs/adr), and the
 [roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
 fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
 got built: the whole measurement path — the per-engine clock brackets and the percentile aggregation —
@@ -571,10 +577,14 @@ ledger → signal → export → evaluate — now traverses end to end on the si
 outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)), the thumbs row appends a
 judgement ([`run_signals`](Sources/InferlensStore/LedgerSchema.swift)), and the toolbar exports the
 ledger as NDJSON ([`LedgerExport`](Sources/InferlensStore/LedgerExport.swift)) for the offline eval
-to read. What keeps this line honest: `evaluate` is offline tooling over the export, not code here;
-no ledger number is a device number until the device rungs run; and the app is a simulator-built
-executable, not yet an installable `.app`. The two loops meeting was the thesis sentence — the
-remaining distance is measured in device numbers, not in missing modules.
+to read. What keeps this line honest: `evaluate` is offline tooling over the export, not code here,
+and no ledger number is a device number until the device rungs run. The traversal now includes the
+installed `.app`: the committed shell ([ADR-0011](docs/adr/0011-app-shell.md)) built, installed and
+ran the loop end to end on the pinned simulator — run, row, thumbs (a down superseded by an up,
+history kept), export tapped in the app — and every exported row names
+`Simulator (iPhone18,1)` · `iOS 26.1` in its own columns: invariant 7 labels the simulator as such,
+so no row can pose as a phone. The two loops meeting was the thesis sentence — the remaining
+distance is measured in device numbers (the measurement rungs' subject), not in missing modules.
 
 **The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
 at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the
