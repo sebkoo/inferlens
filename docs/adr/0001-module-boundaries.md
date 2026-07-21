@@ -2,7 +2,7 @@
 
 - Status: Accepted — 2026-07-17 (amended 2026-07-18: module set 6 → 7, added InferlensBench at
   rung 12; amended 2026-07-21: 7 → 8, added InferlensFallback at the fallback-chain rung —
-  ADR-0010)
+  ADR-0010; amended 2026-07-21: 8 → 9, added InferlensRemote at the remote-leg rung — ADR-0013)
 - Deciders: maintainer
 - Relates to: the module-implementation ladder; JD must-haves (protocol-oriented design, Core ML,
   TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
@@ -35,13 +35,21 @@ Local SPM packages; the app target is thin (composition only).
   Core rather than in it (Core stays zero-dependency, value-types-only); the aggregation is
   agent-written, maintainer-decided per CLAUDE.md invariant 1 (third correction). Added at rung 12
   — the module set grew 6 → 7.
-- **InferlensFallback** — the fallback chain as a value, plus the always-throwing remote stub it
-  ends in (ADR-0010). The chain holds its legs as `any InferenceEngine` and is itself an engine,
-  so it depends on Core ONLY and never names a concrete engine — cross-engine work above the
-  engines, exactly where this ADR said it lives. Added at the fallback-chain rung — 7 → 8.
+- **InferlensFallback** — the fallback chain as a value. The chain holds its legs as
+  `any InferenceEngine` and is itself an engine, so it depends on Core ONLY and never names a
+  concrete engine — cross-engine work above the engines, exactly where this ADR said it lives.
+  Added at the fallback-chain rung — 7 → 8. *(It also held the remote stub until the remote-leg
+  rung, which moved the leg out and left this module holding the chain alone —
+  [ADR-0013](0013-remote-leg-realization.md), Decision 6.)*
+- **InferlensRemote** — the chain's remote leg as a real engine: a `URLSession` actor over the
+  wire contract ADR-0013 documents, mapping indices through the same `LabelTable` as the other
+  two legs. It sits beside the other engines rather than inside Fallback because it is one — the
+  stub it replaces lived there precisely because it was NOT a conforming engine, and this one
+  passes the suite. Unconfigured (no endpoint) it throws exactly as the stub did, which is what
+  the shipped app composes. Added at the remote-leg rung — 8 → 9.
 
 **Dependency direction (one way):**
-`app → {UI, Store, Flags, CoreML, LiteRT, Bench, Fallback} → Core`.
+`app → {UI, Store, Flags, CoreML, LiteRT, Remote, Bench, Fallback} → Core`.
 Core depends on nothing. Engines never depend on each other. UI depends on Core's value
 types and the engine *protocol*, never a concrete engine. A CI dependency-lint fails any
 arrow that points back toward an engine or into Core.
@@ -53,6 +61,7 @@ arrow that points back toward an engine or into Core.
 | InferlensCore | protocol-oriented design; testable contracts |
 | InferlensCoreML | Core ML; on-device inference |
 | InferlensLiteRT | TensorFlow Lite; SPM binary integration (ADR-0002) |
+| InferlensRemote | the backend choice the thesis names is real; networking over a documented contract (ADR-0013) |
 | InferlensStore | SQL (append-only ledger + migrations) **and** NoSQL (doc/KV) |
 | InferlensFlags | feature-flag / remote-config seam; entitlement seam |
 | InferlensUI | SwiftUI; explicit state machine |

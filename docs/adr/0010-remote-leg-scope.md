@@ -1,6 +1,10 @@
 # ADR-0010: What the remote leg IS — a stub that always throws, in a chain that walks to load
 
-- Status: Accepted — 2026-07-20
+- Status: Accepted — 2026-07-20. **Decision 1 superseded 2026-07-21 by
+  [ADR-0013](0013-remote-leg-realization.md)**; Decision 2 and the failure semantics stand
+  unchanged and are reaffirmed there. The superseded text is left standing below as the record of
+  what was true until the remote-leg rung — the disposition this repo uses for every retired
+  claim — with a pointer at Decision 1 and at the alternative that was later taken.
 - Deciders: maintainer
 - Relates to: [ADR-0009](0009-document-store-scope.md) (the decision standard this one is held
   to), [ADR-0005](0005-litert-engine-concurrency.md) (engine concurrency — the chain owns no
@@ -17,6 +21,13 @@ before any code, on the thesis — the ADR-0009 discipline: name what each optio
 nothing else does, and record the option not taken as carefully as the one taken.
 
 ## Decision 1 — the remote leg is a stub that ALWAYS THROWS
+
+**Superseded by [ADR-0013](0013-remote-leg-realization.md), Decision 3.** The leg is now a real
+`URLSession` engine proven against a loopback server in the suite, and the stub type is deleted. The
+observable behaviour of the SHIPPED app is unchanged: composed with no endpoint, the engine throws
+`.backendUnavailable` from `loadModel()` for the reason given below, so every sentence in this
+section about what users see still describes the app. What is retired is the claim that the leg
+*can only* throw. The reasoning below stands as written.
 
 - It never returns a canned outcome. A fabricated success would flow through the sink into the
   ledger and out the NDJSON export as fake eval data — the benchmark-fabrication ban applied to
@@ -80,6 +91,16 @@ it: a server the test suite can actually stand up — a local test server in the
 a hardcoded third-party URL is not, and does not qualify. Not taken because the repo cannot prove
 it today. The stub keeps the swap drop-in: same error vocabulary, same hop shape, same seam.
 
+> **Taken at the remote-leg rung, on this paragraph's own standard**
+> ([ADR-0013](0013-remote-leg-realization.md)). The unblocking condition named here — "a local test
+> server in the suite is provable" — is what was built: an `NWListener` loopback server in the test
+> target, no new dependency, no third-party URL. The drop-in claim held; the swap cost one
+> composition argument, and neither the error vocabulary nor the hop shape churned. One prediction
+> here did NOT hold, and it is worth more than the ones that did: it expected "timeout-shaped
+> degradation reasons", and a timeout turns out to produce no result to degrade, so it throws
+> instead. ADR-0013 Decision 4 carries the reasoning, and the ledger CHECK constraint that forced
+> the question to be asked properly.
+
 **Eager-load every leg** (Decision 2's first alternative). Every load cost lands inside the
 `loadModel()` bracket and a step-down answers instantly from a warm leg. Rejected because every
 launch would pay both engines' loads and hold both models resident for a leg that answers almost
@@ -95,6 +116,9 @@ cannot step down on a call error is a chain in name only.
 ## What this ADR does NOT decide, and does not read
 
 - No server, no API shape, no URL. The remote leg's whole contract is one thrown error.
+  *(Superseded: [ADR-0013](0013-remote-leg-realization.md) Decision 1 documents the API shape as the
+  source of truth. Still no server and still no URL — the app composes the leg unconfigured, and the
+  only server that exists is the test fixture.)*
 - No new UI state case and no new `DegradationReason` case. The existing vocabulary carries every
   hop; a state with no producer would repeat the `warming` mistake invariant 4 records.
 - A streaming surface is not this rung's, and is not the chain's. Classification is one-shot; a
@@ -109,7 +133,10 @@ cannot step down on a call error is a chain in name only.
 ## Consequences
 
 - A new module holding the chain and the stub, depending on `InferlensCore` only — the chain
-  holds legs as `any InferenceEngine` and never names a concrete engine. ADR-0001's module
+  holds legs as `any InferenceEngine` and never names a concrete engine.
+  *(The stub half moved out at the remote-leg rung: [ADR-0013](0013-remote-leg-realization.md)
+  Decision 6 puts the engine beside the other engines and leaves this module holding the chain
+  alone — a stronger version of the same claim.)* ADR-0001's module
   diagram gains one name (the rung-12 "6 → 7" precedent, now 8); the app target remains the only
   place concrete engines are named.
 - `InferenceOutcome` gains the one channel Decision 2 requires: an optional on-demand load
