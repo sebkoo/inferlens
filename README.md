@@ -47,9 +47,31 @@ below stays empty until one has ([Limitations](#limitations)). The video and the
 assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's provenance is
 [recorded beside it](docs/media/demo-poster-provenance.txt).*
 
+Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
+typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 142
+tests counted, 141 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured at `b1c8fbe`
+via [`test-clean`](scripts/test-clean.sh) — and nothing automated builds or tests on push until
+rung 31; the
+[comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) is empty because no
+device has run the bench; and [Limitations](#limitations) leads the feature story by rule.
+
+## Quick start
+
+```
+git clone https://github.com/sebkoo/inferlens && cd inferlens
+make bootstrap                  # fetch the checksum-pinned models — a bare build has no engine
+open App/Inferlens.xcodeproj    # then Run on the pinned simulator: iPhone 17 Pro, iOS 26.1
+```
+
+Executed, not assumed, from this tree at `490b7ce`: `make bootstrap` verified both model checksums,
+`xcodebuild` built the shell for that simulator, and the app installed and launched to the idle
+screen (`simctl install` + `launch`). The device slice builds unsigned; signing stays the
+maintainer's — one line in a git-ignored xcconfig ([ADR-0011](docs/adr/0011-app-shell.md)).
+
 ## Contents
 
-[See it run](#see-it-run) · [Start here](#start-here) · [What it does](#what-it-does) ·
+[See it run](#see-it-run) · [Quick start](#quick-start) · [Start here](#start-here) ·
+[What it does](#what-it-does) ·
 [Where this project is](#where-this-project-is) ·
 [What the screen looks like](#what-the-screen-looks-like) · [Tech stack](#tech-stack) ·
 [What the job asks for](#what-the-job-asks-for) ·
