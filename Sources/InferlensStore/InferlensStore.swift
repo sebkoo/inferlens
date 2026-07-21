@@ -2,7 +2,7 @@
 //
 // Two stores live here, and they answer different questions:
 //   - the APPEND-ONLY SQL run ledger (`RunLedger`) — one row per inference, schema versioned by
-//     migration. It is what the NDJSON export and the offline eval will read.
+//     migration. `LedgerExport` serializes it to NDJSON, which is what the offline eval reads.
 //   - the DOCUMENT store (`DocumentStore`) — schema-free JSON on disk, read whole and OVERWRITTEN
 //     whole. It holds the feature-flag cache and nothing else.
 //

@@ -188,4 +188,12 @@ public enum LedgerError: Error, Sendable, Equatable {
     /// or precision string, or a `NULL` where the schema promises a value. Distinct from
     /// `readFailed` on purpose: the query worked and the data is wrong, which is a different bug.
     case unreadableRow
+    /// The file's `user_version` is not the version this build exports. A read-only export cannot
+    /// migrate, so a file behind this build is as unreadable as one ahead of it — both are refused
+    /// naming both sides. The app's own ledger is always migrated by `open()` before an export can
+    /// be asked of it, so a mismatch means the file came from a different build's world.
+    case exportVersionMismatch(fileVersion: Int, requiredVersion: Int)
+    /// The NDJSON destination could not be created or written. Says nothing about the ledger: the
+    /// database was fine, and the disk the export was headed to was not.
+    case exportWriteFailed
 }
