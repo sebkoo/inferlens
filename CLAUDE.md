@@ -7,9 +7,12 @@ change is wrong, not the invariant — raise it, do not silently work around it.
 Decisions of record: [docs/adr/0001](docs/adr/0001-module-boundaries.md) (module
 boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0003](docs/adr/0003-benchmark-comparison-scope.md) (benchmark scope),
+[0004](docs/adr/0004-commit-hygiene.md) (commit hygiene),
 [0005](docs/adr/0005-litert-engine-concurrency.md) (LiteRT engine concurrency),
 [0006](docs/adr/0006-run-ledger-storage.md) (run ledger storage),
-[0007](docs/adr/0007-readme-media.md) (README media). Plan:
+[0007](docs/adr/0007-readme-media.md) (README media),
+[0008](docs/adr/0008-latency-summary-boundary.md) (the latency-summary boundary),
+[0009](docs/adr/0009-document-store-scope.md) (document-store scope). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -22,7 +25,8 @@ at that sentence. A module that serves no clause of it is cut.
 ## Dependency direction (one way)
 
 ```
-app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensCoreML, InferlensLiteRT}  →  InferlensCore
+app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
+         InferlensCoreML, InferlensLiteRT}  →  InferlensCore
 ```
 
 - `InferlensCore` depends on nothing. It is protocols + value types only.

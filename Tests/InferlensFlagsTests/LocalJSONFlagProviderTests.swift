@@ -5,8 +5,11 @@
 // other — InferlensFlags cannot import InferlensStore and does not — but a TEST target may depend on
 // both, which is the only place the two can be shown to fit before the app target composes them.
 // `DocumentStore` satisfying `FlagCache` is written here, once, as `CachedFlagDocument`; the shipping
-// adapter lands with the app composition rung. Until then this is the evidence that the seam and the
-// store were built for each other rather than merely near each other.
+// adapter lands at rung 28, beside the first real flag — the app-composition rung deliberately left
+// it out, because an adapter whose `isEnabled` nothing calls is the producer-less module the ladder
+// already refused twice (corrected from "the app composition rung"; the rung-25 prompt's execution
+// notes record the falsification). Until then this is the evidence that the seam and the store were
+// built for each other rather than merely near each other.
 //
 // What these tests do NOT read:
 //   - they do not test `DocumentStore` itself. That is `DocumentStoreTests`, in its own module's

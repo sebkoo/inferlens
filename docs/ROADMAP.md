@@ -261,6 +261,9 @@ whoever builds it — the same disposition as the `loadingModel`/`inferring` fin
 
 **The flag cache is earned.** Flags have to survive a launch, and nothing in the repo persists them
 today: [InferlensFlags](../Sources/InferlensFlags/InferlensFlags.swift) is a three-line skeleton.
+(True when recorded. Rungs 19/20 then landed exactly this split — the cache in `DocumentStore`, the
+provider over it — and ADR-0009 is this finding's resolution; the sentence above stays as the state
+that motivated it.)
 
 **The model-metadata half is not, yet.** The same facts are already recorded in three places, each
 doing a different job, and a KV store would be the fourth:
