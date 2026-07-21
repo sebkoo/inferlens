@@ -1,5 +1,8 @@
-// InferlensFallback — the fallback chain as a VALUE (CLAUDE.md invariant 3), and the
-// always-throwing remote stub it ends in (ADR-0010).
+// InferlensFallback — the fallback chain as a VALUE (CLAUDE.md invariant 3).
+//
+// It held the remote stub too until the remote-leg rung, which moved that leg out to
+// InferlensRemote where the engines are and left this module holding the chain alone — a stronger
+// version of the claim below, not a weaker one (ADR-0013, Decision 6).
 //
 // This module depends on InferlensCore ONLY. The chain holds its legs as `any InferenceEngine`
 // and never names a concrete engine — which leg wears which `Backend` is the composition's

@@ -11,6 +11,7 @@ import InferlensCore
 import InferlensCoreML
 import InferlensFallback
 import InferlensLiteRT
+import InferlensRemote
 import InferlensStore
 import InferlensUI
 import SwiftUI
@@ -28,7 +29,7 @@ struct InferlensApp: App {
 
         // The chain, deliberately and reversibly: LiteRT leads (the vendored artifact's device
         // slice is verified — ADR-0002 — though the engine has never yet run on hardware), Core
-        // ML backs it up, and the remote leg is ADR-0010's always-throwing stub. This line is
+        // ML backs it up, and the remote leg is a real `RemoteEngine` composed UNCONFIGURED. This line is
         // the whole swap: assign a bare engine here to reverse it, and record the reason at this
         // line. A missing model file is no longer a dead end (the rung-24 comment's
         // "failed(retryable: false)" claim was retired by this chain): a failed LiteRT load
@@ -54,10 +55,17 @@ struct InferlensApp: App {
         ).flatMap { try? String(contentsOf: $0, encoding: .utf8) }
             .map(LabelTable.init(text:))
 
+        // `endpoint: nil` is the whole of what ships, and it is a decision on record (ADR-0013,
+        // Decision 3): the leg is real code with a documented wire contract and a suite that runs
+        // it against a loopback server, and NO PUBLIC ENDPOINT SHIPS. Unconfigured it throws
+        // `.backendUnavailable` from `loadModel()` — byte-for-byte the behaviour the deleted stub
+        // had — so the degradation story on screen and in the ledger is unchanged for users.
+        // Configuring it is one argument at this line, which is what makes the thesis's "choose
+        // next model/backend" a real choice rather than a sentence.
         let engine = FallbackEngine(legs: [
             .init(engine: LiteRTEngine(modelURL: tfliteURL, labels: labels), backend: .liteRT),
             .init(engine: CoreMLEngine(modelURL: coreMLURL, labels: labels), backend: .coreML),
-            .init(engine: RemoteStubEngine(), backend: .remote),
+            .init(engine: RemoteEngine(endpoint: nil, labels: labels), backend: .remote),
         ])
 
         // The sink may run before open() completes: an early append throws .notOpen, `try?`
@@ -105,13 +113,14 @@ struct InferlensApp: App {
     /// The ledger row names the model that ACTUALLY answered (ADR-0010): the chain's own
     /// descriptor is fixed to its preferred leg, so the composition — the one place that knows
     /// which engine wears which backend — picks per row from `outcome.backend`. Exhaustive on
-    /// purpose: a new `Backend` case must force a decision here. `.remote` never reaches a row
-    /// today (the stub always throws); it maps to the stub's descriptor for exhaustiveness.
+    /// purpose: a new `Backend` case must force a decision here. `.remote` still never reaches a
+    /// row in the shipped app, because the leg is composed with no endpoint; it maps to the remote
+    /// leg's declared descriptor, which is what a configured build would record.
     private static func descriptor(for backend: Backend) -> ModelDescriptor {
         switch backend {
         case .liteRT: .googleMobileNetV2FP32
         case .coreML: .appleMobileNetV2FP16
-        case .remote: .remoteStub
+        case .remote: .remote
         }
     }
 

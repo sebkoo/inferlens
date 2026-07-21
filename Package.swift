@@ -22,6 +22,7 @@ let package = Package(
         .library(name: "InferlensUI", targets: ["InferlensUI"]),
         .library(name: "InferlensBench", targets: ["InferlensBench"]),
         .library(name: "InferlensFallback", targets: ["InferlensFallback"]),
+        .library(name: "InferlensRemote", targets: ["InferlensRemote"]),
     ],
     targets: [
         // The contract. Zero dependencies, enforced here and by review.
@@ -55,11 +56,21 @@ let package = Package(
         // invariant 1, third correction).
         .target(name: "InferlensBench", dependencies: ["InferlensCore"]),
 
-        // The fallback chain (rung 21): a chain of engines that is itself an engine, plus the
-        // always-throwing remote stub it ends in (ADR-0010). Depends on the contract ONLY — the
-        // legs arrive as `any InferenceEngine`, so cross-engine work stays above the engines
-        // without this module ever naming one (ADR-0001, amended 7 -> 8 modules).
+        // The fallback chain (rung 21): a chain of engines that is itself an engine. Depends on
+        // the contract ONLY — the legs arrive as `any InferenceEngine`, so cross-engine work stays
+        // above the engines without this module ever naming one (ADR-0001, amended 7 -> 8
+        // modules). It held the remote stub until the remote-leg rung moved that leg out to
+        // InferlensRemote, which left this module holding the chain alone (ADR-0013, Decision 6).
         .target(name: "InferlensFallback", dependencies: ["InferlensCore"]),
+
+        // The chain's remote leg as a REAL engine (the remote-leg rung): a URLSession actor over
+        // the wire contract ADR-0013 documents. It sits here rather than in InferlensFallback
+        // because it is an engine — the stub it replaces lived there precisely because it was not
+        // one. Depends on the contract plus Foundation and Accelerate, the same shape as the two
+        // on-device engines and for the same reason: an engine owns its preprocessing (ADR-0001,
+        // amended 8 -> 9 modules). Unconfigured it throws exactly as the stub did; no public
+        // endpoint ships.
+        .target(name: "InferlensRemote", dependencies: ["InferlensCore"]),
 
         // The vendored TensorFlow Lite C runtime: Google's released TensorFlowLiteC.xcframework
         // 2.17.0, re-zipped single-xcframework and self-hosted as this repo's own GitHub release
@@ -96,6 +107,7 @@ let package = Package(
                 "InferlensLiteRT",
                 "InferlensBench",
                 "InferlensFallback",
+                "InferlensRemote",
             ],
             resources: [.copy("Models")]
         ),
@@ -166,13 +178,31 @@ let package = Package(
             dependencies: ["InferlensFlags", "InferlensStore", "InferlensCore"]
         ),
 
-        // The chain's spec: the conformance suite over the CHAIN as one more engine (never over
-        // the remote stub alone — ADR-0010), the walk's hop derivation, and the failure
-        // semantics. The same asymmetry as the engine test targets: the LIBRARY depends only on
-        // the contract; the TEST target adds Conformance for the suite and the StubEngine legs.
+        // The chain's spec: the conformance suite over the CHAIN as one more engine, the walk's
+        // hop derivation, and the failure semantics. The same asymmetry as the engine test
+        // targets: the LIBRARY depends only on the contract; the TEST target adds Conformance for
+        // the suite and the StubEngine legs. It does NOT depend on InferlensRemote — the chain
+        // names no concrete engine in its tests either, and its remote-leg fixture is the in-file
+        // failing-on-cue fake (ADR-0013, Decision 6).
         .testTarget(
             name: "InferlensFallbackTests",
             dependencies: ["InferlensFallback", "InferlensConformance", "InferlensCore"]
+        ),
+
+        // The remote leg's spec. It depends on InferlensFallback as well as Conformance, because
+        // two of its claims are about the leg IN the chain — the suite over a chain ending in a
+        // real remote leg, and a walk that steps down twice and is answered over the network.
+        // That direction is the right one: a test target may depend on both, while the LIBRARIES
+        // never depend on each other (the same asymmetry as InferlensFlagsTests).
+        //
+        // The loopback server it runs against lives in this target and uses Network, a SYSTEM
+        // framework — no package dependency is added, and invariant 5 is untouched (ADR-0013,
+        // Decision 2).
+        .testTarget(
+            name: "InferlensRemoteTests",
+            dependencies: [
+                "InferlensRemote", "InferlensFallback", "InferlensConformance", "InferlensCore",
+            ]
         ),
 
         // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on

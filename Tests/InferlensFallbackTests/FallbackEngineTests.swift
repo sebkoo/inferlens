@@ -6,6 +6,12 @@
 // precedent: the shared `StubEngine` deliberately has no failure switch (it exists to conform),
 // and widening it for one consumer would put failure seams in a type every suite-running target
 // imports. Healthy legs ARE the shared `StubEngine`.
+//
+// The remote leg here is that same in-file fake, never the real `RemoteEngine` — this target does
+// not import InferlensRemote, because the claim under test is that the chain works over ANY legs
+// arriving as `any InferenceEngine`, and a test that named a concrete engine would weaken it. The
+// chain WITH the real remote leg is specified from the other side, in InferlensRemoteTests
+// (ADR-0013, Decision 6).
 
 import InferlensConformance
 import InferlensCore
@@ -16,11 +22,14 @@ final class FallbackEngineTests: XCTestCase {
     // MARK: - The chain is one more engine
 
     /// ADR-0010: "The conformance suite runs over the CHAIN, which passes via its real legs."
-    /// The stub sits last and is never consulted — exactly the shipping shape.
+    /// The unavailable leg sits last and is never consulted — exactly the shipping shape.
     func testTheChainConformsToTheContractAsOneMoreEngine() async throws {
         let chain = FallbackEngine(legs: [
             .init(engine: StubEngine(answering: .liteRT), backend: .liteRT),
-            .init(engine: RemoteStubEngine(), backend: .remote),
+            .init(
+                engine: FakeEngine(answering: .remote, loadError: .backendUnavailable),
+                backend: .remote
+            ),
         ])
         try await assertConformsToContract(chain)
     }
@@ -75,15 +84,18 @@ final class FallbackEngineTests: XCTestCase {
         }
     }
 
-    /// All legs failing to LOAD throws the LAST leg's error — here the stub's, so a total load
-    /// failure surfaces `.backendUnavailable` (the named cost recorded in ADR-0010).
+    /// All legs failing to LOAD throws the LAST leg's error — here the remote leg's, so a total
+    /// load failure surfaces `.backendUnavailable` (the named cost recorded in ADR-0010).
     func testAllLegsFailingToLoadThrowsTheLastLegsError() async throws {
         let chain = FallbackEngine(legs: [
             .init(
                 engine: FakeEngine(answering: .liteRT, loadError: .modelLoadFailed),
                 backend: .liteRT
             ),
-            .init(engine: RemoteStubEngine(), backend: .remote),
+            .init(
+                engine: FakeEngine(answering: .remote, loadError: .backendUnavailable),
+                backend: .remote
+            ),
         ])
         do {
             try await chain.loadModel()
@@ -169,26 +181,10 @@ final class FallbackEngineTests: XCTestCase {
         XCTAssertEqual(recovered.degradations, [], "a failed walk's hops must not leak forward")
     }
 
-    // MARK: - The remote stub's teeth
-
-    /// ADR-0010 Decision 1: `loadModel` throws primarily, and `classify` throws as
-    /// defense-in-depth — asserted separately, because the chain's walk only ever exercises the
-    /// load path.
-    func testTheRemoteStubThrowsFromBothEntryPoints() async throws {
-        let stub = RemoteStubEngine()
-        do {
-            try await stub.loadModel()
-            XCTFail("the stub's loadModel must throw")
-        } catch {
-            XCTAssertEqual(error, .backendUnavailable)
-        }
-        do {
-            _ = try await stub.classify(tinyBuffer())
-            XCTFail("the stub's classify must throw")
-        } catch {
-            XCTAssertEqual(error, .backendUnavailable)
-        }
-    }
+    // The remote leg's own teeth used to be asserted here, against `RemoteStubEngine`. That type
+    // is gone (ADR-0013, Decision 3) and the assertions moved with the leg, to
+    // `RemoteEngineTests.testAnUnconfiguredEngineThrowsFromLoadModel` and its `classify` pair —
+    // same two claims, now made about the engine that actually ships in that position.
 }
 
 // MARK: - The failing-on-cue leg
