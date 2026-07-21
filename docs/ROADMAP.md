@@ -2,7 +2,7 @@
 
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
-A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–36 are
+A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–37 are
 the build ladder.
 
 Progress is not tracked in this file — **git tags are**: `git tag -l 'rung-*'` is the
@@ -46,7 +46,9 @@ Design of record: [ADR-0001](adr/0001-module-boundaries.md) (module boundaries),
 invariant 6 never gave),
 [ADR-0008](adr/0008-latency-summary-boundary.md) (the latency-summary boundary),
 [ADR-0009](adr/0009-document-store-scope.md) (document-store scope),
-[ADR-0010](adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule).
+[ADR-0010](adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule),
+[ADR-0011](adr/0011-app-shell.md) (the app shell — the committed minimal project, and
+invariant 5 precised).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 
@@ -69,7 +71,7 @@ make bootstrap && xcodebuild build -destination 'generic/platform=iOS Simulator'
 
 CI (the CI rung) runs `make bootstrap` before the iOS test build. The README states it in one line.
 
-## The ladder (rungs 00–36)
+## The ladder (rungs 00–37)
 
 ```
 00 chore(repo): bootstrap toolchain, license, agent context
@@ -144,6 +146,9 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
 36 docs(readme): COMPLETE the README — fill the latency table with real runs, link the 20s
                video as a GitHub attachment (NEVER a tracked GIF — ADR-0007), publish docs/
                via GitHub Pages (the README itself lands at rung 01)
+37 build(app): the installable app shell — a committed minimal Xcode project at
+               App/Inferlens.xcodeproj wrapping the package (library products only; signing
+               stays the maintainer's; ADR-0011)
 ```
 
 **Split rule honored:** the conformance work splits into stub / suite / proofs / wiring
@@ -155,14 +160,14 @@ rung. The README is created at rung 01 and completed at rung 36 — not created 
 ## Phase map (groups the ladder into the six README phases; make readme-sync reads it)
 
 `make readme-sync` reads the lines below plus the `rung-*` tags to regenerate the README rung-status
-block — edit the grouping HERE, never in the README. Every rung 00–36 belongs to exactly one phase, and
+block — edit the grouping HERE, never in the README. Every rung 00–37 belongs to exactly one phase, and
 readme-sync fails loud if this map and the ladder ever disagree.
 
 <!-- phase-map:start -->
 - Foundation: 00 01 02 03 04 05 06 07 08
 - Supply chain: 09 13 14
 - Engines: 10 11 15 16 21 22
-- Measurement: 12 17 32 33 36
+- Measurement: 12 17 32 33 36 37
 - Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35
 - Hardening: 31
 <!-- phase-map:end -->

@@ -13,7 +13,8 @@ boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0007](docs/adr/0007-readme-media.md) (README media),
 [0008](docs/adr/0008-latency-summary-boundary.md) (the latency-summary boundary),
 [0009](docs/adr/0009-document-store-scope.md) (document-store scope),
-[0010](docs/adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule). Plan:
+[0010](docs/adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule),
+[0011](docs/adr/0011-app-shell.md) (the app shell, and invariant 5 precised). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -98,8 +99,18 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
    thrown from exactly one site, `CoreMLEngine`'s pixel-buffer allocation) — named here rather
    than implied. Recorded like the invariant-1, invariant-2 and RAII corrections; the
    equivalence argument in [ADR-0001](docs/adr/0001-module-boundaries.md) is corrected with it.
-5. **No CocoaPods.** The build is pure SPM. LiteRT is a checksum-pinned `binaryTarget`
-   (ADR-0002).
+5. **No CocoaPods — no second dependency manager of any kind. Dependency management is pure
+   SPM.** LiteRT is a checksum-pinned `binaryTarget` (ADR-0002). Precised at rung 37 the
+   recorded way (the "exactly one" → "at most one" precedent): the invariant's target was always
+   dependency management, and the earlier wording "The build is pure SPM" read as forbidding any
+   `.xcodeproj`, which over-restricted the principle — an app shell adds a run/install path, not
+   a dependency decision. The committed minimal project at `App/Inferlens.xcodeproj` (ADR-0011)
+   therefore fits inside the invariant: its dependencies still resolve through SPM against
+   `Package.swift`. What still fails review: a second dependency manager in any form, an
+   unpinned or checksum-less binary, and a package-resolution override inside the pbxproj (a
+   pinned revision, a fork URL, a replaced package) — the pbxproj is an app-shell artifact with
+   no say in dependencies. Recorded like the invariant-1/2/4 corrections; the fork and the
+   refused alternatives are in [ADR-0011](docs/adr/0011-app-shell.md).
 6. **No large binaries in git.** Models and the xcframework are checksum-pinned and
    fetched (`make bootstrap` / SPM), never committed. `*.mlmodel`, `*.mlpackage`,
    `*.tflite`, `*.xcframework` are git-ignored.
