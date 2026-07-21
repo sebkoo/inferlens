@@ -295,7 +295,7 @@ In the order a user meets them:
 | <img src="docs/media/state-06-result.png" width="430" alt="A result screen listing golden retriever 87.1 percent, Labrador retriever 6.2 percent and kuvasz 1.1 percent; answered by Core ML; cold p50/p95 214.0 / 232.0 ms over 1 run; warm p50/p95 23.0 / 31.0 ms over 12 runs; iPhone18,1 · iOS 26.1."> | **The result.** Top three with confidence, which engine answered, and p50/p95 split cold from warm with the run count beside each figure. **Every number in this picture was typed by hand** — see the note under the table. |
 
 *All six of these are rendered from fabricated values; no engine ran, nothing was written to the
-ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `270387d`.*
+ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `79b8d0b`.*
 
 *The sixth image needs saying twice, because numbers read as measurements in a way that a spinner does
 not. `214.0 / 232.0 ms`, `23.0 / 31.0 ms` and `12 runs` are invented values chosen to show the layout.
