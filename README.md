@@ -30,27 +30,34 @@ so a `CI | passing` badge would imply coverage that does not exist.*
 
 ## See it run
 
-Thirty seconds, one take, no cuts: launch, classify, thumbs, a second photo, export.
+Forty-three seconds, one take, no cuts: launch, classify, thumbs, a second photo, export.
 
-https://github.com/user-attachments/assets/05796cd4-0c9f-490e-ba37-d4111702110c
+https://github.com/user-attachments/assets/384752bb-9392-4903-83ae-7f1c339580f7
 
-*The player above is a compressed preview: the same 29.8 s take, re-encoded to fit GitHub's 10 MB
-inline ceiling — compressed, never cut (frame count and duration match the take). A preview
-carries no claim; the artifact of record is the release, one line below — the full take, and
-[the preview's own bytes](https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo-preview.mp4)
+*The player above is a compressed preview: the same 42.7 s take, re-encoded to fit GitHub's 10 MB
+inline ceiling — compressed, never cut (576 frames in, 576 frames out; the duration matches). A
+preview carries no claim; the artifact of record is the release, one line below — the full take,
+and
+[the preview's own bytes](https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/inferlens-shell-demo-preview.mp4)
 mirrored beside it, each with a sha256 digest recorded per asset on the release.*
 
-<a href="https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo.mp4"><img src="docs/media/demo-poster.png" width="300" alt="The running app showing a classified waterfall photo: three class labels with confidence, answered by TensorFlow Lite, cold and warm p50/p95 in milliseconds, and the line Simulator (iPhone18,1) · iOS 26.1 — a frame of the 30-second demo recording; the image links to the video."></a>
+<a href="https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/inferlens-shell-demo.mp4"><img src="docs/media/demo-poster.png" width="300" alt="The running app showing a classified waterfall photo: the words cliff, valley and castle, each with the model's output index beside it — 973, 980, 484 — and confidences of 65.4, 20.2 and 1.4 percent; answered by TensorFlow Lite; cold p50/p95 151.6 / 151.6 ms over 1 run; the line Simulator (iPhone18,1) · iOS 26.1; and an unselected thumbs row reading Was this right? — a frame of the 43-second demo recording; the image links to the video."></a>
 
 *A frame of
-[the 30-second recording](https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/inferlens-shell-demo.mp4)
+[the 43-second recording](https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/inferlens-shell-demo.mp4)
 — real runs through the installed app on the pinned simulator, one uninterrupted take: launch →
 classify → thumbs → a second photo → export, the NDJSON leaving through the share sheet
-([the exported rows](https://github.com/sebkoo/inferlens/releases/download/demo-sim-b1c8fbe/exported-runs.ndjson)).
-This is the first media on this page **not** rendered from fabricated values: an engine ran, and the
-rows it wrote are in that export. iPhone 17 Pro simulator (iPhone18,1), iOS 26.1, view code at
-`b1c8fbe`. Every number in the frame is a simulator number and its own row says so — no device has
-been measured, and the [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster)
+([the exported rows](https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/exported-runs.ndjson)).
+The taps are posted by a scripted pointer, which is why the pacing is even; the take itself is
+uninterrupted and uncut. This is the first media on this page **not** rendered from fabricated
+values: an engine ran, and the rows it wrote are in that export — two of them, one cold and one
+warm, and the first carries the thumbs-up pressed on screen. It is also the first take in which the
+result is a **word**: where the screen used to read `class 973` it reads `cliff` with `#973` beside
+it, and the exported row reads `cliff, drop, drop-off` where the previous export read `class 973`
+([ADR-0012](docs/adr/0012-label-table-provenance.md)). iPhone 17 Pro simulator (iPhone18,1),
+iOS 26.1, view code at `ac8d402`. Every number in the frame is a simulator number and its own row
+says so — no device has been measured, and the
+[comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster)
 below stays empty until one has ([Limitations](#limitations)). The video and the rows are release
 assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's provenance is
 [recorded beside it](docs/media/demo-poster-provenance.txt).*

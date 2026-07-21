@@ -4,14 +4,19 @@
 # holds the one image the render test did not draw, and the README caption is written from it
 # (ADR-0007, invariant 7).
 
-source: inferlens-shell-demo.mov — the 29.8 s uninterrupted simulator demo take, hosted as a
-        release asset at tag demo-sim-b1c8fbe (never tracked; ADR-0007 Decision 1)
-frame-at: 22.5 s
+source: inferlens-shell-demo.mov — the 42.7 s uninterrupted simulator demo take, hosted as a
+        release asset at tag demo-sim-ac8d402 (never tracked; ADR-0007 Decision 1). Taps in that
+        take were posted by a scripted pointer; one take, no cuts.
+frame-at: 16.0 s
 device: iPhone 17 Pro simulator
 model-identifier: iPhone18,1
 os: iOS 26.1
-view-code: b1c8fbe
+view-code: ac8d402
 processing: downscaled 1206x2622 -> 414x900; no crop, no quantization, no retouch, no compositing
 
 files:
-  demo-poster.png  414x900 px  221932 bytes
+  demo-poster.png  414x900 px  232871 bytes
+
+# Supersedes the poster taken from the demo-sim-b1c8fbe take (frame-at 22.5 s, view-code b1c8fbe,
+# 221932 bytes). That frame showed "class 973" where this one shows "cliff #973" — the whole
+# reason the take was re-recorded (rung 38, ADR-0012).
