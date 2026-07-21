@@ -15,7 +15,9 @@ boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0009](docs/adr/0009-document-store-scope.md) (document-store scope),
 [0010](docs/adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule),
 [0011](docs/adr/0011-app-shell.md) (the app shell, and invariant 5 precised),
-[0012](docs/adr/0012-label-table-provenance.md) (where the truth of index → label lives). Plan:
+[0012](docs/adr/0012-label-table-provenance.md) (where the truth of index → label lives),
+[0013](docs/adr/0013-remote-leg-realization.md) (what "real" means for the remote leg without a
+production server). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -29,13 +31,17 @@ at that sentence. A module that serves no clause of it is cut.
 
 ```
 app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
-         InferlensCoreML, InferlensLiteRT, InferlensFallback}  →  InferlensCore
+         InferlensCoreML, InferlensLiteRT, InferlensRemote,
+         InferlensFallback}  →  InferlensCore
 ```
 
 - `InferlensCore` depends on nothing. It is protocols + value types only.
-- Engines (`CoreML`, `LiteRT`) depend on Core, never on each other.
+- Engines (`CoreML`, `LiteRT`, `Remote`) depend on Core, never on each other. `InferlensRemote`
+  is the chain's third leg as a real `URLSession` engine over the wire contract ADR-0013
+  documents; it ships composed with NO endpoint, and no public endpoint ships.
 - The fallback chain (`InferlensFallback`) depends on Core only: legs arrive as the protocol,
-  so cross-engine work lives above the engines without naming one (ADR-0010).
+  so cross-engine work lives above the engines without naming one (ADR-0010) — including in its
+  own tests, which is why the remote leg moved out of that module (ADR-0013).
 - `InferlensUI` depends on Core's types and the engine *protocol*, never a concrete engine.
 - The app target is thin: composition only.
 - A CI dependency-lint fails any arrow pointing back toward an engine or into Core.
@@ -128,7 +134,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
 - Every commit is green: `make bootstrap` plus the simulator suite via `bash scripts/test-clean.sh`
-  (a fresh `-derivedDataPath` per run; 163 tests counted, 162 run, 1 skipped on the pinned
+  (a fresh `-derivedDataPath` per run; 175 tests counted, 174 run, 1 skipped on the pinned
   iPhone 17 Pro / iOS 26.1) pass. The skipped one is the screenshot renderer, which writes files
   only when asked — and a count is a fact about a tree and a simulator, so it is stated with both
   rather than as a bare number. `make lint` and `make test` are still stubs that

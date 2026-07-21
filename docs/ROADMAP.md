@@ -2,7 +2,7 @@
 
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
-A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–38 are
+A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–39 are
 the build ladder.
 
 Progress is not tracked in this file — **git tags are**: `git tag -l 'rung-*'` is the
@@ -48,7 +48,10 @@ invariant 6 never gave),
 [ADR-0009](adr/0009-document-store-scope.md) (document-store scope),
 [ADR-0010](adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule),
 [ADR-0011](adr/0011-app-shell.md) (the app shell — the committed minimal project, and
-invariant 5 precised).
+invariant 5 precised),
+[ADR-0012](adr/0012-label-table-provenance.md) (where the truth of index → label lives),
+[ADR-0013](adr/0013-remote-leg-realization.md) (what "real" means for the remote leg without a
+production server).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 
@@ -71,7 +74,7 @@ make bootstrap && xcodebuild build -destination 'generic/platform=iOS Simulator'
 
 CI (the CI rung) runs `make bootstrap` before the iOS test build. The README states it in one line.
 
-## The ladder (rungs 00–38)
+## The ladder (rungs 00–39)
 
 ```
 00 chore(repo): bootstrap toolchain, license, agent context
@@ -158,6 +161,17 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
                count, eight spot-checks against upstream TensorFlow's published output, and a
                fixture photograph whose subject is known by looking at it. One table, both
                engines; `class N` stays the explicit fallback (ADR-0012)
+39 feat(remote): the chain's third leg becomes provable code — the thesis's backend choice becomes
+               real. "Choose next model/backend" is only a choice if a remote backend EXISTS; until
+               now the leg was a stub whose whole contract was one thrown error, so the sentence
+               named an option nothing could take. The leg is now a URLSession engine over a wire
+               contract documented as the API's source of truth, and it is proven the way ADR-0010
+               said a remote leg would have to be — against a local test server the suite stands up
+               (an NWListener loopback fixture; Network is a system framework, so no dependency is
+               added and invariant 5 is untouched). It passes the same engine-agnostic conformance
+               suite as the two on-device engines, which the stub explicitly could not. Composed
+               with NO endpoint it throws exactly as the stub did, so nothing users see changes and
+               no public endpoint ships (ADR-0013)
 ```
 
 **Split rule honored:** the conformance work splits into stub / suite / proofs / wiring
@@ -169,13 +183,13 @@ rung. The README is created at rung 01 and completed at rung 36 — not created 
 ## Phase map (groups the ladder into the six README phases; make readme-sync reads it)
 
 `make readme-sync` reads the lines below plus the `rung-*` tags to regenerate the README rung-status
-block — edit the grouping HERE, never in the README. Every rung 00–38 belongs to exactly one phase, and
+block — edit the grouping HERE, never in the README. Every rung 00–39 belongs to exactly one phase, and
 readme-sync fails loud if this map and the ladder ever disagree.
 
 <!-- phase-map:start -->
 - Foundation: 00 01 02 03 04 05 06 07 08
 - Supply chain: 09 13 14
-- Engines: 10 11 15 16 21 22
+- Engines: 10 11 15 16 21 22 39
 - Measurement: 12 17 32 33 36 37
 - Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35 38
 - Hardening: 31
@@ -238,6 +252,52 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   building what its own subject presupposes. Recorded rather than silently reworded; the declining
   paragraph in ADR-0009 stands, annotated. Full reasoning:
   [ADR-0012](adr/0012-label-table-provenance.md), Decision 4.
+
+- Rung 39 landed before 30–36, and it is the ladder's own future being executed rather than a new
+  idea. [ADR-0010](adr/0010-remote-leg-scope.md) recorded a real remote endpoint as the option NOT
+  taken and named exactly what would unblock it — "a local test server in the suite is provable; a
+  hardcoded third-party URL is not". That condition became satisfiable with no new dependency, so
+  the rung is the earlier ADR's own standard being met, not a scope increase. It is placed in the
+  Engines phase, beside the two rungs that built the other legs.
+
+  The technical reason it did not wait: the thesis's sixth clause is *choose next model/backend*,
+  and until this rung the chain's third position held a leg whose entire contract was one thrown
+  error. A choice with one available option is not a choice, so the clause named something the repo
+  could not do. Nothing downstream is blocked by that — but every rung that cites the loop was
+  citing a sentence with a hole in it, and the hole was cheaper to close than to keep annotating.
+
+  **One prediction in ADR-0010 did not survive, which is the more useful half.** That ADR expected a
+  real endpoint to bring "timeout-shaped degradation reasons". It brings none: a timeout produces no
+  result, and a degradation is something a result carries. The question was forced into the open by
+  a constraint nobody had looked at — `run_degradations` pins its `kind` column with
+  `CHECK (kind IN ('thermallyThrottled', 'fellBack'))` in migration v1, and SQLite cannot `ALTER` a
+  CHECK — so a new reason case meant a v3 table rebuild under append-only triggers. Verifying that
+  turned a preference into a decision with a cost attached, and the decision went the other way from
+  the prediction. [ADR-0013](adr/0013-remote-leg-realization.md), Decision 4.
+
+## Finding, recorded against a shared preprocessing seam — the resize now exists three times
+
+Rung 39 surfaced this by adding the third copy, knowingly, rather than by discovering it.
+
+> `LiteRTEngine`, `CoreMLEngine` and now `RemoteEngine` each carry their own `vImageScale` +
+> RGB-extraction + normalization path. The three are deliberately identical — three engines that
+> resized differently would be a benchmark confound (BENCHMARK_METHOD.md), which is the whole reason
+> the new one was copied rather than improvised. Identical-by-discipline is exactly the arrangement
+> that drifts.
+
+It was not extracted at this rung on the split rule. A shared preprocessing seam touches the
+**measured `preprocess` brackets of two already-shipped engines**, and invariant 1 puts those under
+review at the diff; folding that into a rung whose subject is a new leg would put an
+engine-measurement change inside a networking commit, where nobody is looking for it. It is also
+not obviously a module: Core cannot host it (Core depends on nothing, and this needs Accelerate), so
+the seam is either a tenth module or a shared internal target, and that is a boundary decision with
+an ADR's weight rather than a refactor.
+
+What makes it recordable rather than a nit: the failure mode is silent. A change to one copy leaves
+the other two compiling, passing, and measuring a different image — and no gate in this repo
+compares the three. Until the seam lands, the standing manual step is: **a change to any engine's
+resize or normalization is a change to all three**, and the conformance suite will not tell you
+otherwise.
 
 ## Product finding, recorded against rung 24 — two states look identical and mean different things
 

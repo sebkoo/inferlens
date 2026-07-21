@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-24%2F39-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-25%2F40-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
@@ -63,8 +63,8 @@ assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's 
 [recorded beside it](docs/media/demo-poster-provenance.txt).*
 
 Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
-typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 163
-tests counted, 162 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured at `ac8d402`
+typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 175
+tests counted, 174 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured at `fc30a50`
 via [`test-clean`](scripts/test-clean.sh) — and nothing automated builds or tests on push until
 rung 31; the
 [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) is empty because no
@@ -121,13 +121,24 @@ Two lists, so no one has to guess which half of the repo they are reading.
   latency is the device-only rung-32 bench.
 - The fallback chain — [`FallbackEngine`](Sources/InferlensFallback/FallbackEngine.swift), a
   chain of engines that is itself an engine, so the conformance suite runs over it too
-  ([the spec](Tests/InferlensFallbackTests/FallbackEngineTests.swift), 9 tests). The chain is
+  ([the spec](Tests/InferlensFallbackTests/FallbackEngineTests.swift), 8 tests). The chain is
   data walked in order; hops are derived from the walk, one `fellBack` per adjacent pair above
-  the leg that answered — the same ordinal shape the ledger row stores. Its remote leg is an
-  [always-throwing stub](Sources/InferlensFallback/RemoteStubEngine.swift): no fabricated result
-  can ever enter the ledger, and a step-down's on-demand load is reported as the fallback
-  backend's cold run under the rung-12 boundary — both maintainer-decided in
-  [ADR-0010](docs/adr/0010-remote-leg-scope.md).
+  the leg that answered — the same ordinal shape the ledger row stores. A step-down's on-demand
+  load is reported as the fallback backend's cold run under the rung-12 boundary, maintainer-decided
+  in [ADR-0010](docs/adr/0010-remote-leg-scope.md).
+- The third leg — [`RemoteEngine`](Sources/InferlensRemote/RemoteEngine.swift), a `URLSession` actor
+  over a wire contract documented as the API's source of truth
+  ([ADR-0013](docs/adr/0013-remote-leg-realization.md)): the client preprocesses and sends the
+  tensor, so `preprocess` and `infer` stay separable and `infer` is the round trip alone. It passes
+  the same engine-agnostic conformance suite as the two on-device engines, against a real loopback
+  server the test target stands up
+  ([the spec](Tests/InferlensRemoteTests/RemoteEngineTests.swift),
+  [the server](Tests/InferlensRemoteTests/LoopbackServer.swift)) — `Network` is a system framework,
+  so the leg adds no dependency. The timeout is proven against a socket that accepts and never
+  answers, which is the one path `URLProtocol` interception cannot prove without fabricating it.
+  **No public endpoint ships**: the app composes the leg with no URL, where it throws
+  `.backendUnavailable` from `loadModel()` and no fabricated result can enter the ledger. Pointing
+  it somewhere is one argument at [the composition line](Sources/InferlensApp/InferlensApp.swift).
 - The latency aggregation — [`LatencyRecorder`](Sources/InferlensBench/LatencyRecorder.swift): p50/p95
   over cold and warm runs by nearest-rank, pinned by 10 property tests
   ([the spec](Tests/InferlensBenchTests/LatencyRecorderTests.swift)). It aggregates the numbers; the
@@ -171,9 +182,9 @@ Two lists, so no one has to guess which half of the repo they are reading.
   embedded in append order, byte-identical on re-export
   ([the spec](Tests/InferlensStoreTests/LedgerExportTests.swift)).
 - The app — [a thin composition](Sources/InferlensApp/InferlensApp.swift): it composes the
-  fallback chain (LiteRT leading, Core ML behind it, the remote stub last — one swappable
-  assignment at a documented line), picks each ledger row's model descriptor from the backend
-  that actually answered (ADR-0010), opens the ledger, hands the
+  fallback chain (LiteRT leading, Core ML behind it, the remote leg last and unconfigured — one
+  swappable assignment at a documented line), picks each ledger row's model descriptor from the
+  backend that actually answered (ADR-0010), opens the ledger, hands the
   screen the one summarize closure (ADR-0008) and the run/signal sink, and offers the NDJSON export
   from the toolbar. It builds for the simulator inside the suite run, and it installs and runs as
   a real `.app` through the committed shell
@@ -325,13 +336,14 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [x] 13 build(litert): produce & publish the vendored TensorFlowLiteC.xcframework release — extract from the dl.google.com archive; read Info.plist AvailableLibraries and ASSERT ios-arm64_x86_64-simulator FIRST; re-zip; tag GitHub release
 - [x] 14 build(litert): declare binaryTarget(url:checksum:) + simulator link smoke test
 
-**Engines** — 3/6 landed
+**Engines** — 4/7 landed
 - [x] 10 feat(coreml): CoreMLEngine over the fetched FP16 .mlmodel, conforms to the contract
 - [ ] 11 perf(coreml): OSSignposter spans around load / preprocess / infer
 - [x] 15 feat(litert): LiteRTEngine over the C API — actor-isolated, ONE @unchecked Sendable boundary (required to compile under strict concurrency); uses FP32 .tflite
 - [ ] 16 ci(litert): document the Sendable boundary + CI lint enforcing AT MOST ONE @unchecked-Sendable (the on-actor rung-15 engine ships ZERO; ADR-0005) + a strict-concurrency data-race test
 - [x] 21 feat(engine): fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)
 - [ ] 22 refactor(engine): engine actor; cancel in-flight Tasks when input changes
+- [x] 39 feat(remote): the chain's third leg becomes provable code — the thesis's backend choice becomes real. "Choose next model/backend" is only a choice if a remote backend EXISTS; until now the leg was a stub whose whole contract was one thrown error, so the sentence named an option nothing could take. The leg is now a URLSession engine over a wire contract documented as the API's source of truth, and it is proven the way ADR-0010 said a remote leg would have to be — against a local test server the suite stands up (an NWListener loopback fixture; Network is a system framework, so no dependency is added and invariant 5 is untouched). It passes the same engine-agnostic conformance suite as the two on-device engines, which the stub explicitly could not. Composed with NO endpoint it throws exactly as the stub did, so nothing users see changes and no public endpoint ships (ADR-0013)
 
 **Measurement** — 2/6 landed
 - [x] 12 feat(bench): LatencyRecorder — p50/p95 over cold/warm (agent-written, maintainer-decided; nearest-rank + no-discard policy ratified and documented at the code)
@@ -503,6 +515,13 @@ reachable, those two *reasons* are not yet.
 
 Read these before the plan.
 
+- **The remote leg is real code with no server behind it.**
+  [`RemoteEngine`](Sources/InferlensRemote/RemoteEngine.swift) implements the wire contract
+  [ADR-0013](docs/adr/0013-remote-leg-realization.md) documents and is proven against a loopback
+  server the test suite stands up. **No public endpoint ships**, the app composes the leg with no
+  URL, and this repo makes no claim about any remote service's accuracy, latency, or availability.
+  The loopback fixture is not an inference server: it answers a fixed synthetic response and never
+  reads the tensor, so no number it returns is a measurement of anything.
 - **An ecosystem comparison, not a controlled runtime benchmark.** The two MobileNetV2
   models have different weights and different native precision — Apple's is FP16, Google's
   is FP32 — and Core ML may execute at FP16 on the Neural Engine regardless. The precision
