@@ -2,7 +2,7 @@
 
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
-A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–37 are
+A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–38 are
 the build ladder.
 
 Progress is not tracked in this file — **git tags are**: `git tag -l 'rung-*'` is the
@@ -71,7 +71,7 @@ make bootstrap && xcodebuild build -destination 'generic/platform=iOS Simulator'
 
 CI (the CI rung) runs `make bootstrap` before the iOS test build. The README states it in one line.
 
-## The ladder (rungs 00–37)
+## The ladder (rungs 00–38)
 
 ```
 00 chore(repo): bootstrap toolchain, license, agent context
@@ -149,6 +149,15 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
 37 build(app): the installable app shell — a committed minimal Xcode project at
                App/Inferlens.xcodeproj wrapping the package (library products only; signing
                stays the maintainer's; ADR-0011)
+38 feat(labels): index -> word, so the thumbs signal is judgeable — the loop's human surface.
+               The screen showed `class 973`, an ImageNet index nobody can judge, so the signal
+               measured plausibility rather than correctness. The table is DERIVED at bootstrap
+               from the pinned Apple .mlmodel's own embedded 1001-entry label vector (never a web
+               list: those are 1000 entries with no background class, and the off-by-one puts a
+               confident wrong word under the thumbs button). Ordering is proved three ways —
+               count, eight spot-checks against upstream TensorFlow's published output, and a
+               fixture photograph whose subject is known by looking at it. One table, both
+               engines; `class N` stays the explicit fallback (ADR-0012)
 ```
 
 **Split rule honored:** the conformance work splits into stub / suite / proofs / wiring
@@ -160,7 +169,7 @@ rung. The README is created at rung 01 and completed at rung 36 — not created 
 ## Phase map (groups the ladder into the six README phases; make readme-sync reads it)
 
 `make readme-sync` reads the lines below plus the `rung-*` tags to regenerate the README rung-status
-block — edit the grouping HERE, never in the README. Every rung 00–37 belongs to exactly one phase, and
+block — edit the grouping HERE, never in the README. Every rung 00–38 belongs to exactly one phase, and
 readme-sync fails loud if this map and the ladder ever disagree.
 
 <!-- phase-map:start -->
@@ -168,7 +177,7 @@ readme-sync fails loud if this map and the ladder ever disagree.
 - Supply chain: 09 13 14
 - Engines: 10 11 15 16 21 22
 - Measurement: 12 17 32 33 36 37
-- Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35
+- Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35 38
 - Hardening: 31
 <!-- phase-map:end -->
 
@@ -210,6 +219,25 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   numbers (33), the demo video (36) — require an installable app, and nothing in 30–36 is a
   prerequisite for the shell. That is the whole reason; the decision record is
   [ADR-0011](adr/0011-app-shell.md), and the launchability raise below records the closure.
+
+- Rung 38 landed before 30–36, and its number is the point of the exercise. The rung fixes a defect
+  in the **thesis**, not in a view: the loop's third clause is *capture signal (thumbs)*, and a
+  signal captured against `class 973` measures how plausible the app felt rather than whether it was
+  right. Every rung downstream that reads the ledger — the export's offline eval, the agreement
+  measurement — would otherwise be built on signal rows nobody could have judged. It is also a
+  prerequisite for the demo the README's completion wants: a video of someone approving `class 973`
+  demonstrates the wrong thing.
+
+  **Ownership was corrected before the rung was written, exactly as at rung 37.**
+  [ADR-0009](adr/0009-document-store-scope.md) had named the label table "the one candidate that is
+  real" for the document store and then declined it, assigning the reconciliation to the cross-model
+  agreement rung. Declining was right; the destination was wrong, twice over. The table is not a
+  document-store subject — nothing about it is a document, a cache, or a per-model record — and it is
+  not the agreement rung's either, because that rung MEASURES disagreement and needs a shared
+  vocabulary to express one in. Giving it away would have made the agreement rung's first task
+  building what its own subject presupposes. Recorded rather than silently reworded; the declining
+  paragraph in ADR-0009 stands, annotated. Full reasoning:
+  [ADR-0012](adr/0012-label-table-provenance.md), Decision 4.
 
 ## Product finding, recorded against rung 24 — two states look identical and mean different things
 
@@ -286,6 +314,55 @@ belongs to the composition (refresh after the pending append completes, not mere
 change); recorded here rather than patched at this rung — the shell rung ships a run/install
 path, not a behavior change.
 
+## Finding, recorded against the Core ML engine — a class is lost, and a dictionary loses it
+
+Rung 38 surfaced this. Same genre as the `warming`, `.reset` and export-race findings — found by
+using the thing, invisible to every gate — with one difference: this one was invisible because
+nothing could COUNT it until the label table arrived.
+
+> `CoreMLEngine` reads its results from `classLabelProbs`, which Core ML hands back as a
+> `[String: probability]` DICTIONARY keyed by label. The model has **1001** output positions but only
+> **1000** distinct label strings, because `"crane"` is the label of both index 135 (the bird) and
+> index 518 (the machine). Two positions collapse onto one key: one probability never reaches the
+> engine, with no error, and not deterministically the same one. That engine has always returned 1000
+> classifications, not 1001.
+
+It could not have been noticed before. A count nobody took, over two classes nobody could tell apart
+— both were the string `"crane"`, so even reading the output by hand would have shown one plausible
+row. The table made the count checkable (1001 positions against 1000 distinct labels), and the
+assertion that was written to say "the model emits one probability per table row" failed with
+`("1000") is not equal to ("1001")`. The test was wrong and the finding was real, which is the useful
+kind of failure.
+
+The fix is to read the raw output vector positionally instead of the label dictionary — a change to
+how the engine talks to Core ML, not a labelling change, so it is recorded here rather than done at
+the labelling rung. Meanwhile the number is asserted in `CoreMLLabelTests` and stated at the code in
+`CoreMLEngine.classifications`, so it is a documented property rather than a surprise waiting for
+whoever next compares the two engines' output lengths.
+
+Worth naming for the general lesson, which is the inverse of the recurring defect below: that one is
+a check whose SCOPE excludes the failure. This is a failure no check could have had in scope, because
+the vocabulary needed to state it did not exist yet. Adding a fact to a system sometimes makes an old
+silence audible.
+
+## Finding, recorded against the agreement rung — the index is not in the ledger
+
+`Classification` gained an `index` at rung 38: the model's own output position, which is its raw
+identity for a class where the word is a rendering of it. The screen shows it. **The ledger does
+not** — no column, no migration, and the NDJSON export is byte-identical with and without an index on
+the value type (asserted in `LedgerExportTests`, stated as data rather than as a snapshot).
+
+That is a deferral with a reason, not an oversight. The ledger records the fact a person judged — the
+word they saw — and a schema migration needs a caller. The first thing that would want one is the
+cross-model agreement rung: comparing two models by label string is comparing renderings, and
+`"cornet"` against `"cornet, horn, trumpet, trump"` is a formatting difference dressed as a
+disagreement. Index-keyed comparison is the right shape for that rung, and it should add the column
+when it needs it rather than have one waiting for it.
+
+The consequence to know meanwhile: a `Classification` read back out of a ledger row has `index ==
+nil` even when the one written had an index. Round-tripping is lossy in exactly that field, and it is
+documented at the property.
+
 ## Harness backlog — a standing shell-build gate (recorded at rung 37)
 
 The shell's proof at this rung is manual: `xcodebuild build` against `App/Inferlens.xcodeproj`
@@ -324,10 +401,17 @@ half and record the decision. **The decision not to duplicate is worth as much a
 is an ADR either way.
 
 The one candidate visible from here is the **ImageNet label table**: `MODEL_PROVENANCE.md` records
-that the raw `.tflite` carries no embedded label strings, so `LiteRTEngine` labels classes by index
-while the Apple side carries real strings. That is a genuine gap none of the three fills — but the
-same document assigns the reconciliation to **rung 17** (cross-model agreement), not to 19, so
-claiming it here would take a rung's subject from another rung rather than justify this one.
+that the raw `.tflite` carries no embedded label strings, so the LiteRT engine named classes
+positionally while the Apple side carried real strings. That is a genuine gap none of the three fills
+— but the same document assigns the reconciliation to **rung 17** (cross-model agreement), not to 19,
+so claiming it here would take a rung's subject from another rung rather than justify this one.
+
+*(True when recorded, and both halves have since moved. The gap was closed at rung 38, not by a
+document store: the table is derived from the pinned `.mlmodel` and lives on the model path. The
+rung-17 attribution was wrong for the reason given in [ADR-0012](adr/0012-label-table-provenance.md),
+Decision 4 — the agreement rung needs a shared vocabulary to express a disagreement in, so it cannot
+also be the rung that builds one. The paragraph stands as the reasoning that was available then;
+this rung's keyed claims-audit is what caught the stale present tense in it.)*
 
 Scope, and what this finding did NOT read: it compares what the three sources *record*. It does not
 survey NoSQL options, does not say what shape a store should take if one is built, and says nothing

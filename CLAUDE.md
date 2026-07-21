@@ -14,7 +14,8 @@ boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0008](docs/adr/0008-latency-summary-boundary.md) (the latency-summary boundary),
 [0009](docs/adr/0009-document-store-scope.md) (document-store scope),
 [0010](docs/adr/0010-remote-leg-scope.md) (the remote leg and the chain's cold rule),
-[0011](docs/adr/0011-app-shell.md) (the app shell, and invariant 5 precised). Plan:
+[0011](docs/adr/0011-app-shell.md) (the app shell, and invariant 5 precised),
+[0012](docs/adr/0012-label-table-provenance.md) (where the truth of index → label lives). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -127,7 +128,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
 - Every commit is green: `make bootstrap` plus the simulator suite via `bash scripts/test-clean.sh`
-  (a fresh `-derivedDataPath` per run; 142 tests counted, 141 run, 1 skipped on the pinned
+  (a fresh `-derivedDataPath` per run; 163 tests counted, 162 run, 1 skipped on the pinned
   iPhone 17 Pro / iOS 26.1) pass. The skipped one is the screenshot renderer, which writes files
   only when asked — and a count is a fact about a tree and a simulator, so it is stated with both
   rather than as a bare number. `make lint` and `make test` are still stubs that
