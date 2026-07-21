@@ -247,6 +247,69 @@ public actor RunLedger {
         }
     }
 
+    // MARK: - Signals
+
+    /// Append one thumbs signal for a run this ledger already holds. Returns the id the ledger
+    /// assigned it.
+    ///
+    /// A single INSERT, auto-committed — no explicit transaction, because unlike `append(_:)`
+    /// there are no child rows to keep atomic with it. The foreign key is live
+    /// (`PRAGMA foreign_keys` in `open()`), so a signal naming a run the ledger never recorded is
+    /// refused as `.appendFailed`, not stored as a dangling opinion.
+    ///
+    /// A SECOND signal for the same run appends a superseding row. The duplicate policy and its
+    /// read rule — highest id wins — are recorded at the schema (`run_signals`' DDL), which is
+    /// also where the export's obligation to carry the superseded rows is stated.
+    ///
+    /// `recordedAt` is caller-supplied so a test can pin it — `RunRecord`'s own convention.
+    @discardableResult
+    public func appendSignal(
+        runID: Int64,
+        verdict: SignalVerdict,
+        recordedAt: Date
+    ) throws(LedgerError) -> Int64 {
+        guard let connection else { throw .notOpen }
+
+        let statement = try connection.prepare(
+            "INSERT INTO run_signals (run_id, recorded_at_ms, verdict) VALUES (?, ?, ?)",
+            orThrow: .appendFailed
+        )
+        try statement.bind(runID, at: 1, orThrow: .appendFailed)
+        try statement.bind(LedgerCodec.epochMilliseconds(recordedAt), at: 2, orThrow: .appendFailed)
+        try statement.bind(LedgerCodec.encode(verdict), at: 3, orThrow: .appendFailed)
+        guard try statement.step(orThrow: .appendFailed) == false else { throw .appendFailed }
+        return connection.lastInsertedRowID
+    }
+
+    /// Every signal for one run, in append order (ascending id). Under the schema's read rule the
+    /// LAST element is therefore the current verdict; the earlier ones are its history — data the
+    /// export carries, not noise.
+    public func signals(forRun runID: Int64) throws(LedgerError) -> [RunSignal] {
+        guard let connection else { throw .notOpen }
+
+        let statement = try connection.prepare(
+            """
+            SELECT id, recorded_at_ms, verdict FROM run_signals
+            WHERE run_id = ? ORDER BY id ASC
+            """,
+            orThrow: .readFailed
+        )
+        try statement.bind(runID, at: 1, orThrow: .readFailed)
+
+        var results: [RunSignal] = []
+        while try statement.step(orThrow: .readFailed) {
+            results.append(
+                RunSignal(
+                    id: statement.int64(at: 0),
+                    runID: runID,
+                    recordedAt: LedgerCodec.date(epochMilliseconds: statement.int64(at: 1)),
+                    verdict: try LedgerCodec.decodeVerdict(statement.text(at: 2))
+                )
+            )
+        }
+        return results
+    }
+
     // MARK: - Read
 
     /// The most recent `limit` runs, newest first, each with its classifications and degradations.

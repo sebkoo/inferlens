@@ -91,10 +91,10 @@ final class RunLedgerSmokeTests: XCTestCase {
     func testAFreshDatabaseMigratesToTheLatestSchemaVersion() async throws {
         let ledger = RunLedger(location: .inMemory)
         try await ledger.open()
-        // 1 is the version this rung ships. A later rung appending a migration moves this number,
-        // which is the point of asserting it: the ladder step must be deliberate.
+        // 2 since the thumbs-signal migration. A later rung appending a migration moves this
+        // number, which is the point of asserting it: the ladder step must be deliberate.
         let version = try await ledger.schemaVersion()
-        XCTAssertEqual(version, 1)
+        XCTAssertEqual(version, 2)
     }
 
     func testOpenIsIdempotent() async throws {
@@ -102,7 +102,7 @@ final class RunLedgerSmokeTests: XCTestCase {
         try await ledger.open()
         try await ledger.open()
         let version = try await ledger.schemaVersion()
-        XCTAssertEqual(version, 1)
+        XCTAssertEqual(version, 2)
     }
 
     func testCallsBeforeOpenAreATypedErrorNotATrap() async throws {

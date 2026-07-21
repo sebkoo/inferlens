@@ -42,19 +42,30 @@ struct Migration: Sendable {
 // MARK: - Schema
 
 enum LedgerSchema {
-    /// The tables the append-only triggers guard. Kept beside the migration that creates them so a
-    /// new table cannot be added without a matching pair of triggers being noticed.
-    static let appendOnlyTables = ["runs", "run_classifications", "run_degradations"]
+    /// The tables the append-only triggers guard, PER MIGRATION. Each migration generates triggers
+    /// for exactly the tables it creates: growing an earlier migration's list would edit its
+    /// shipped statement list (a trigger on a table that does not exist yet aborts migration 1 on
+    /// every fresh file), which is precisely the divergence the rule below forbids. A test pins
+    /// migration 1 to never name `run_signals` for this reason.
+    static let version1AppendOnlyTables = ["runs", "run_classifications", "run_degradations"]
+    static let version2AppendOnlyTables = ["run_signals"]
+
+    /// Every guarded table in the file — the whole-file property a reader checks by opening it.
+    /// Checked structurally, not narrated: a test walks `sqlite_master` and asserts every user
+    /// table carries both triggers, so the file-level guarantee cannot quietly decay to per-table
+    /// (the decay ADR-0009 records as the reason the flag cache lives elsewhere).
+    static var appendOnlyTables: [String] { version1AppendOnlyTables + version2AppendOnlyTables }
 
     /// The highest version this build knows. A file above it is `LedgerError.schemaTooNew`.
     static var latestVersion: Int { migrations.map(\.version).max() ?? 0 }
 
     /// The version ladder, ascending. Migrations are only ever APPENDED — an already-shipped
     /// migration is never edited, because a file that has run it will not run it again and the two
-    /// would silently diverge. The thumbs signal, when it lands, is version 2: a new table, appended
-    /// here, not a column bolted onto `runs`.
+    /// would silently diverge. The thumbs signal landed exactly the way the plan for it was written
+    /// down here: version 2 is a new table appended below, not a column bolted onto `runs`.
     static let migrations: [Migration] = [
         Migration(version: 1, statements: version1Statements),
+        Migration(version: 2, statements: version2Statements),
     ]
 
     private static let version1Statements: [String] = [
@@ -162,7 +173,50 @@ enum LedgerSchema {
         // and the screen will make. The runs index serves the first; the children's composite
         // primary keys already serve the second.
         "CREATE INDEX runs_by_recorded_at ON runs (recorded_at_ms DESC)",
-    ] + appendOnlyTriggers(for: appendOnlyTables)
+    ] + appendOnlyTriggers(for: version1AppendOnlyTables)
+
+    private static let version2Statements: [String] = [
+        // MARK: run_signals — the thumbs signal, one row per judgement
+        //
+        // A separate APPEND-ONLY table, not a column on `runs`: a signal arrives after its run, a
+        // run row is immutable, so the signal references the run and never mutates it.
+        //
+        // THE DUPLICATE POLICY, decided here where the schema is defined. A second judgement on
+        // the same run APPENDS A SUPERSEDING ROW — the table is append-only, so overwrite is
+        // impossible, and refusal would make a mis-tap permanent while losing the fact that a
+        // person changed their mind, which is itself signal. THE READ RULE: for one `run_id`, the
+        // row with the HIGHEST `id` is the current verdict; earlier rows are its history. Two
+        // riders bind the rule so it cannot rot into prose: (1) it is enforced by a test — two
+        // taps, the later row wins — not only stated here; (2) the export carries the superseded
+        // rows too, in append order, so a reader of one exported line takes the LAST element of
+        // `signals` as the verdict. The history this policy preserves must survive the export
+        // boundary, or preserving it here was theatre.
+        """
+        CREATE TABLE run_signals (
+            -- Append order, and the winner rule's axis: AUTOINCREMENT so an id is never reused
+            -- and "highest id" always means "latest judgement".
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            -- The run being judged. The connection's foreign_keys pragma enforces it: a signal
+            -- for a run the ledger never recorded is refused, not stored as a dangling opinion.
+            run_id         INTEGER NOT NULL REFERENCES runs(id),
+
+            -- Wall clock of the judgement, same convention as runs.recorded_at_ms. A signal can
+            -- arrive minutes after its run; this is when the person decided, not when the run ran.
+            recorded_at_ms INTEGER NOT NULL,
+
+            -- The judgement, in LedgerCodec's stored tokens.
+            verdict        TEXT    NOT NULL,
+
+            CHECK (verdict IN ('up', 'down'))
+        )
+        """,
+
+        // The two reads this rung and the export make are both "the signals of this run, in append
+        // order". The index serves them; the explicit ORDER BY every query still carries is the
+        // contract, the index is only why honouring it costs no sort step.
+        "CREATE INDEX run_signals_by_run ON run_signals (run_id)",
+    ] + appendOnlyTriggers(for: version2AppendOnlyTables)
 
     /// The append-only enforcement, generated per table so a table can never acquire one trigger and
     /// not the other. `RAISE(ABORT, …)` fails the statement and rolls back its transaction; the

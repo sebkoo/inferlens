@@ -94,6 +94,23 @@ enum LedgerCodec {
         }
     }
 
+    // MARK: - Signal verdict
+
+    static func encode(_ verdict: SignalVerdict) -> String {
+        switch verdict {
+        case .up: "up"
+        case .down: "down"
+        }
+    }
+
+    static func decodeVerdict(_ token: String?) throws(LedgerError) -> SignalVerdict {
+        switch token {
+        case "up": .up
+        case "down": .down
+        default: throw .unreadableRow
+        }
+    }
+
     // MARK: - Duration
 
     /// `Duration` -> whole nanoseconds. Saturating rather than trapping: a ledger append must not

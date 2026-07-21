@@ -136,6 +136,29 @@ public struct LedgerRun: Sendable {
     }
 }
 
+// MARK: - What one signal records
+
+/// A thumbs signal read back out of the ledger: the judgement, the run it judges, and the id the
+/// database assigned it.
+///
+/// The id is data, not plumbing. Signals are append-only and a run may carry several; the schema's
+/// read rule (recorded at `run_signals`' DDL) says the HIGHEST id is the current verdict and the
+/// earlier rows are its history. Carrying the id is what lets a caller apply that rule instead of
+/// trusting an array order it did not produce.
+public struct RunSignal: Sendable, Equatable {
+    public let id: Int64
+    public let runID: Int64
+    public let recordedAt: Date
+    public let verdict: SignalVerdict
+
+    public init(id: Int64, runID: Int64, recordedAt: Date, verdict: SignalVerdict) {
+        self.id = id
+        self.runID = runID
+        self.recordedAt = recordedAt
+        self.verdict = verdict
+    }
+}
+
 // MARK: - Failure
 
 /// The only error this module throws. No `sqlite3` result code crosses the boundary — the same rule
