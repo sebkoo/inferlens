@@ -12,6 +12,16 @@ let package = Package(
     name: "Inferlens",
     platforms: [
         .iOS(.v26),
+        // The app is iOS-only; this line exists for `inferlens-eval`, the offline-eval CLI, which
+        // has to RUN on a developer's machine. Without a macOS minimum the host build fails on
+        // iOS-era stdlib — "'Duration' is only available in macOS 13.0 or newer" — which is the
+        // failure the ROADMAP's build-model section already documents. It changes no dependency and
+        // no iOS deployment target, so invariant 5 is untouched (ADR-0015, Decision 2).
+        //
+        // A bare `swift build` on the host still fails, and not because of this: it reaches
+        // InferlensLiteRT, whose vendored xcframework carries no macOS slice. The tool is built by
+        // product — `swift build --product inferlens-eval`.
+        .macOS(.v26),
     ],
     products: [
         .library(name: "InferlensCore", targets: ["InferlensCore"]),
@@ -23,6 +33,11 @@ let package = Package(
         .library(name: "InferlensBench", targets: ["InferlensBench"]),
         .library(name: "InferlensFallback", targets: ["InferlensFallback"]),
         .library(name: "InferlensRemote", targets: ["InferlensRemote"]),
+        .library(name: "InferlensEval", targets: ["InferlensEval"]),
+
+        // The offline eval as a runnable tool. The product is a shim; the library above is the
+        // subject (ADR-0015, Decision 2).
+        .executable(name: "inferlens-eval", targets: ["inferlens-eval"]),
     ],
     targets: [
         // The contract. Zero dependencies, enforced here and by review.
@@ -71,6 +86,23 @@ let package = Package(
         // amended 8 -> 9 modules). Unconfigured it throws exactly as the stub did; no public
         // endpoint ships.
         .target(name: "InferlensRemote", dependencies: ["InferlensCore"]),
+
+        // The loop's sixth clause as code (the offline-eval rung): read the exported NDJSON, group
+        // rows by (backend, device, OS), report p50/p95, and REFUSE to recommend below a ratified
+        // row count. It is the graph's FIRST library -> library arrow — InferlensEval ->
+        // InferlensBench — and the arrow is the point rather than a compromise: CLAUDE.md invariant 1
+        // makes the percentile, the cold/warm boundary and the warm-up policy ratified choices, and
+        // LatencyRecorder is the only place any percentile is computed in this repo. The eval
+        // therefore EXECUTES those choices instead of restating them. Legal under the CI dependency
+        // lint's rule ("no arrow back toward an engine or into Core") because Bench is neither: it is
+        // aggregation over Core's value types, which is exactly what a consumer of aggregation may
+        // name. It imports no engine and NOT InferlensStore — the stored tokens are the format
+        // (ADR-0001, amended 9 -> 10 modules; ADR-0015).
+        .target(name: "InferlensEval", dependencies: ["InferlensBench", "InferlensCore"]),
+
+        // The shim over it: arguments, a file read, a print, an exit code. It holds no logic
+        // precisely because it is the one target the simulator suite cannot run.
+        .executableTarget(name: "inferlens-eval", dependencies: ["InferlensEval"]),
 
         // The vendored TensorFlow Lite C runtime: Google's released TensorFlowLiteC.xcframework
         // 2.17.0, re-zipped single-xcframework and self-hosted as this repo's own GitHub release
@@ -203,6 +235,22 @@ let package = Package(
             dependencies: [
                 "InferlensRemote", "InferlensFallback", "InferlensConformance", "InferlensCore",
             ]
+        ),
+
+        // The offline eval's spec. It depends on InferlensEval + InferlensBench + InferlensCore:
+        // Bench is named directly because the identity test calls `LatencyRecorder` itself and
+        // compares its output to the eval's, which is how "reuse, not reimplementation" is asserted
+        // as a fact rather than described in a comment (ADR-0015, Decision 4).
+        //
+        // Its fixture is a PUBLISHED RELEASE ASSET, byte for byte — the `demo-sim-ac8d402` export,
+        // whose sha256 the spec re-computes and compares against the value in the release notes. The
+        // shape the tool parses is therefore the shape that actually ships, not the shape a fixture
+        // author imagined; `.copy` keeps the bytes exactly as fetched, for the same reason the app's
+        // models are copied rather than processed.
+        .testTarget(
+            name: "InferlensEvalTests",
+            dependencies: ["InferlensEval", "InferlensBench", "InferlensCore"],
+            resources: [.copy("Fixtures")]
         ),
 
         // Rung 12: the property spec for the LatencyRecorder aggregation. Depends on
