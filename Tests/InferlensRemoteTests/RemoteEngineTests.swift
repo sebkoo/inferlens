@@ -212,20 +212,37 @@ final class RemoteEngineTests: XCTestCase {
 
     /// The claim that separates this rung from the stub: the remote leg passes the SAME
     /// engine-agnostic suite the two on-device engines pass. ADR-0010 said explicitly that the
-    /// stub "cannot satisfy the suite and is not claimed to"; this one is run through it.
-    ///
-    /// Scope, stated because the steady-state ratio is the interesting check here: the fixture
-    /// closes each connection (`Connection: close`), so run 2 pays connection setup just as run 1
-    /// does. The ratio assertion is therefore not a keep-alive measurement — it confirms this
-    /// engine defers no work into the first `classify`, which is true by construction because
-    /// there is nothing to load (ADR-0013, Decision 5).
+    /// stub "cannot satisfy the suite and is not claimed to"; this one is run through it. Shape and
+    /// behavior only — the steady-state timing is `testRemoteSteadyStateTiming` — so it runs green
+    /// everywhere, including shared CI hardware.
     func testTheRemoteEngineConformsToTheContract() async throws {
         let server = LoopbackServer()
         let port = try await server.start()
         defer { Task { await server.stop() } }
 
         let engine = RemoteEngine(endpoint: URL(string: "http://127.0.0.1:\(port)/classify")!)
-        try await assertConformsToContract(engine)
+        try await assertConformsToContract(engine, checkSteadyState: false)
+    }
+
+    /// The steady-state timing gate for the remote leg, split out (rung 31). For this engine the ratio is
+    /// the interesting check: the fixture closes each connection (`Connection: close`), so run 2 pays
+    /// connection setup just as run 1 does, and the ratio confirms the engine defers no work into the
+    /// first `classify` — true by construction, there is nothing to load (ADR-0013, Decision 5). On
+    /// shared, virtualized CI hardware even that is weather, so it XCTSkips there with the ratio logged
+    /// and gates at 4× locally. Same `TEST_RUNNER_INFERLENS_CI_SHARED_HW` seam as the on-device engines.
+    func testRemoteSteadyStateTiming() async throws {
+        let server = LoopbackServer()
+        let port = try await server.start()
+        defer { Task { await server.stop() } }
+
+        let engine = RemoteEngine(endpoint: URL(string: "http://127.0.0.1:\(port)/classify")!)
+        let sharedCIHardware = ProcessInfo.processInfo.environment["INFERLENS_CI_SHARED_HW"] != nil
+        let ratio = try await assertConformsToContract(engine, checkSteadyState: !sharedCIHardware)
+        if sharedCIHardware {
+            throw XCTSkip(String(
+                format: "steady-state timing is not gated on shared CI hardware; measured ratio logged: %.1fx (4× threshold unchanged where it runs)",
+                ratio))
+        }
     }
 
     /// The shipping shape: the chain with a real remote leg last, never consulted because the

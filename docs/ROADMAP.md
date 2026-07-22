@@ -322,6 +322,35 @@ compares the three. Until the seam lands, the standing manual step is: **a chang
 resize or normalization is a change to all three**, and the conformance suite will not tell you
 otherwise.
 
+## Finding, recorded against rung 31 — the steady-state gate is unsound on shared CI hardware
+
+Running the conformance suite on a hosted runner for the first time (rung 31) exposed this — the same
+"found by using the thing" genre as the `warming`, `.reset`, export-race and `crane` findings, invisible
+to every gate until the thing ran where it had never run.
+
+> The engine-agnostic suite's steady-state check asserts run 1's compute is within 4× of run 2's — the
+> gate that catches a lazy-load engine (ADR-0005). On a macos-26 CI runner it measured **10.3×** for Core
+> ML (run 1 0.52 s, run 2 0.05 s) and reddened the build, though the identical code passed locally and on
+> two prior CI runs. The first classify pays a model-compile / first-inference cost `loadModel`'s warm-up
+> does not cover on the CPU-emulated simulator — and the Core ML test's own caveat claimed the opposite
+> ("the steady-state half passes TRIVIALLY here — run 1 ≈ run 2"), which running on hosted hardware
+> falsified.
+
+On shared, virtualized hardware the check cannot tell a genuine lazy-load from an emulator's cold
+first-inference: a single-run ratio is weather, not evidence. The resolution is SCOPE, not a wider
+threshold. The gate is split into per-engine `…SteadyStateTiming` tests that XCTSkip on shared CI
+hardware — logging the measured ratio, so a CI results page reads "3 timing tests skipped on shared
+hardware", the precise fact — and gate fully at 4× locally and on devices. `steadyStateMaxRatio` is
+untouched everywhere it runs, so no invariant-1 biasable choice is re-ratified: the maintainer ratified
+the SCOPING, not a value. The `test<Engine>ConformsToContract` tests keep only shape/behavior and run
+green everywhere; the suite count grew by 3 (one timing test per engine), and the counts moved together in
+CLAUDE.md and the README. The falsified Core ML sim-caveat comment is corrected in the same change.
+
+Why the split rather than a retry or a looser ratio: a retry masks real regressions too, and a looser
+threshold weakens the gate on device where it IS sound. Splitting keeps 4× exactly where timing is
+meaningful and removes it exactly where it is noise — and every test's label stays exactly true, which is
+the property a retry or a widened constant would have quietly spent.
+
 ## Product finding, recorded against rung 24 — two states look identical and mean different things
 
 > `loadingModel` and `inferring` render identically — same spinner, one differing label. They mean

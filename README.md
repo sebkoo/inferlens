@@ -66,9 +66,10 @@ assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's 
 [recorded beside it](docs/media/demo-poster-provenance.txt).*
 
 Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
-typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 175
-tests counted, 174 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally at
-`fc30a50` via [`test-clean`](scripts/test-clean.sh), and that same script now runs
+typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 178
+tests counted, 177 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally via
+[`test-clean`](scripts/test-clean.sh) (a count is a live fact of the tree, re-derived, not pinned to a
+rotting sha), and that same script now runs
 [on every push in CI](.github/workflows/build.yml) — on iPhone 17 Pro / iOS 26.5, the nearest sim the
 only Swift-6.3 runner carries, a deviation the workflow names; the
 [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) is empty because no

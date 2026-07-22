@@ -134,10 +134,12 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
 - Every commit is green: `make bootstrap` plus the simulator suite via `bash scripts/test-clean.sh`
-  (a fresh `-derivedDataPath` per run; 175 tests counted, 174 run, 1 skipped on the pinned
+  (a fresh `-derivedDataPath` per run; 178 tests counted, 177 run, 1 skipped on the pinned
   iPhone 17 Pro / iOS 26.1) pass. The skipped one is the screenshot renderer, which writes files
   only when asked — and a count is a fact about a tree and a simulator, so it is stated with both
-  rather than as a bare number. `make lint` and `make test` are still stubs that
+  rather than as a bare number. (Under CI the three per-engine `…SteadyStateTiming` tests XCTSkip on
+  shared hardware, so a CI run reports four skipped, not one — the timing gate is scoped to where it is
+  sound; see the rung-31 finding in the roadmap.) `make lint` and `make test` are still stubs that
   echo a TODO and check nothing, so they are NOT the green bar — naming them would be the same "empty
   target readable as a pass" this repo guards against elsewhere. test-clean is run as the script, not as
   `make test`, because `make` collapses its 0/1/2 exit-code contract (findings/could-not-run) to a bare 2;

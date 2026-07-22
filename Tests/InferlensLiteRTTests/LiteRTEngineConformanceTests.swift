@@ -4,9 +4,11 @@
 // outcome's shape held. This is the moment Core ML AND TensorFlow Lite conform to one contract — the
 // two-engine race becomes real, not planned.
 //
-// Simulator caveat (also in the commit body): the sim runs TFLite on CPU, so latency magnitude is
-// unrepresentative and the steady-state check passes without a device's thermal behavior. Green here
-// proves SHAPE-conformance; the real latency table is a device-bench claim, not a sim one.
+// Simulator caveat: the sim runs TFLite on CPU, so latency magnitude is unrepresentative. As with the
+// Core ML engine, the steady-state timing gate is not sound on shared virtualized CI hardware (rung 31),
+// so it lives in `testLiteRTSteadyStateTiming` below — XCTSkipped with the ratio logged on shared CI
+// hardware, gated fully at 4× locally and on devices — while `testLiteRTEngineConformsToContract` proves
+// SHAPE and runs green everywhere. The real latency table is a device-bench claim, not a sim one.
 
 import XCTest
 import InferlensCore
@@ -35,7 +37,25 @@ final class LiteRTEngineConformanceTests: XCTestCase {
 
     func testLiteRTEngineConformsToContract() async throws {
         let engine = LiteRTEngine(modelURL: try modelURL())
-        try await assertConformsToContract(engine)
+        // Shape and behavior only — the timing gate is testLiteRTSteadyStateTiming — so this runs green
+        // everywhere, including shared CI hardware. Everything it claims, it ran.
+        try await assertConformsToContract(engine, checkSteadyState: false)
+    }
+
+    /// The steady-state timing gate, split out (rung 31) so it is scoped to where timing is meaningful.
+    /// On shared, virtualized CI hardware a single-run compute ratio is weather, not evidence, so it
+    /// XCTSkips there with the measured ratio logged; locally on the pinned sim and on devices it enforces
+    /// the full 4× gate. `xcodebuild` forwards `TEST_RUNNER_INFERLENS_CI_SHARED_HW` to the test process as
+    /// `INFERLENS_CI_SHARED_HW` — the same seam the screenshot renderer uses.
+    func testLiteRTSteadyStateTiming() async throws {
+        let engine = LiteRTEngine(modelURL: try modelURL())
+        let sharedCIHardware = ProcessInfo.processInfo.environment["INFERLENS_CI_SHARED_HW"] != nil
+        let ratio = try await assertConformsToContract(engine, checkSteadyState: !sharedCIHardware)
+        if sharedCIHardware {
+            throw XCTSkip(String(
+                format: "steady-state timing is not gated on shared CI hardware; measured ratio logged: %.1fx (4× threshold unchanged where it runs)",
+                ratio))
+        }
     }
 
     // MARK: - Engine-specific claims the engine-agnostic suite cannot make.
