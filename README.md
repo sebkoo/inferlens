@@ -14,6 +14,7 @@ images is also the harness that measures which engine to ship.
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 [![Progress](https://img.shields.io/badge/rungs-26%2F40-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
+[![build + test](https://github.com/sebkoo/inferlens/actions/workflows/build.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/build.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 
 </div>
@@ -21,12 +22,14 @@ images is also the harness that measures which engine to ship.
 *Most of these badges are pins, not scores. Swift 6.3, iOS 26, and Xcode 26 are toolchain
 decisions recorded in [ADR-0001](docs/adr/0001-module-boundaries.md) and checkable in
 [`.swift-version`](.swift-version) and [`.xcode-version`](.xcode-version) — they state
-what the repo targets, not what it has measured. Two report something measured: the rungs
-badge (how many rungs have landed) and the commit-hygiene badge — a scoped workflow badge that
+what the repo targets, not what it has measured. Three report something measured: the rungs
+badge (how many rungs have landed), the commit-hygiene badge — a scoped workflow badge that
 links to [its workflow](.github/workflows/commit-hygiene.yml) and reports exactly that the
-AI-trailer lint passes on every push, so a reader can click through and check what it covers.
-There is still no generic CI or coverage badge: build and test do not run in CI until rung 31,
-so a `CI | passing` badge would imply coverage that does not exist.*
+AI-trailer lint passes on every push — and the build + test badge, which links to
+[its workflow](.github/workflows/build.yml) and reports that the suite builds and passes on every
+push. A reader can click either through and check what it covers. There is still no generic
+`CI | passing` or coverage badge: each badge here names its own scope and links to a file the
+reader can check, which a generic label — implying coverage it does not measure — would not.*
 
 ## See it run
 
@@ -64,9 +67,10 @@ assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's 
 
 Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
 typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 175
-tests counted, 174 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured at `fc30a50`
-via [`test-clean`](scripts/test-clean.sh) — and nothing automated builds or tests on push until
-rung 31; the
+tests counted, 174 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally at
+`fc30a50` via [`test-clean`](scripts/test-clean.sh), and that same script now runs
+[on every push in CI](.github/workflows/build.yml) — on iPhone 17 Pro / iOS 26.5, the nearest sim the
+only Swift-6.3 runner carries, a deviation the workflow names; the
 [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) is empty because no
 device has run the bench; and [Limitations](#limitations) leads the feature story by rule.
 
@@ -304,13 +308,16 @@ the
 [feature flags](Sources/InferlensFlags/InferlensFlags.swift) provider seam waits for its first real
 flag (rung 28).
 
-**Hardening — the standing gates that keep the claims honest.** *Partial — two gates run by hand;
-automated build+test is not wired.* The [commit-hygiene check](.github/workflows/commit-hygiene.yml) runs
-on every push; [`claims-audit`](scripts/claims-audit.sh) fails a stale claim or a commit reference dead
-on the remote, and [`test-clean`](scripts/test-clean.sh) forces a fresh build directory each run so a
-cached pass cannot be mistaken for a real one — but those two run by hand. The gate that would build the
-app and run the tests automatically on every push is [rung 31 on the roadmap](docs/ROADMAP.md) and
-is not done; until it is, nothing automated compiles or tests the code on a push.
+**Hardening — the standing gates that keep the claims honest.** The [commit-hygiene
+check](.github/workflows/commit-hygiene.yml) runs on every push; [`claims-audit`](scripts/claims-audit.sh)
+fails a stale claim or a commit reference dead on the remote, and [`test-clean`](scripts/test-clean.sh)
+forces a fresh build directory each run so a cached pass cannot be mistaken for a real one. As of rung 31
+`test-clean` runs automatically too: the [build + test workflow](.github/workflows/build.yml) runs it on
+every push, on the only hosted image that carries Swift 6.3 (macos-26 / Xcode 26.6, the local toolchain).
+That image has no iOS 26.1 runtime, so CI runs the iPhone 17 Pro on iOS 26.5 — the nearest it carries —
+and names the deviation; the counted-suite figures above are the local iOS 26.1 run, and CI checks
+correctness, not the device latency the bench rung owns. The
+[first green CI run](https://github.com/sebkoo/inferlens/actions/runs/29888268920) is on record.
 
 How many of the roadmap's rungs have landed is the badge above; the block below breaks it down by phase.
 Both are derived by [`make readme-sync`](Makefile) from the `rung-*` git tags — checkable, not typed — so
@@ -443,7 +450,7 @@ string. What governs them is [ADR-0007](docs/adr/0007-readme-media.md).
 | Concurrency | actors, async/await | strict-concurrency=complete | live | both engines are actors; LiteRT's C handle stays on-actor at [zero `@unchecked Sendable`](docs/adr/0005-litert-engine-concurrency.md) |
 | Instrumentation | OSSignposter | — | planned | signpost spans around load / preprocess / infer |
 | Flags | FeatureFlagProvider | local JSON provider | live | the [seam](Sources/InferlensFlags/InferlensFlags.swift) a remote-config system drops into later; app wiring waits for the first real flag (rung 28) |
-| CI | GitHub Actions | commit-hygiene (trailer lint) | live | trailer lint runs on push from `fix(ci)` forward; build + test deferred to rung 31 |
+| CI | GitHub Actions | commit-hygiene + [build/test](.github/workflows/build.yml) | live | trailer lint and the build+test suite both run on push; build+test runs `test-clean` on macos-26 (Swift 6.3), iPhone 17 Pro / iOS 26.5 |
 | License | Apache-2.0 | — | live | the [patent grant](LICENSE) matters for ML |
 
 ## What the job asks for
@@ -465,7 +472,7 @@ with the rung where it lands.
 | latency & memory optimization | LatencyRecorder (p50/p95 over cold/warm), OSSignposter spans | recorder [built + property-tested](Tests/InferlensBenchTests/LatencyRecorderTests.swift); Cold/Warm table + OSSignposter planned |
 | feature flags / remote config | FeatureFlagProvider + local JSON provider | [provider built + tested](Tests/InferlensFlagsTests/LocalJSONFlagProviderTests.swift); app wiring at rung 28, with the first real flag |
 | capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | live on the simulator: [thumbs to `run_signals`](Sources/InferlensStore/LedgerSchema.swift), [export one line per run](Sources/InferlensStore/LedgerExport.swift); the eval reads the export offline |
-| production reliability, issues caught early | contract tests, the commit-hygiene CI lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live; build/test CI is rung 31 |
+| production reliability, issues caught early | contract tests, the commit-hygiene CI lint, strict concurrency | [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) live; [build/test CI](.github/workflows/build.yml) runs on push as of rung 31 |
 
 This table is the contract. The commits are the receipt.
 
@@ -654,9 +661,10 @@ been made to report findings but never to hit their could-not-run branch.
 Alongside the six, the supply-chain checksum gates ([`fetch-models.sh`](scripts/fetch-models.sh),
 [`vendor-litert.sh`](scripts/vendor-litert.sh)) fail closed on a mismatched pin, and the conformance suite
 [fails a deliberately broken engine](Tests/InferlensConformanceTests/ConformanceSuiteTests.swift). Not
-automated: only commit-hygiene runs on push; the four script gates are maintainer-run until
-[rung 31](docs/ROADMAP.md) wires build+test into CI — the gates are the harness, CI is where it runs, and
-only the second is unfinished. Before this session one gate stood; now six do.
+automated: commit-hygiene and the [build + test suite](.github/workflows/build.yml) run on push, and the
+doc-linting script gates stay maintainer-run — [rung 31](docs/ROADMAP.md) wired build+test into CI, so
+`test-clean` runs there too, closing the half that was unfinished. The gates are the harness, CI is where
+it runs. Before this session one gate stood; now six do.
 
 **Loop engineering — the wire exists.** The developer loop — prompt → context → harness →
 review-at-a-gate → land — is live and visible in the commit history. The product eval loop — run →
@@ -682,7 +690,8 @@ whole file: zero jobs ran on all 15 pushes, commit-hygiene included, while the R
 already live. The harness never surfaced it; a human reading the Actions tab did. Fixed in
 [`fix(ci)` 17ec057](https://github.com/sebkoo/inferlens/commit/17ec057) — the repo's
 [first green CI run](https://github.com/sebkoo/inferlens/actions/runs/29658770457) — a validated
-commit-hygiene workflow that runs on every push, with build and test deferred to rung 31. Recorded
+commit-hygiene workflow that runs on every push, with build and test then deferred to rung 31 — since
+landed, so [build + test](.github/workflows/build.yml) runs on push too. Recorded
 here because a method that only reports its wins is not one you can trust.
 
 The disclosure is the method, not a per-commit disclaimer
