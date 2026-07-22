@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-26%2F40-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-27%2F40-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![build + test](https://github.com/sebkoo/inferlens/actions/workflows/build.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/build.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
@@ -359,13 +359,13 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [x] 13 build(litert): produce & publish the vendored TensorFlowLiteC.xcframework release — extract from the dl.google.com archive; read Info.plist AvailableLibraries and ASSERT ios-arm64_x86_64-simulator FIRST; re-zip; tag GitHub release
 - [x] 14 build(litert): declare binaryTarget(url:checksum:) + simulator link smoke test
 
-**Engines** — 4/7 landed
+**Engines** — 5/7 landed
 - [x] 10 feat(coreml): CoreMLEngine over the fetched FP16 .mlmodel, conforms to the contract
 - [ ] 11 perf(coreml): OSSignposter spans around load / preprocess / infer
 - [x] 15 feat(litert): LiteRTEngine over the C API — actor-isolated, ONE @unchecked Sendable boundary (required to compile under strict concurrency); uses FP32 .tflite
 - [ ] 16 ci(litert): document the Sendable boundary + CI lint enforcing AT MOST ONE @unchecked-Sendable (the on-actor rung-15 engine ships ZERO; ADR-0005) + a strict-concurrency data-race test
 - [x] 21 feat(engine): fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)
-- [ ] 22 refactor(engine): engine actor; cancel in-flight Tasks when input changes
+- [x] 22 refactor(engine): engine actor; cancel in-flight Tasks when input changes
 - [x] 39 feat(remote): the chain's third leg becomes provable code — the thesis's backend choice becomes real. "Choose next model/backend" is only a choice if a remote backend EXISTS; until now the leg was a stub whose whole contract was one thrown error, so the sentence named an option nothing could take. The leg is now a URLSession engine over a wire contract documented as the API's source of truth, and it is proven the way ADR-0010 said a remote leg would have to be — against a local test server the suite stands up (an NWListener loopback fixture; Network is a system framework, so no dependency is added and invariant 5 is untouched). It passes the same engine-agnostic conformance suite as the two on-device engines, which the stub explicitly could not. Composed with NO endpoint it throws exactly as the stub did, so nothing users see changes and no public endpoint ships (ADR-0013)
 
 **Measurement** — 2/6 landed
