@@ -152,6 +152,13 @@ extension InferenceState {
         // Task is the engine-level concern of the cancel-on-input-change rung, not a UI state; this
         // case is the seam it plugs into, and it is here rather than refused so that landing that
         // rung does not have to reopen the table.
+        //
+        // That rung has landed (ADR-0014) and the prediction held: `ClassificationModel` cancels the
+        // superseded run, this table is unchanged, and no case was added. Cancellation turned out to
+        // be a TRANSITION — straight from `inferring` into the next run's `inferring`, through this
+        // very line — and never a state, because a state overwritten in the same turn it is entered
+        // is a state nothing could ever draw. Invariant 4 asks for a producer AND a consumer; a
+        // `cancelled` case would have had the first and never the second.
         case (.inferring, .classifyBegan):
             .inferring
 

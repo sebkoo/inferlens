@@ -82,6 +82,66 @@ private actor FakeEngine: InferenceEngine {
     }
 }
 
+/// An engine whose first `classify` PARKS until the test releases it — or until the run is
+/// cancelled, which is what every test here is actually about. Later calls answer immediately.
+///
+/// It is the SinkSpy-style fake for a slow engine: nine lines of behaviour and no framework. The park
+/// loop polls rather than waiting on a continuation because the thing under test is cancellation, and
+/// a continuation that is never resumed on the cancelled path would hang the suite instead of failing
+/// it. The 2 ms poll is a fixture cadence, never an assertion — nothing here reads a duration, and the
+/// LoopbackServer's port poll is the same house pattern.
+///
+/// `completedCount` is what makes "the compute was really abandoned" observable: it counts the calls
+/// that reached a RETURN, not the ones that were entered.
+private actor GatedEngine: InferenceEngine {
+    nonisolated let descriptor = ModelDescriptor(
+        name: "gated",
+        precision: .fp32,
+        inputSize: PixelSize(width: 224, height: 224)
+    )
+
+    private let firstResult: InferenceOutcome
+    private let laterResult: InferenceOutcome
+
+    private(set) var enteredCount = 0
+    private(set) var completedCount = 0
+    private var isOpen = false
+
+    init(firstResult: InferenceOutcome, laterResult: InferenceOutcome) {
+        self.firstResult = firstResult
+        self.laterResult = laterResult
+    }
+
+    /// Let a parked call through. Nothing in these tests needs it — cancellation is what releases
+    /// the park — but a fake whose only exit is failure would be a trap for the next test.
+    func open() { isOpen = true }
+
+    func loadModel() async throws(InferenceError) {}
+
+    func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
+        guard !Task.isCancelled else { throw .cancelled }
+
+        enteredCount += 1
+        let isFirst = enteredCount == 1
+
+        // Only the first call parks, so the SUPERSEDING run answers immediately and the test reads a
+        // settled screen rather than racing one.
+        while isFirst, !isOpen {
+            if Task.isCancelled { throw .cancelled }
+            do {
+                try await Task.sleep(for: .milliseconds(2))
+            } catch {
+                // `Task.sleep` throws `CancellationError`, which the typed throw cannot carry — the
+                // exact constraint that put `.cancelled` in the contract (ADR-0014, Decision 2).
+                throw InferenceError.cancelled
+            }
+        }
+
+        completedCount += 1
+        return isFirst ? firstResult : laterResult
+    }
+}
+
 /// A summarizer that records what it was handed and returns a fixed answer. It computes nothing —
 /// the point of the seam is that this module cannot.
 ///
@@ -539,5 +599,130 @@ final class ClassificationModelTests: XCTestCase {
         XCTAssertNil(model.pendingRunAppend)
         XCTAssertNil(model.pendingSignalDelivery)
         XCTAssertTrue(spy.signalVerdicts.isEmpty)
+    }
+
+    // MARK: Cancel on input change (ADR-0014)
+    //
+    // What these tests do NOT read: no duration, no deadline, no "it finished within N ms". Every
+    // assertion is over a COUNT or an identity — which result is on screen, how many rows crossed the
+    // sink, how many computes reached a return. That is the rung-31 lesson applied by construction:
+    // a check that reads a clock on shared CI hardware is reading weather.
+
+    /// The rung, in one test: a photo arriving while another is being classified supersedes it, and
+    /// only the new photo's answer is ever shown.
+    func testANewPhotoSupersedesTheRunInFlightAndOnlyTheNewResultIsShown() async throws {
+        let engine = GatedEngine(
+            firstResult: FakeEngine.defaultOutcome,
+            laterResult: InferenceOutcome(
+                classifications: [Classification(label: "golden retriever", confidence: 0.91)],
+                timing: RunTiming(preprocess: .milliseconds(2), infer: .milliseconds(4)),
+                backend: .liteRT
+            )
+        )
+        let model = ClassificationModel(engine: engine)
+        let image = try buffer()
+
+        let superseded = Task { await model.classify(image) }
+        try await waitUntilParked(engine)
+
+        await model.classify(image)
+        await superseded.value
+
+        // The stale run never paints: the screen carries the second photo's backend and label, and
+        // the state is a plain success — never `failed`, which is what a `.cancelled` treated as an
+        // error would have produced.
+        XCTAssertEqual(model.state, .success(degraded: []))
+        XCTAssertEqual(model.outcome?.backend, .liteRT)
+        XCTAssertEqual(model.topThree.map(\.label), ["golden retriever"])
+
+        // Two calls entered the engine; only one reached a return. The cancelled compute was really
+        // abandoned rather than merely ignored.
+        let entered = await engine.enteredCount
+        let completed = await engine.completedCount
+        XCTAssertEqual(entered, 2)
+        XCTAssertEqual(completed, 1)
+    }
+
+    /// ADR-0014, Decision 1: a cancelled attempt is not a run, so it writes no ledger row — and,
+    /// because it never reaches `record(_:)`, it never becomes a `LatencySample` either. p50/p95 stay
+    /// clean by construction, with no filtering step anywhere.
+    func testACancelledAttemptWritesNoLedgerRowAndProducesNoSample() async throws {
+        let spy = SinkSpy()
+        let engine = GatedEngine(
+            firstResult: FakeEngine.defaultOutcome,
+            laterResult: FakeEngine.defaultOutcome
+        )
+        let model = ClassificationModel(engine: engine, sink: spy.sink())
+        let image = try buffer()
+
+        let superseded = Task { await model.classify(image) }
+        try await waitUntilParked(engine)
+
+        await model.classify(image)
+        await superseded.value
+        _ = await model.pendingRunAppend?.value
+
+        XCTAssertEqual(spy.appendedOutcomes.count, 1, "the cancelled attempt is not a run")
+        XCTAssertEqual(model.samples.count, 1, "and it is not a sample the recorder can ever see")
+
+        // The one sample that does exist is COLD, and that is the fourth `pendingLoad` case being
+        // right: the superseded run measured the load, the model stayed resident, and the run that
+        // actually answered is genuinely the first run after a load — ratified boundary (b).
+        XCTAssertEqual(model.samples.first?.isCold, true)
+    }
+
+    /// A `.cancelled` from the engine is swallowed, never drawn. Nothing failed, so `failed` would be
+    /// a lie — and the previous result is left alone rather than blanked underneath the new spinner.
+    func testACancelledRunIsNotAFailureAndDoesNotClearTheResult() async throws {
+        let model = ClassificationModel(engine: FakeEngine())
+        await model.classify(try buffer())
+        XCTAssertEqual(model.state, .success(degraded: []))
+
+        let cancelling = ClassificationModel(engine: FakeEngine(classifyError: .cancelled))
+        await cancelling.classify(try buffer())
+
+        // The run reached `.inferring` and then the engine reported cancellation: the machine stays
+        // where it was rather than moving to `failed(retryable:)`.
+        XCTAssertEqual(cancelling.state, .inferring)
+        XCTAssertNil(cancelling.outcome)
+        XCTAssertTrue(cancelling.samples.isEmpty)
+    }
+
+    /// `retry()` goes through the same door as a photo selection, so a retry also supersedes what is
+    /// in flight. Pinned because `retry` reaching `run` directly would have left a second, silently
+    /// uncancellable entry point.
+    func testRetryAlsoSupersedesTheRunInFlight() async throws {
+        let engine = GatedEngine(
+            firstResult: FakeEngine.defaultOutcome,
+            laterResult: FakeEngine.defaultOutcome
+        )
+        let model = ClassificationModel(engine: engine)
+        let image = try buffer()
+
+        let superseded = Task { await model.classify(image) }
+        try await waitUntilParked(engine)
+
+        await model.retry()
+        await superseded.value
+
+        XCTAssertEqual(model.state, .success(degraded: []))
+        let completed = await engine.completedCount
+        XCTAssertEqual(completed, 1)
+    }
+
+    /// Wait until the gated engine is parked inside `classify`. Polling, like `LoopbackServer`'s port
+    /// wait, and for the same reason: a state callback bridged into a continuation can fire before the
+    /// continuation is installed, and a fixture that deadlocks on a race is worse than one that spins.
+    /// The bound fails the test rather than hanging it; it is not a timing assertion.
+    private func waitUntilParked(
+        _ engine: GatedEngine,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async throws {
+        for _ in 0 ..< 500 {
+            if await engine.enteredCount >= 1 { return }
+            try await Task.sleep(for: .milliseconds(2))
+        }
+        XCTFail("the engine never entered classify", file: file, line: line)
     }
 }

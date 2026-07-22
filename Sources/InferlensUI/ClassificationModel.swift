@@ -36,6 +36,16 @@
 // and stops immediately after it returns. No image work, no state mutation and no logging is inside
 // it. `preprocess` and `infer` are NOT measured here — they arrive already measured, in
 // `outcome.timing`, from the engine's own brackets.
+//
+// ADDED AT THE CANCEL-ON-INPUT-CHANGE RUNG, and flagged here for the same review: `run(_:)` gained
+// three `Task.isCancelled` checkpoints. NONE is inside the bracket above — one sits before it opens,
+// one after `pendingLoad` has already been assigned from it, one after `classify` has returned. The
+// bracket measures exactly what it measured before, to the same two clock reads. Nor does this
+// introduce a biasable choice: what a cancelled run does to the record is decided by ratified (b)
+// and (c) read unchanged — no sample is created, so the recorder is handed nothing and discards
+// nothing; the measured load is retained, so the next real run reports cold carrying it. ADR-0014,
+// Decision 3, has the placement table and the site that was REFUSED (between `preprocess` and
+// `infer`, where a check could not avoid being measured).
 // ──────────────────────────────────────────────────────────────────────────────────────────────
 
 import InferlensCore
@@ -170,6 +180,16 @@ public final class ClassificationModel {
     private let latency: LatencySource?
     private let sink: RunSink?
 
+    /// The run currently in flight, if any — the whole cancel-on-input-change rung, in one field.
+    ///
+    /// A new run cancels it and does NOT wait for it. Not waiting is the decision, not an oversight:
+    /// cancellation is cooperative (ADR-0005 — an in-flight `TfLiteInterpreterInvoke` has no
+    /// suspension point to be interrupted at), so awaiting the superseded run would make the new
+    /// photo queue behind a compute nothing can stop. Superseding beats serializing.
+    ///
+    /// Internal so a test can observe it, the `samples` and `pendingRunAppend` precedent.
+    private(set) var inFlightRun: Task<Void, Never>?
+
     /// The in-flight ledger append for the current run, if any. Internal so a test can await it
     /// (the `samples` precedent) and so `signal(_:)` can hand its value to the delivery task.
     private(set) var pendingRunAppend: Task<Int64?, Never>?
@@ -220,6 +240,24 @@ public final class ClassificationModel {
     ///    Recorded as undecided rather than resolved with a plausible-sounding rule. Making it
     ///    decided means serializing runs, which is the cancel-on-input-change rung's subject, and a
     ///    comment claiming a guarantee the code does not make would be worse than this paragraph.
+    ///
+    ///    **Correction, at the cancel-on-input-change rung (ADR-0014): the prediction in the
+    ///    sentence above is falsified, and case 3 is NARROWED, not closed.** That rung is this one,
+    ///    and it does not serialize runs — it SUPERSEDES them. Awaiting a superseded run before
+    ///    starting the new one would make a new photo queue behind a compute ADR-0005 makes
+    ///    uninterruptible, which is a worse product than the ambiguity it would close. What the
+    ///    cancellation does narrow: a superseded run now stops at the checkpoint after the load
+    ///    bracket, so reaching an overwrite additionally requires the SUPERSEDED run's load to
+    ///    return after the superseding one's. What would actually close it is a shared load task, so
+    ///    two overlapping runs cannot both load — a load-deduplication concern, not a cancellation
+    ///    one. Recorded as a finding in docs/ROADMAP.md rather than smuggled in here.
+    ///
+    ///    A fourth case, and it is the one this rung adds: **a run cancelled after its load —
+    ///    RETAINED, for case 2's reason exactly.** A cancelled run produces no sample, so the load
+    ///    it measured has no run to attach to; but the model IS resident, so the next successful run
+    ///    genuinely is "the first run after a load" and is reported cold carrying that cost. That is
+    ///    ratified boundary (b) read as written. Discarding it instead would have hidden a load cost
+    ///    the next run really did benefit from.
     private var pendingLoad: Duration?
 
     private var isLoaded = false
@@ -247,13 +285,32 @@ public final class ClassificationModel {
 
     /// Classify a photo the user picked. The screen's entry point.
     public func classify(photo: UIImage) async {
-        await run(.photo(photo))
+        await start(.photo(photo))
     }
 
     /// Classify an already-decoded buffer. What a test drives, and what a caller with bytes already
     /// in hand uses.
     public func classify(_ image: ImageBuffer) async {
-        await run(.buffer(image))
+        await start(.buffer(image))
+    }
+
+    /// Cancel whatever is in flight, then run this input. The cancel-on-input-change rung, entire.
+    ///
+    /// The screen already spawns a `Task` per photo selection (`ClassificationScreen`'s
+    /// `Task { await choose(item) }`), so two selections genuinely overlap here — this is not a
+    /// hypothetical race being pre-empted. The superseded run is cancelled and NOT awaited; see
+    /// `inFlightRun`.
+    ///
+    /// The run is wrapped in its own `Task` rather than awaited directly because a task is the only
+    /// thing `cancel()` can be sent to: `run(_:)`'s checkpoints read `Task.isCancelled`, and without
+    /// a handle there is nothing to set that flag on. This caller still awaits its OWN run, so
+    /// `await model.classify(x)` means what it always meant — the difference is only that the
+    /// previous one is told to stop first.
+    private func start(_ input: Input) async {
+        inFlightRun?.cancel()
+        let task = Task { await self.run(input) }
+        inFlightRun = task
+        await task.value
     }
 
     /// Load if needed, then decode, then classify. The whole rung, in one method.
@@ -266,10 +323,35 @@ public final class ClassificationModel {
     /// .failed(retryable: false)`, which draws "Trying the same photo again won't help" — the true
     /// sentence for a file that is not an image.
     ///
-    /// Deliberately not cancellable and deliberately not re-entrant: cancelling a superseded run when
-    /// the input changes is its own ladder rung (`refactor(engine)`), and the state machine already
-    /// holds the seam it will plug into (`inferring + classifyBegan -> inferring`). Doing it here
-    /// would land two concerns in one commit.
+    /// **Cancellable as of ADR-0014, and still not re-entrant.** The rung the previous version of
+    /// this comment named ("cancelling a superseded run when the input changes is its own ladder
+    /// rung") is this one, and the seam it predicted needing — `inferring + classifyBegan ->
+    /// inferring` — was enough: the state machine is unchanged and gained no case (invariant 4, and
+    /// ADR-0014's own section on it). A cancelled run is a TRANSITION straight into the next run's
+    /// `.inferring`, not a state, because nothing could ever draw a state that is overwritten in the
+    /// same turn it is entered.
+    ///
+    /// Three checkpoints, and each sits where it does for a reason invariant 1 decides (ADR-0014,
+    /// Decision 3 has the full table):
+    ///
+    /// 1. **Before the load bracket opens** — the only site in a run that can stop having paid
+    ///    nothing at all. The engines cannot hold this one: `loadModel`'s bracket belongs to THIS
+    ///    file, so a checkpoint at an engine's `loadModel` entry would sit inside a measurement.
+    /// 2. **After the load bracket closes, before `.classifyBegan`** — the bracket is shut and
+    ///    `pendingLoad` assigned, so the measurement is complete and untouched. `pendingLoad` is
+    ///    deliberately kept: the model is resident, and the next successful run legitimately reports
+    ///    cold carrying it (see the fourth case at `pendingLoad`).
+    /// 3. **After `classify` returns, before `record(_:)`** — engines have no post-compute
+    ///    checkpoint by contract, so a superseded result arrives here intact and is dropped HERE.
+    ///    Being upstream of both the recorder and the ledger is what makes ADR-0014's Decision 1
+    ///    true by construction: a cancelled run cannot write a row or become a `LatencySample`
+    ///    because it never reaches the code that would do either. There is no filtering step
+    ///    anywhere, and invariant 1's ratified (c) is untouched — the recorder discards nothing
+    ///    because it is never handed anything.
+    ///
+    /// A `.cancelled` thrown by the engine is swallowed rather than transitioned: nothing failed, so
+    /// `.failed` would be a lie on screen, and `outcome` is left alone so the superseding run owns
+    /// what is displayed.
     private func run(_ input: Input) async {
         lastInput = input
 
@@ -280,6 +362,10 @@ public final class ClassificationModel {
         // only its signalability ends here.
         pendingRunAppend = nil
         givenSignal = nil
+
+        // CHECKPOINT 1 — before anything is spent. Above the load bracket, so it is outside every
+        // measurement in this file.
+        if Task.isCancelled { return }
 
         if !isLoaded {
             state.apply(.modelLoadBegan)
@@ -298,6 +384,13 @@ public final class ClassificationModel {
             pendingLoad = clock.now - began
 
             isLoaded = true
+
+            // CHECKPOINT 2 — the bracket above is CLOSED (`pendingLoad` is already assigned from
+            // it), so nothing here is inside a measurement. `pendingLoad` is kept on purpose: the
+            // model really is loaded, so the next run that produces a sample is genuinely the first
+            // run after a load and reports cold carrying this cost — ratified boundary (b), read as
+            // written.
+            if Task.isCancelled { return }
         }
 
         state.apply(.classifyBegan)
@@ -307,12 +400,27 @@ public final class ClassificationModel {
             // model's resize (ADR-0001). See `ImageDecoding.swift` for what this decode bounds.
             let buffer = try input.decoded()
             let result = try await engine.classify(buffer)
+
+            // CHECKPOINT 3 — a result for a photo nobody is looking at any more. The contract
+            // promises engines never retroactively cancel a completed compute (ADR-0014, Decision
+            // 2), so this result is real and arrives intact; deciding it no longer matters is the
+            // caller's job, and this is the caller. Dropped BEFORE `record(_:)`, which is what keeps
+            // it out of the recorder and out of the ledger without either of them knowing
+            // cancellation exists.
+            if Task.isCancelled { return }
+
             record(result)
             outcome = result
             // The degradations travel verbatim into the state, which is what lets the screen and the
             // ledger row say the same thing about the same run (invariant 3).
             state.apply(.classifySucceeded(degradations: result.degradations))
         } catch {
+            // A cancelled run is not a failure and must not be drawn as one: nothing went wrong, and
+            // a superseding run is already on its way to `.inferring`. Swallowed with `outcome` left
+            // alone — clearing it would blank the screen underneath the new run's spinner for a
+            // reason the person would have no way to understand.
+            if error == .cancelled { return }
+
             // A failed run has no result. Clearing it is what stops the previous photo's labels from
             // sitting on screen underneath an error about this one.
             outcome = nil
@@ -327,7 +435,7 @@ public final class ClassificationModel {
     /// failed is the thing that is retried.
     public func retry() async {
         guard let lastInput else { return }
-        await run(lastInput)
+        await start(lastInput)
     }
 
     // MARK: - Recording
