@@ -275,6 +275,29 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   turned a preference into a decision with a cost attached, and the decision went the other way from
   the prediction. [ADR-0013](adr/0013-remote-leg-realization.md), Decision 4.
 
+- Rung 31 landed before 27–30, and it is trust infrastructure the anti-slop badge rule already named —
+  "a generic `CI | passing` badge … stays off the page until that coverage actually runs (rung 31)". It
+  has no code dependency on the open rungs, so it earns that sentence's condition rather than waiting
+  behind features it does not touch. It completes the Hardening phase.
+
+  **Scope, recorded so the rung's ledger closes honestly: ladder line 31's lint steps were deliberately
+  NOT wired.** The line reads "make bootstrap, then swiftformat --lint, swiftlint, and build+test on the
+  iOS simulator"; only build+test landed. `make lint` and `make test` are stubs that echo a TODO and exit
+  0 (CLAUDE.md, Process), so invoking them in CI would be an empty target readable as a pass — the exact
+  lie this repo guards against elsewhere. Wiring `swiftformat --lint` and `swiftlint`, and repointing
+  `make test` at a contract-preserving runner, is the standing "wire swiftformat/swiftlint" Harness-backlog
+  item, not this rung; the derived-vs-declared lints the line also lists, (a)–(d), are their own backlog
+  items too, save the badge derivation (c) that `make readme-sync` already does. Recorded rather than
+  silently narrowed — the same disposition as the rung 36 GIF→video correction.
+
+  **The CI toolchain/sim split is recorded in full in the rung's prompt doc**
+  ([docs/prompts/rung-31-ci.md](prompts/rung-31-ci.md)) and named on the README: no hosted runner image
+  carries both Swift 6.3 and the iOS 26.1 runtime, so CI runs the exact-toolchain image (macos-26 / Xcode
+  26.6, the local toolchain) on the nearest sim it has (iPhone 17 Pro / iOS 26.5), the deviation named in
+  the workflow and the README. It retires by construction: `test-clean`'s destination default is the
+  counted pin, so when one image ships both, deleting the workflow's resolve step restores iOS 26.1 with
+  no other change.
+
 ## Finding, recorded against a shared preprocessing seam — the resize now exists three times
 
 Rung 39 surfaced this by adding the third copy, knowingly, rather than by discovering it.
