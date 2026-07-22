@@ -133,6 +133,11 @@ installable app, so deferral moves the date and buys nothing.
   dressed as theirs.
 - The eval-CLI boundary (the README's "offline tooling over the export, not code here") stays as
   it is; its revision is its own ADR when real data exists to evaluate.
+  *(Superseded 2026-07-22, on this deferral's own stated condition rather than by overruling it: the
+  `demo-sim-b1c8fbe` and `demo-sim-ac8d402` releases each ship an `exported-runs.ndjson` produced by
+  the shell this ADR authorized, so "real data exists to evaluate" is now true and the revision is
+  [ADR-0015](0015-offline-eval-boundary.md). Left standing as the record of what was
+  deferred and why — the disposition every retired claim in this repo gets.)*
 
 ## Consequences
 

@@ -2,7 +2,9 @@
 
 - Status: Accepted — 2026-07-17 (amended 2026-07-18: module set 6 → 7, added InferlensBench at
   rung 12; amended 2026-07-21: 7 → 8, added InferlensFallback at the fallback-chain rung —
-  ADR-0010; amended 2026-07-21: 8 → 9, added InferlensRemote at the remote-leg rung — ADR-0013)
+  ADR-0010; amended 2026-07-21: 8 → 9, added InferlensRemote at the remote-leg rung — ADR-0013;
+  amended 2026-07-22: 9 → 10, added InferlensEval at the offline-eval rung, with the graph's first
+  library → library arrow — ADR-0015)
 - Deciders: maintainer
 - Relates to: the module-implementation ladder; JD must-haves (protocol-oriented design, Core ML,
   TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
@@ -47,12 +49,24 @@ Local SPM packages; the app target is thin (composition only).
   stub it replaces lived there precisely because it was NOT a conforming engine, and this one
   passes the suite. Unconfigured (no endpoint) it throws exactly as the stub did, which is what
   the shipped app composes. Added at the remote-leg rung — 8 → 9.
+- **InferlensEval** — the loop's sixth clause as code: it reads the exported NDJSON, groups rows by
+  `(backend, device, OS)`, and reports p50/p95 with a verdict that **refuses** to recommend below a
+  ratified row count. It is the one module that depends on another library — `InferlensBench` — and
+  that arrow is the point rather than a compromise: the percentile, the cold/warm partition and the
+  no-discard policy are *executed* by the same `LatencyRecorder` the app runs, so the eval cannot
+  hold a second definition of the benchmark (ADR-0008's seam, read from the other side). It imports
+  no engine and not `InferlensStore`: the stored tokens are the format, so the reader needs the file,
+  not the writer. Added at the offline-eval rung — 9 → 10.
+  [ADR-0015](0015-offline-eval-boundary.md), Decision 2.
 
 **Dependency direction (one way):**
-`app → {UI, Store, Flags, CoreML, LiteRT, Remote, Bench, Fallback} → Core`.
+`app → {UI, Store, Flags, CoreML, LiteRT, Remote, Bench, Fallback, Eval} → Core`,
+with the single library → library arrow `Eval → Bench`.
 Core depends on nothing. Engines never depend on each other. UI depends on Core's value
 types and the engine *protocol*, never a concrete engine. A CI dependency-lint fails any
-arrow that points back toward an engine or into Core.
+arrow that points back toward an engine or into Core — which `Eval → Bench` does not, since Bench is
+neither an engine nor Core but aggregation over Core's value types, exactly what a consumer of
+aggregation is allowed to name.
 
 ## JD-clause map (a module mapping to nothing is cut)
 
@@ -67,6 +81,7 @@ arrow that points back toward an engine or into Core.
 | InferlensUI | SwiftUI; explicit state machine |
 | InferlensBench | latency optimization; the p50/p95 benchmark that fills the README table |
 | InferlensFallback | graceful degradation as data; the chain is one more engine (ADR-0010) |
+| InferlensEval | the eval loop closes in code; benchmark honesty as a refusal, not a recommendation (ADR-0015) |
 | app target | composition; Swift 6 strict concurrency; actor isolation |
 
 ## The equivalence argument (an interviewer will ask)
