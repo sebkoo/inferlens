@@ -21,6 +21,18 @@
 // remove. No derived "current verdict" field: deriving is the reader's one job, and a derived
 // field that disagreed with the array would be a second source of truth.
 //
+// CORRECTION, found by building the reader (the offline-eval rung, ADR-0015 Decision 5). The clause
+// above invokes "the version gate" on a READER's behalf, and the version gate cannot reach one. It
+// reads this FILE's `user_version` and refuses a database this build cannot read — a check upstream
+// of the export and invisible downstream of it. Somebody holding only the `.ndjson` cannot see a
+// `user_version`, so nothing in the emitted format distinguishes an old exporter's output from a new
+// one's: THE NDJSON CARRIES NO VERSION FIELD. The always-present `"signals": []` key is still right,
+// and for a better reason than the one given — it removes the ambiguity by itself, without needing a
+// gate the reader cannot consult. `InferlensEval` therefore refuses on the required KEY SET instead.
+// Adding a `schema_version` key here is its own rung: it changes a published interface, and the two
+// released exports lack it. Annotated rather than rewritten, the disposition every corrected claim
+// in this repo gets.
+//
 // DETERMINISM IS A CONTRACT, not an observation: runs ascend by id, children by (run_id, ordinal),
 // signals by (run_id, id), and every statement says so in an explicit ORDER BY — traversal order
 // without one is an implementation detail of the index, not a guarantee. Keys are sorted by the

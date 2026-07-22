@@ -87,10 +87,38 @@ public struct ScopeReport: Sendable, Equatable {
     /// eligible backends — one eligible backend is not a comparison, it is a measurement. A tie at
     /// warm total p95 refuses rather than breaking the tie on a quantity nobody ratified.
     public var verdict: ScopeVerdict {
-        // The green half computes this: eligibility at `minimumWarmRowsPerBackend`, a winner only
-        // when TWO backends clear it, and a refusal that names every shortfall. Stubbed here so the
-        // spec compiles and fails.
-        .refused(shortfalls: [])
+        let eligible = backends
+            .filter { ($0.latency.warm?.sampleCount ?? 0) >= minimumWarmRowsPerBackend }
+            .sorted { warmP95($0) < warmP95($1) }
+
+        if eligible.count >= 2 {
+            let winner = eligible[0]
+            let runnerUp = eligible[1]
+            guard warmP95(winner) != warmP95(runnerUp) else {
+                return .refused(shortfalls: [
+                    "\(winner.backend) and \(runnerUp.backend) tie at warm total p95",
+                ])
+            }
+            return .recommended(backend: winner.backend, runnerUp: runnerUp.backend)
+        }
+
+        var shortfalls: [String] = []
+        for report in backends {
+            let n = report.latency.warm?.sampleCount ?? 0
+            guard n < minimumWarmRowsPerBackend else { continue }
+            let noun = n == 1 ? "warm row" : "warm rows"
+            shortfalls.append("\(report.backend) has \(n) \(noun) (needs \(minimumWarmRowsPerBackend))")
+        }
+        if backends.count < 2 {
+            shortfalls.append("fewer than two backends measured")
+        }
+        return .refused(shortfalls: shortfalls)
+    }
+
+    /// Sorting and tie-breaking key. A backend with no warm bucket cannot reach here — it is filtered
+    /// out by the eligibility check, which a zero sample count fails.
+    private func warmP95(_ report: BackendReport) -> Duration {
+        report.latency.warm?.total.p95 ?? .zero
     }
 }
 
@@ -131,6 +159,20 @@ public struct SignalTally: Sendable, Equatable {
         self.up = up
         self.down = down
         self.unjudged = unjudged
+    }
+
+    init(rows: [ExportedRow]) {
+        var up = 0
+        var down = 0
+        var unjudged = 0
+        for row in rows {
+            switch row.currentVerdict {
+            case "up": up += 1
+            case "down": down += 1
+            default: unjudged += 1
+            }
+        }
+        self.init(up: up, down: down, unjudged: unjudged)
     }
 
     /// Runs somebody judged. Not `up + down + unjudged` — that is the run count.

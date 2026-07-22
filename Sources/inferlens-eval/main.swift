@@ -56,8 +56,6 @@ do {
 
 func describe(_ error: EvalError) -> String {
     switch error {
-    case .notImplemented:
-        "the eval is not implemented — this is the RED half of the pair"
     case .noRows:
         "the file holds no rows"
     case .notJSONObject(let line):
