@@ -99,6 +99,11 @@ public actor RemoteEngine: InferenceEngine {
     public func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
         guard let endpoint, isLoaded else { throw .modelLoadFailed }
 
+        // The contract's cancellation checkpoint (ADR-0014, Decision 3). INVARIANT 1: above the
+        // timing split, the only site outside every bracket. None between the phases (`inferStart`
+        // is one read that closes preprocess and opens infer) and none after `inferEnd`.
+        guard !Task.isCancelled else { throw .cancelled }
+
         // --- Timing split. Measurement brackets — agent-written, human-reviewed per invariant 1;
         // the ratified biasable choices (percentile, cold/warm, warm-up) live in the
         // LatencyRecorder and in ADR-0013 Decision 5, not here. This is the raw per-run signal.
@@ -123,6 +128,20 @@ public actor RemoteEngine: InferenceEngine {
         do {
             (data, response) = try await session.data(for: request)
         } catch {
+            // THE ONE LEG WHERE CANCELLATION IS MORE THAN A CHECKPOINT (ADR-0014, Decision 3).
+            // `URLSession` really does tear a request down in flight when its task is cancelled, so
+            // this is the only place in the repo where cancellation reaches work already started —
+            // no checkpoint could do it, and no on-device leg can offer it. Reported as `.cancelled`
+            // so it does NOT join the bucket below: ADR-0013 Decision 4 disclosed that a timeout, a
+            // refused connection and a dropped socket are indistinguishable here, and a person's own
+            // new photo must not be filed among them as a network fault. Those three remain
+            // indistinguishable, exactly as disclosed; cancellation is simply no longer one of them.
+            //
+            // INVARIANT 1: this sits between `inferStart` and `inferEnd`, but `inferEnd` is never
+            // read on any path that leaves through this catch and no `RunTiming` is ever built from
+            // it — so no number is perturbed on any path that produces one.
+            if Task.isCancelled || (error as? URLError)?.code == .cancelled { throw .cancelled }
+
             // A timeout, a refused connection and a dropped socket are all the same fact to the
             // caller: no result came back. `.backendUnavailable` is retryable, which is true of
             // all three. ADR-0013 Decision 4 records the cost — they are indistinguishable in the

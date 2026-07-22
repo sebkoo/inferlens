@@ -181,6 +181,85 @@ final class FallbackEngineTests: XCTestCase {
         XCTAssertEqual(recovered.degradations, [], "a failed walk's hops must not leak forward")
     }
 
+    // MARK: - Cancellation is not a leg failure (ADR-0014)
+
+    /// The rule the chain owes the contract: a cancelled leg has NOT failed, so the walk stops
+    /// instead of stepping down. Without it, a person's new photo would make the chain try every
+    /// remaining backend — and the outcome would carry a `.fellBack` hop for a hop that never
+    /// happened, putting a fabricated degradation on screen.
+    func testACancelledLegStopsTheWalkInsteadOfSteppingDown() async throws {
+        let fallbackLeg = FakeEngine(answering: .coreML)
+        let chain = FallbackEngine(legs: [
+            .init(engine: FakeEngine(answering: .liteRT, classifyError: .cancelled), backend: .liteRT),
+            .init(engine: fallbackLeg, backend: .coreML),
+        ])
+        try await chain.loadModel()
+
+        do {
+            _ = try await chain.classify(tinyBuffer())
+            XCTFail("a cancelled leg must not be answered around")
+        } catch {
+            XCTAssertEqual(error, .cancelled, "propagated as itself, never as a walk failure")
+        }
+
+        let consulted = await fallbackLeg.classifyCount
+        XCTAssertEqual(consulted, 0, "the leg below must never be asked")
+    }
+
+    /// The chain's OWN boundary — the checkpoint no engine can hold, because the walk is the thing
+    /// being stopped. Cancelled before the walk starts, no leg is consulted at all.
+    ///
+    /// Structural, not timed: the spin on `Task.yield()` guarantees the chain is entered with
+    /// cancellation already observable, so there is no race between `cancel()` and the task starting.
+    func testACancelledWalkConsultsNoLegAtAll() async throws {
+        let primary = FakeEngine(answering: .liteRT)
+        let chain = FallbackEngine(legs: [.init(engine: primary, backend: .liteRT)])
+        try await chain.loadModel()
+
+        let task = Task { () async -> Result<InferenceOutcome, InferenceError> in
+            while !Task.isCancelled { await Task.yield() }
+            do throws(InferenceError) {
+                return .success(try await chain.classify(tinyBuffer()))
+            } catch {
+                return .failure(error)
+            }
+        }
+        task.cancel()
+
+        switch await task.value {
+        case .success:
+            XCTFail("a cancelled walk must not answer")
+        case .failure(let error):
+            XCTAssertEqual(error, .cancelled)
+        }
+
+        let consulted = await primary.classifyCount
+        XCTAssertEqual(consulted, 0)
+    }
+
+    /// A cancelled walk leaves the chain exactly as it found it: the leg is not excluded, no hop is
+    /// remembered, and the next walk answers from the top with a clean outcome.
+    func testACancelledWalkLeavesTheChainUnchanged() async throws {
+        let primary = FakeEngine(answering: .liteRT, classifyError: .cancelled)
+        let chain = FallbackEngine(legs: [
+            .init(engine: primary, backend: .liteRT),
+            .init(engine: FakeEngine(answering: .coreML), backend: .coreML),
+        ])
+        try await chain.loadModel()
+
+        do {
+            _ = try await chain.classify(tinyBuffer())
+            XCTFail("the cancelled walk must throw")
+        } catch {
+            XCTAssertEqual(error, .cancelled)
+        }
+
+        await primary.setClassifyError(nil)
+        let recovered = try await chain.classify(tinyBuffer())
+        XCTAssertEqual(recovered.backend, .liteRT, "the leg was never excluded")
+        XCTAssertEqual(recovered.degradations, [], "and no hop was fabricated for it")
+    }
+
     // The remote leg's own teeth used to be asserted here, against `RemoteStubEngine`. That type
     // is gone (ADR-0013, Decision 3) and the assertions moved with the leg, to
     // `RemoteEngineTests.testAnUnconfiguredEngineThrowsFromLoadModel` and its `classify` pair —
@@ -197,6 +276,10 @@ private actor FakeEngine: InferenceEngine {
     private let answering: Backend
     private let loadError: InferenceError?
     private var classifyError: InferenceError?
+
+    /// How many times the walk actually reached this leg. What proves a leg was NOT consulted —
+    /// the whole claim of the cancellation tests, which is about a step-down that must not happen.
+    private(set) var classifyCount = 0
 
     init(
         answering: Backend,
@@ -217,6 +300,7 @@ private actor FakeEngine: InferenceEngine {
     }
 
     func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
+        classifyCount += 1
         if let classifyError { throw classifyError }
         return InferenceOutcome(
             classifications: StubEngine.conformingOutputs,

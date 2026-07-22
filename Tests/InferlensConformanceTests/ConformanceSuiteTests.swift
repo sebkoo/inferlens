@@ -36,4 +36,42 @@ final class ConformanceSuiteTests: XCTestCase {
             // Correct: the suite threw the specific violation for this invariant.
         }
     }
+
+    /// The cancellation check's own teeth (ADR-0014, Decision 2). An engine that ignores
+    /// `Task.isCancelled` and answers anyway is non-conforming, and the suite must say so with the
+    /// violation that names the rule — otherwise the new check is a green nobody has made fail.
+    ///
+    /// This is the negative control the ROADMAP records the earlier gates as lacking, written with
+    /// the check rather than after it.
+    func testSuiteFailsOnAnEngineThatIgnoresCancellation() async throws {
+        do {
+            try await assertConformsToContract(UncancellableEngine())
+            XCTFail("the suite must FAIL an engine that answers a cancelled call")
+        } catch let violation as ConformanceViolation {
+            guard case .cancelledClassifyReturnedAnOutcome = violation else {
+                return XCTFail("expected the cancelled-classify violation, got \(violation)")
+            }
+        }
+    }
+}
+
+/// Conforming in every respect except the one under test: it never checks `Task.isCancelled`, so it
+/// answers a call it was told to abandon.
+///
+/// A separate type rather than a `StubEngine` switch, for the reason that file already gives: the
+/// stub ships only conforming defaults, and the broken instances belong to this suite. It reports
+/// `StubEngine`'s own conforming outputs and timing so the ONLY thing wrong with it is the
+/// cancellation clause.
+private actor UncancellableEngine: InferenceEngine {
+    nonisolated let descriptor: ModelDescriptor = .stub
+
+    func loadModel() async throws(InferenceError) {}
+
+    func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
+        InferenceOutcome(
+            classifications: StubEngine.conformingOutputs,
+            timing: StubEngine.instantRun,
+            backend: .coreML
+        )
+    }
 }

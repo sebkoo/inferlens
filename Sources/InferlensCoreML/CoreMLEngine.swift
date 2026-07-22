@@ -150,6 +150,14 @@ public actor CoreMLEngine: InferenceEngine {
     public func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
         guard let ready else { throw InferenceError.modelLoadFailed }
 
+        // The contract's cancellation checkpoint (ADR-0014, Decision 3). INVARIANT 1: it sits here,
+        // ABOVE the timing split, because this is the only site in this method that is outside every
+        // bracket — `inferStart` below is one clock read that closes `preprocess` and opens `infer`,
+        // so there is no gap between the two phases in which a check could live without being
+        // measured as preprocess time. There is deliberately no checkpoint after `inferEnd` either:
+        // the contract promises a completed compute is never retroactively cancelled.
+        guard !Task.isCancelled else { throw InferenceError.cancelled }
+
         // --- Timing split. Measurement brackets — agent-written, human-reviewed per invariant 1
         // (rung 10; relabelled at rung 15, the prior "hand-written" label being unverified). Two
         // clock reads bracket the two phases the engine owns; there is no cleverness here and

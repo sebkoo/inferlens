@@ -122,6 +122,66 @@ final class RemoteEngineTests: XCTestCase {
         )
     }
 
+    /// The one leg where cancellation is more than a checkpoint (ADR-0014, Decision 3): `URLSession`
+    /// really tears a request down in flight, so a request nobody could have finished ends the moment
+    /// the task is cancelled.
+    ///
+    /// `/slow` earns its second use, and the SHAPE of this test is what makes it a proof rather than a
+    /// coincidence. The engine is built with a **10-minute** timeout, far longer than any test run, so
+    /// the timeout cannot be what ended the request — if cancellation did not work this test would
+    /// hang until XCTest's own deadline killed it, which is a failure, never a pass. And the error is
+    /// asserted to be `.cancelled` and specifically NOT `.backendUnavailable`: that distinction is the
+    /// repair ADR-0014 makes to ADR-0013's Decision 4, where a timeout, a refused connection and a
+    /// dropped socket are disclosed as indistinguishable. A person's own new photo must not be filed
+    /// among them as a network fault.
+    ///
+    /// No elapsed-time assertion, deliberately, and it is not the omission the timeout test above
+    /// warns about. There the clock was load-bearing because an instant failure would have passed a
+    /// weaker assertion; here an instant failure IS the claim, and the thing that could produce a
+    /// false green — a timeout firing instead — is excluded by construction rather than by a bound.
+    /// That keeps the check sound on shared CI hardware (the rung-31 lesson).
+    func testACancelledRequestIsCancelledAndNotReportedAsATimeout() async throws {
+        let server = LoopbackServer()
+        let port = try await server.start()
+        defer { Task { await server.stop() } }
+
+        let engine = RemoteEngine(
+            endpoint: URL(string: "http://127.0.0.1:\(port)/slow")!,
+            timeout: .seconds(600)
+        )
+        try await engine.loadModel()
+        let image = try Self.image()
+
+        // The request is in flight before it is cancelled — this is the mid-flight case, not the
+        // entry checkpoint (which the conformance suite covers for every engine). The poll waits for
+        // the server to have READ the body, which only happens once the request is really on the wire.
+        let task = Task { () async -> Result<InferenceOutcome, InferenceError> in
+            do throws(InferenceError) {
+                return .success(try await engine.classify(image))
+            } catch {
+                return .failure(error)
+            }
+        }
+        for _ in 0 ..< 500 where await server.lastRequest() == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let onTheWire = await server.lastRequest()
+        XCTAssertEqual(onTheWire?.path, "/slow", "the request must be in flight before it is cancelled")
+
+        task.cancel()
+
+        switch await task.value {
+        case .success:
+            XCTFail("a request the server never answers must not return a result")
+        case .failure(let error):
+            XCTAssertEqual(error, .cancelled)
+            XCTAssertNotEqual(
+                error, .backendUnavailable,
+                "a cancellation must not be filed as a network fault (ADR-0013, Decision 4)"
+            )
+        }
+    }
+
     /// A `500` is a failure, not a degraded success: no result came back, so there is nothing to
     /// carry a reason (ADR-0013, Decision 4).
     func testAServerErrorThrowsBackendUnavailable() async throws {

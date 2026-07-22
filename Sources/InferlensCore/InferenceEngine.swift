@@ -54,6 +54,24 @@ public protocol InferenceEngine: Sendable {
     /// - `outcome.classifications` is sorted by `confidence`, descending.
     /// - every `confidence` lies in `0...1`.
     /// - `outcome.backend` names the engine that actually produced the result.
+    ///
+    /// **Cancellation obligation (ADR-0014).** This call is COOPERATIVELY cancellable:
+    /// - An engine checks `Task.isCancelled` at a stage boundary and, when cancelled **before it has
+    ///   computed a result**, throws `.cancelled` and returns no outcome.
+    /// - A **completed** compute is never retroactively cancelled. An engine that has produced a
+    ///   result returns it; deciding the result no longer matters is the caller's job, because only
+    ///   the caller knows.
+    ///
+    /// Cooperative, not pre-emptive, and that is a property of the design rather than an omission:
+    /// every engine's compute call is synchronous and on-actor (ADR-0005), so an in-flight
+    /// `TfLiteInterpreterInvoke` or `MLModel.prediction` has no suspension point at which anything
+    /// could interrupt it. The one leg where cancellation reaches further is the remote one, whose
+    /// `URLSession` really does tear a request down in flight — a capability, not a different
+    /// promise.
+    ///
+    /// `.cancelled` rather than `CancellationError` is forced by the typed throw above, not chosen:
+    /// `try Task.checkCancellation()` cannot compile in a `throws(InferenceError)` function.
+    /// The conformance suite asserts this structurally (never by timing) against every engine.
     func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome
 }
 
@@ -301,11 +319,32 @@ public enum InferenceError: Error, Sendable, Equatable {
     case outOfMemory
     case backendUnavailable
 
+    /// The call was cancelled at a stage boundary before it produced a result — `classify`'s
+    /// cancellation obligation above, and ADR-0014, Decision 2.
+    ///
+    /// It exists because the typed throw forces it: `CancellationError` does not convert to this
+    /// enum, so an engine that wants to abort cooperatively has no other way to say so. The
+    /// alternatives were widening the throw — which would spend the property that no native Core ML
+    /// or LiteRT error crosses the contract — or making no promise at all.
+    ///
+    /// **Not a failure, and no state carries it.** Nothing failed: the work was abandoned because
+    /// something newer replaced it. The driver swallows this rather than transitioning
+    /// (`ClassificationModel.run(_:)`), so it never becomes `failed(retryable:)` on screen, and a
+    /// cancelled attempt writes no ledger row and produces no `LatencySample` (ADR-0014, Decision
+    /// 1). It is nonetheless a real member of this taxonomy, because the chain must be able to tell
+    /// a cancelled leg from a failed one — a cancelled leg must not trigger a step-down.
+    case cancelled
+
     /// Whether retrying the same call could plausibly succeed. The UI maps this onto
     /// `failed(retryable:)`.
+    ///
+    /// `.cancelled` is `true` on the question's own terms: nothing about the call failed, so
+    /// running it again would plainly work. That answer is deliberately not shaped by its one
+    /// consumer — the driver never renders a cancellation, so nothing downstream depends on it, and
+    /// a taxonomy that answered `false` here to match a screen it never reaches would be false.
     public var isRetryable: Bool {
         switch self {
-        case .outOfMemory, .inferenceFailed, .backendUnavailable: true
+        case .outOfMemory, .inferenceFailed, .backendUnavailable, .cancelled: true
         case .modelLoadFailed, .unsupportedInput: false
         }
     }

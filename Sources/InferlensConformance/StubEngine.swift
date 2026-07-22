@@ -63,7 +63,14 @@ public actor StubEngine: InferenceEngine {
     /// Reports the configured outcome, ignoring the image so the result is deterministic. The
     /// only per-call variation is the lazy-load seam: with `firstRun` set, run 1's timing
     /// differs from run 2's — a profile the conforming default never produces.
+    ///
+    /// The cancellation checkpoint is here for the same reason every other invariant is: the stub
+    /// conforms BY CONSTRUCTION, so the suite's cancellation checks must be satisfiable by an engine
+    /// that does nothing. It also leaves `classifyCount` untouched on the cancelled path, which is
+    /// what makes "cancellation is not sticky" observable rather than merely asserted.
     public func classify(_ image: ImageBuffer) async throws(InferenceError) -> InferenceOutcome {
+        guard !Task.isCancelled else { throw .cancelled }
+
         let timing = (classifyCount == 0 ? firstRun : nil) ?? steadyRun
         classifyCount += 1
         return InferenceOutcome(

@@ -217,6 +217,17 @@ public actor LiteRTEngine: InferenceEngine {
         guard let handles, let shape else { throw InferenceError.modelLoadFailed }
         let interpreter = handles.interpreter
 
+        // The contract's cancellation checkpoint (ADR-0014, Decision 3). INVARIANT 1: above the
+        // timing split, the only site outside every bracket — `inferStart` closes `preprocess` and
+        // opens `infer` in one clock read, so a check between the phases would be measured. None
+        // after `inferEnd`: a completed compute is never retroactively cancelled.
+        //
+        // This is also the ONLY point at which this engine can notice. `TfLiteInterpreterInvoke` is
+        // synchronous and on-actor by design (ADR-0005, and the SAFETY note below), so once it is
+        // running there is no suspension point at which anything could interrupt it — which is
+        // precisely why the contract promises cooperation and not pre-emption.
+        guard !Task.isCancelled else { throw InferenceError.cancelled }
+
         // --- Timing split. Measurement brackets — agent-written, human-reviewed per invariant 1
         // (rung 15): the ContinuousClock reads bracketing preprocess and the compute call. Percentile
         // aggregation, the cold/warm split, and the warm-up policy belong to the LatencyRecorder

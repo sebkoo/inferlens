@@ -92,6 +92,14 @@ public actor FallbackEngine: InferenceEngine {
                 isLoaded = true
                 return
             } catch {
+                // No `.cancelled` guard here, deliberately, and the absence is the honest state of
+                // things rather than an oversight: the contract's cancellation clause is scoped to
+                // `classify` (ADR-0014, Decision 3 — `loadModel`'s bracket is the driver's, so every
+                // site inside it is inside a measurement), so no engine can reach this catch with
+                // `.cancelled` and a guard for it would be unreachable code claiming a capability.
+                // If `loadModel` ever gains the clause, THIS is the site that must gain the guard
+                // `classify` has below — a cancelled leg would otherwise be excluded for the chain's
+                // whole loaded lifetime for having been interrupted.
                 loadExcluded[index] = true
                 lastError = error
             }
@@ -118,6 +126,12 @@ public actor FallbackEngine: InferenceEngine {
 
         var lastError = InferenceError.backendUnavailable
         for index in legs.indices where !loadExcluded[index] {
+            // THE CHAIN'S OWN BOUNDARY (ADR-0014, Decision 3) — the checkpoint no engine can hold,
+            // because the walk is the thing being stopped. Top of the iteration, before the
+            // on-demand-load clock below starts, so it is outside that bracket the way the engines'
+            // entry checkpoints are outside theirs (INVARIANT 1).
+            guard !Task.isCancelled else { throw .cancelled }
+
             var onDemandLoad: Duration?
             if !loaded[index] {
                 let clock = ContinuousClock()
@@ -143,6 +157,12 @@ public actor FallbackEngine: InferenceEngine {
                     onDemandLoad: onDemandLoad ?? outcome.onDemandLoad
                 )
             } catch {
+                // A CANCELLED LEG HAS NOT FAILED, so it must not produce a step-down (ADR-0014,
+                // Decision 3). Without this the chain would answer a person's new photo by trying
+                // every remaining backend — and would derive `.fellBack` hops for hops that never
+                // happened, putting a fabricated degradation on screen. Propagated immediately, and
+                // the leg is left untouched so a later walk still starts from the top.
+                if error == .cancelled { throw error }
                 lastError = error
             }
         }

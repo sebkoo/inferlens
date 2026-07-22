@@ -9,6 +9,9 @@
 // vs run 2); the suite must not know that inference "should" take under some fixed wall-clock
 // bound — the on-device benchmark owns that magnitude claim, on named hardware, and asserting
 // it here would flake on a cold CI runner.
+//
+// The cancellation checks (ADR-0014) hold to the same rule harder: they read no clock at all, so
+// unlike the steady-state ratio they need no CI scoping and never will. See the block above them.
 
 import InferlensCore
 
@@ -21,6 +24,9 @@ public enum ConformanceViolation: Error {
     case notSteadyState(run1: Duration, run2: Duration, allowedRatio: Int)
     case mismatchedBufferDidNotThrow
     case retryabilityMismatch(InferenceError)
+    case cancelledClassifyReturnedAnOutcome
+    case cancelledClassifyThrewTheWrongError(InferenceError)
+    case cancellationWasSticky(InferenceError)
 }
 
 /// How much slower run 1's compute may be than run 2's before the suite calls `loadModel` a liar.
@@ -65,6 +71,10 @@ public func assertConformsToContract(
     let second = try await engine.classify(image)
     try assertOutcomeShape(second)
 
+    // The cancellation obligation. Structural, never timed — see the two functions below.
+    try await assertCancelledBeforeComputeThrows(engine, image)
+    try await assertCancellationIsNotSticky(engine, image)
+
     // The suite can't know the correct backend, only that it doesn't change across runs.
     // `==` because `Backend` IS `Equatable` in the contract — its doc names the two consumers
     // that compare backends as data. An earlier comment here claimed the opposite; it was
@@ -108,6 +118,76 @@ private func assertOutcomeShape(_ outcome: InferenceOutcome) throws {
     }
 }
 
+// MARK: - The cancellation obligation (ADR-0014, Decision 2)
+//
+// STRUCTURAL, NEVER TIMED. Neither check below reads a clock, a duration or a wall-time bound, so
+// both return the same verdict on a pinned local simulator and on a shared, virtualized CI runner.
+// That shape is the rung-31 lesson applied before the fact rather than after it: a single-run timing
+// judgement on shared hardware is weather, and `steadyStateMaxRatio` already had to be scoped out of
+// CI for exactly that reason. These do not need scoping and never will.
+//
+// WHAT THEY DO NOT READ. They cannot prove an engine refrains from abandoning a compute that has
+// already finished — the other half of the contract's clause. Pinning that would mean cancelling a
+// task at one exact instant, which is a timing race and would be the `steadyStateMaxRatio` mistake in
+// a new costume. That half is enforced by construction instead: no engine has a checkpoint after its
+// compute (ADR-0014, Decision 3), so there is no site at which one could break it. What B pins is the
+// observable consequence — a cancelled attempt leaves nothing behind on the engine.
+
+/// A `classify` entered inside an already-cancelled task must throw `.cancelled` and return no
+/// outcome.
+///
+/// The spin on `Task.yield()` is what makes this deterministic rather than a race: the engine is not
+/// called until this task has observed its own cancellation, so there is no window in which
+/// `classify` could start before `cancel()` lands and legitimately return a result. No sleep, no
+/// deadline, no clock.
+private func assertCancelledBeforeComputeThrows(
+    _ engine: some InferenceEngine,
+    _ image: ImageBuffer
+) async throws {
+    let task = Task { () async -> Result<InferenceOutcome, InferenceError> in
+        while !Task.isCancelled { await Task.yield() }
+        // `do throws(InferenceError)`, spelled out: through a generic `some InferenceEngine` the
+        // compiler does not infer the typed throw, and an untyped catch would widen `error` to
+        // `any Error` and lose the very case being asserted.
+        do throws(InferenceError) {
+            return .success(try await engine.classify(image))
+        } catch {
+            return .failure(error)
+        }
+    }
+    task.cancel()
+
+    switch await task.value {
+    case .success:
+        throw ConformanceViolation.cancelledClassifyReturnedAnOutcome
+    case .failure(.cancelled):
+        break
+    case .failure(let error):
+        throw ConformanceViolation.cancelledClassifyThrewTheWrongError(error)
+    }
+}
+
+/// Cancellation is per-call, not a mode the engine enters: after a cancelled attempt, the SAME
+/// engine instance must still answer an uncancelled `classify` with a conforming outcome.
+///
+/// This runs immediately after the check above, on the same engine, which is what gives it its
+/// teeth — an engine that latched a cancelled flag, left a half-written tensor, or dropped its
+/// loaded state fails here rather than silently in an app.
+private func assertCancellationIsNotSticky(
+    _ engine: some InferenceEngine,
+    _ image: ImageBuffer
+) async throws {
+    let outcome: InferenceOutcome
+    do throws(InferenceError) {
+        outcome = try await engine.classify(image)
+    } catch {
+        throw ConformanceViolation.cancellationWasSticky(error)
+    }
+    // Outside the `do` on purpose: a shape violation must surface as itself, not be relabelled as a
+    // stickiness violation by a catch that was only meant to see the engine's error.
+    try assertOutcomeShape(outcome)
+}
+
 /// A mismatched-byte-count buffer must throw `.unsupportedInput` at construction, so a malformed
 /// image never reaches an engine. Enforced at `ImageBuffer.init`, checked here without the engine.
 private func assertMismatchedBufferThrows() throws {
@@ -128,6 +208,7 @@ private func assertRetryabilityIsAsDocumented() throws {
         (.outOfMemory, true),
         (.inferenceFailed, true),
         (.backendUnavailable, true),
+        (.cancelled, true),
         (.modelLoadFailed, false),
         (.unsupportedInput, false),
     ]
