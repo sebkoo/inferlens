@@ -37,14 +37,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The default runner Xcode is 16.4, which cannot boot an iOS 26 simulator. Select 26.1.1: the
-      # lowest image Xcode that drives the pinned iOS 26.1 runtime and provides Swift 6.3 (>= the
-      # .xcode-version 26.0 local pin). The device+OS PAIR is identical to the counted suite — that is
-      # all invariant 7 governs — so this is not an invariant-7 deviation. If the image ever drops this
-      # exact patch, xcode-select fails loud (red job), never a silent fallback to a wrong toolchain.
-      - name: Select Xcode 26.1.1 (Swift 6.3; drives the iOS 26.1 sim)
+      # swift-tools-version:6.3.0 (Package.swift) needs a toolchain >= 6.3.0. The runner default Xcode is
+      # 16.4, and — found empirically on this rung's first CI run, the runner being the judge — Xcode
+      # 26.1.1 ships Swift 6.2.1, which fails to resolve the package graph ("using Swift tools version
+      # 6.3.0 but the installed version is 6.2.1"). The image also carries 26.2 and 26.3, one of which
+      # provides 6.3, but the runner-images manifest does not publish the Xcode->Swift mapping — so rather
+      # than hard-code a second guess, PROBE the installed 26.x Xcodes low-to-high and select the LOWEST
+      # whose swift reports >= 6.3. Lowest, not highest: it stays closest to the .swift-version 6.3 local
+      # pin, so the build sees the fewest new strict-concurrency diagnostics that could red CI where local
+      # is green. Fail loud if none qualifies. The device+OS pair (iPhone 17 Pro / iOS 26.1) is unchanged
+      # whichever Xcode drives it — all invariant 7 governs.
+      - name: Select the lowest Xcode providing Swift >= 6.3
         run: |
-          sudo xcode-select -s /Applications/Xcode_26.1.1.app
+          picked=""
+          for app in $(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V); do
+            sw="$("$app/Contents/Developer/usr/bin/swift" --version 2>/dev/null \
+                  | grep -oE 'Swift version [0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+            [ -z "$sw" ] && { echo "skip $app (no swift reported)"; continue; }
+            maj="${sw%%.*}"; min="${sw#*.}"
+            if [ "$maj" -gt 6 ] || { [ "$maj" -eq 6 ] && [ "$min" -ge 3 ]; }; then
+              picked="$app"; echo "selected $app (Swift $sw)"; break
+            fi
+            echo "skip $app (Swift $sw < 6.3)"
+          done
+          if [ -z "$picked" ]; then
+            echo "FAIL: no installed Xcode provides Swift >= 6.3 (Package.swift needs tools 6.3.0)" >&2
+            exit 1
+          fi
+          sudo xcode-select -s "$picked"
           xcodebuild -version
           swift --version
 
