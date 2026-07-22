@@ -12,7 +12,7 @@ images is also the harness that measures which engine to ship.
 [![iOS](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![Xcode](https://img.shields.io/badge/Xcode-26-1575F9?logo=xcode&logoColor=white)](.xcode-version)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
-[![Progress](https://img.shields.io/badge/rungs-27%2F40-orange)](docs/ROADMAP.md)
+[![Progress](https://img.shields.io/badge/rungs-27%2F41-orange)](docs/ROADMAP.md)
 [![commit-hygiene](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/commit-hygiene.yml)
 [![build + test](https://github.com/sebkoo/inferlens/actions/workflows/build.yml/badge.svg)](https://github.com/sebkoo/inferlens/actions/workflows/build.yml)
 [![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
@@ -66,8 +66,8 @@ assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's 
 [recorded beside it](docs/media/demo-poster-provenance.txt).*
 
 Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
-typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 187
-tests counted, 186 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally via
+typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 205
+tests counted, 204 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally via
 [`test-clean`](scripts/test-clean.sh) (a count is a live fact of the tree, re-derived, not pinned to a
 rotting sha), and that same script now runs
 [on every push in CI](.github/workflows/build.yml) — on iPhone 17 Pro / iOS 26.5, the nearest sim the
@@ -229,14 +229,17 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [the app shell](docs/adr/0011-app-shell.md),
   [where the truth of index → label lives](docs/adr/0012-label-table-provenance.md),
   [what "real" means for the remote leg](docs/adr/0013-remote-leg-realization.md),
-  [cooperative cancellation](docs/adr/0014-cooperative-cancellation.md)), the
+  [cooperative cancellation](docs/adr/0014-cooperative-cancellation.md),
+  [the offline-eval boundary](docs/adr/0015-offline-eval-boundary.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
 - The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
   [`commit-msg` hook](.githooks/commit-msg) that rejects AI-attribution trailers
   ([ADR-0004](docs/adr/0004-commit-hygiene.md)).
-- The module skeleton — an SPM workspace of eight local module packages (plus the conformance
-  test-support target), green under Swift 6 strict concurrency. Every package now carries code —
+- The module skeleton — an SPM workspace of ten local module packages (plus the conformance
+  test-support target and the `inferlens-eval` executable), green under Swift 6 strict concurrency.
+  The count read "eight" until this sweep and was stale by one before `InferlensEval` was added;
+  corrected here rather than incremented. Every package now carries code —
   `InferlensFlags` ships the [provider seam](Sources/InferlensFlags/InferlensFlags.swift) whose app
   wiring waits for the first real flag — and the app target is a composition, no longer a
   placeholder.
@@ -317,8 +320,13 @@ outcome, degradations, device and iOS version, append-only held by database trig
 beside its run ([`run_signals`](Sources/InferlensStore/LedgerSchema.swift), highest id wins, history
 kept), and [`LedgerExport`](Sources/InferlensStore/LedgerExport.swift) serializes the whole ledger
 to NDJSON — one self-contained line per run, signals embedded in append order, byte-identical on
-re-export ([the spec](Tests/InferlensStoreTests/LedgerExportTests.swift)). What "the wire exists"
-does not claim: `evaluate` is offline tooling reading the export, not code in this repo; no ledger
+re-export ([the spec](Tests/InferlensStoreTests/LedgerExportTests.swift)). `evaluate` reads that
+file: [`InferlensEval`](Sources/InferlensEval/LedgerEval.swift) groups the rows by backend and by the
+machine their own columns name, and computes p50/p95 by calling the app's own
+[`LatencyRecorder`](Sources/InferlensBench/LatencyRecorder.swift) rather than a second copy of it
+([ADR-0015](docs/adr/0015-offline-eval-boundary.md)). What "the wire exists"
+does not claim: the eval has produced no *finding* — on the four rows that exist it refuses to
+recommend a backend and prints how many it is short; no ledger
 number is a device number until the device rungs run (the comparison table below stays empty); and
 the
 [feature flags](Sources/InferlensFlags/InferlensFlags.swift) provider seam waits for its first real
@@ -376,7 +384,7 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 36 docs(readme): COMPLETE the README — fill the latency table with real runs, link the 20s video as a GitHub attachment (NEVER a tracked GIF — ADR-0007), publish docs/ via GitHub Pages (the README itself lands at rung 01)
 - [x] 37 build(app): the installable app shell — a committed minimal Xcode project at App/Inferlens.xcodeproj wrapping the package (library products only; signing stays the maintainer's; ADR-0011)
 
-**Product loop** — 9/14 landed
+**Product loop** — 9/15 landed
 - [x] 18 feat(store): SQLite append-only run ledger + versioned migrations (SQL)
 - [x] 19 feat(store): document/KV store for model metadata + flag cache (NoSQL)
 - [x] 20 feat(flags): FeatureFlagProvider protocol + local JSON provider
@@ -391,6 +399,7 @@ neither is hand-kept. These six phases group the rungs so the shape is legible w
 - [ ] 34 docs(loop): EVAL_LOOP.md (product loop == eval loop) + docs/prompts/ (one per rung)
 - [ ] 35 docs(monetization): MONETIZATION.md (Pro surface as a plan; revisit-trademark line) + docs/ASO.md
 - [x] 38 feat(labels): index -> word, so the thumbs signal is judgeable — the loop's human surface. The screen showed `class 973`, an ImageNet index nobody can judge, so the signal measured plausibility rather than correctness. The table is DERIVED at bootstrap from the pinned Apple .mlmodel's own embedded 1001-entry label vector (never a web list: those are 1000 entries with no background class, and the off-by-one puts a confident wrong word under the thumbs button). Ordering is proved three ways — count, eight spot-checks against upstream TensorFlow's published output, and a fixture photograph whose subject is known by looking at it. One table, both engines; `class N` stays the explicit fallback (ADR-0012)
+- [ ] 40 feat(eval): the loop's sixth clause becomes code — `export -> offline eval` stops being a sentence about tooling that does not exist. ADR-0011 deferred this and named the condition ("its revision is its own ADR when real data exists to evaluate"); two releases now ship a real exported-runs.ndjson, so the deferral is met on its own terms. An InferlensEval LIBRARY (tested by the pinned simulator suite like every other module) plus a thin inferlens-eval executable: parse the export key-set-gated, refusing malformed rows by line and key rather than repairing them; group by (backend, device, OS) so invariant 7 decides the population and not just the caption; p50/p95 by CALLING InferlensBench.LatencyRecorder, never by reimplementing it, with a test asserting that as an identity; the signal table under the schema's superseding read rule, reported and explicitly not weighed. The verdict RECOMMENDS only above a maintainer-ratified 20 warm rows per compared backend — a number read off the ratified nearest-rank percentile, below which p95 is the slowest run — and otherwise prints a refusal naming the shortfall and what would satisfy it. On today's four-row corpus the refusal IS the output (ADR-0015)
 
 **Hardening** — 1/1 landed
 - [x] 31 build(ci): GitHub Actions — make bootstrap, then swiftformat --lint, swiftlint, and build+test on the iOS simulator via `xcodebuild -destination 'generic/platform=iOS Simulator'` — never `swift build`/`swift test` on the host (the host build was green only for as long as it was meaningless — empty targets; iOS-era stdlib such as `Duration` breaks it, discovered at rung 03). Commit-hygiene trailer lint from commit #1 (ADR-0004). Derived-vs-declared lints, each failing loud where a hand-typed value would rot silent: (a) no hand-typed rung number anywhere outside this file; (b) every component reference in docs resolves — the Core ML engine, the LiteRT vendoring step, InferlensCoreML — to a real target or ROADMAP rung; (c) the `rungs N/D` badge equals the derived pair, `rung-*` tags on ORIGIN over the ladder's rung count in this file, so an unpushed tag makes N lag and fails here (the core.hooksPath trap again); (d) every `rung-*` tag names a real ladder rung in this file (no orphan tags). LiteRT device-only contingency documented in ADR-0002 if the sim slice is ever absent
@@ -691,14 +700,29 @@ ledger → signal → export → evaluate — now traverses end to end on the si
 outside the module, [ADR-0006](docs/adr/0006-run-ledger-storage.md)), the thumbs row appends a
 judgement ([`run_signals`](Sources/InferlensStore/LedgerSchema.swift)), and the toolbar exports the
 ledger as NDJSON ([`LedgerExport`](Sources/InferlensStore/LedgerExport.swift)) for the offline eval
-to read. What keeps this line honest: `evaluate` is offline tooling over the export, not code here,
-and no ledger number is a device number until the device rungs run. The traversal now includes the
+to read — which is now code here too.
+[`InferlensEval`](Sources/InferlensEval/LedgerEval.swift) parses that export, groups rows by backend
+and by the device and OS the rows' own columns name, and gets its p50/p95 by calling the same
+[`LatencyRecorder`](Sources/InferlensBench/LatencyRecorder.swift) the app calls — so the eval cannot
+hold a second definition of the benchmark, and
+[a test asserts that as an identity](Tests/InferlensEvalTests/LedgerEvalTests.swift) rather than as
+an intention ([ADR-0015](docs/adr/0015-offline-eval-boundary.md)). What keeps the line honest is no
+longer the clause's absence; it is what the tool says. Run against both published exports — four
+rows, one backend, one simulator — [`inferlens-eval`](Sources/inferlens-eval/main.swift) recommends
+nothing. It prints `liteRT has 1 warm row (needs 20); fewer than two backends measured`, and then
+what would satisfy it. The threshold is
+[ratified, not chosen](Sources/InferlensEval/EvalResult.swift): below 20 rows the nearest-rank p95
+*is* the slowest run, so a recommendation there would compare two worst cases and call the result a
+percentile. And no ledger number is a device number until the device rungs run. The traversal now includes the
 installed `.app`: the committed shell ([ADR-0011](docs/adr/0011-app-shell.md)) built, installed and
 ran the loop end to end on the pinned simulator — run, row, thumbs (a down superseded by an up,
 history kept), export tapped in the app — and every exported row names
 `Simulator (iPhone18,1)` · `iOS 26.1` in its own columns: invariant 7 labels the simulator as such,
-so no row can pose as a phone. The two loops meeting was the thesis sentence — the remaining
-distance is measured in device numbers (the measurement rungs' subject), not in missing modules.
+so no row can pose as a phone. The two loops meeting was the thesis sentence, and with the eval
+clause built the sentence is executable end to end — every one of its six clauses is a file you can
+open. The remaining distance is measured in device numbers (the measurement rungs' subject), not in
+missing modules; and the eval is where that shows up as an output rather than a caveat, because the
+tool's answer today is a refusal that names exactly how many rows it is short.
 
 **The self-correction.** The harness caught a lot and missed one for weeks. The CI workflow committed
 at rung 00 had a YAML syntax error — an unquoted colon in a `TODO` echo — that made GitHub reject the

@@ -2,7 +2,7 @@
 
 An atomic commit ladder. Every rung is a Conventional Commit, independently reviewable,
 and **green** (builds + tests pass, clean under Swift 6.3 `-strict-concurrency=complete`).
-A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–39 are
+A rung that would touch two concerns is split. Rung 00 is the bootstrap; rungs 01–40 are
 the build ladder.
 
 Progress is not tracked in this file — **git tags are**: `git tag -l 'rung-*'` is the
@@ -53,7 +53,9 @@ invariant 5 precised),
 [ADR-0013](adr/0013-remote-leg-realization.md) (what "real" means for the remote leg without a
 production server),
 [ADR-0014](adr/0014-cooperative-cancellation.md) (cancellation — a contract clause, a transition,
-and no ledger row).
+and no ledger row),
+[ADR-0015](adr/0015-offline-eval-boundary.md) (the offline eval becomes code — the graph's first
+library → library arrow, and a ratified refusal threshold).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 
@@ -76,7 +78,7 @@ make bootstrap && xcodebuild build -destination 'generic/platform=iOS Simulator'
 
 CI (the CI rung) runs `make bootstrap` before the iOS test build. The README states it in one line.
 
-## The ladder (rungs 00–39)
+## The ladder (rungs 00–40)
 
 ```
 00 chore(repo): bootstrap toolchain, license, agent context
@@ -174,6 +176,21 @@ CI (the CI rung) runs `make bootstrap` before the iOS test build. The README sta
                suite as the two on-device engines, which the stub explicitly could not. Composed
                with NO endpoint it throws exactly as the stub did, so nothing users see changes and
                no public endpoint ships (ADR-0013)
+40 feat(eval): the loop's sixth clause becomes code — `export -> offline eval` stops being a
+               sentence about tooling that does not exist. ADR-0011 deferred this and named the
+               condition ("its revision is its own ADR when real data exists to evaluate"); two
+               releases now ship a real exported-runs.ndjson, so the deferral is met on its own
+               terms. An InferlensEval LIBRARY (tested by the pinned simulator suite like every
+               other module) plus a thin inferlens-eval executable: parse the export key-set-gated,
+               refusing malformed rows by line and key rather than repairing them; group by
+               (backend, device, OS) so invariant 7 decides the population and not just the caption;
+               p50/p95 by CALLING InferlensBench.LatencyRecorder, never by reimplementing it, with
+               a test asserting that as an identity; the signal table under the schema's superseding
+               read rule, reported and explicitly not weighed. The verdict RECOMMENDS only above a
+               maintainer-ratified 20 warm rows per compared backend — a number read off the
+               ratified nearest-rank percentile, below which p95 is the slowest run — and otherwise
+               prints a refusal naming the shortfall and what would satisfy it. On today's four-row
+               corpus the refusal IS the output (ADR-0015)
 ```
 
 **Split rule honored:** the conformance work splits into stub / suite / proofs / wiring
@@ -185,7 +202,7 @@ rung. The README is created at rung 01 and completed at rung 36 — not created 
 ## Phase map (groups the ladder into the six README phases; make readme-sync reads it)
 
 `make readme-sync` reads the lines below plus the `rung-*` tags to regenerate the README rung-status
-block — edit the grouping HERE, never in the README. Every rung 00–39 belongs to exactly one phase, and
+block — edit the grouping HERE, never in the README. Every rung 00–40 belongs to exactly one phase, and
 readme-sync fails loud if this map and the ladder ever disagree.
 
 <!-- phase-map:start -->
@@ -193,7 +210,7 @@ readme-sync fails loud if this map and the ladder ever disagree.
 - Supply chain: 09 13 14
 - Engines: 10 11 15 16 21 22 39
 - Measurement: 12 17 32 33 36 37
-- Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35 38
+- Product loop: 18 19 20 23 24 25 26 27 28 29 30 34 35 38 40
 - Hardening: 31
 <!-- phase-map:end -->
 
@@ -316,6 +333,30 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   content, is pushed with it and untagged, as the ADR and the trailing docs are. Recorded because the
   convention's stated purpose ("where is this rung implemented") genuinely has two answers here.
 
+- Rung 40 landed before 27–30 and 32–36, and it is a deferral being met rather than a rung being
+  pulled forward. [ADR-0011](adr/0011-app-shell.md) wrote the condition down — *"its revision is its
+  own ADR when real data exists to evaluate"* — and two releases now ship an `exported-runs.ndjson`
+  produced by the shell that ADR authorized. The condition became true without anything being
+  decided again, which is the same shape as rung 39 meeting ADR-0010's own standard.
+
+  It belongs to the Product-loop phase because it closes that phase's sentence: the thesis names six
+  clauses and, until this rung, the sixth pointed at tooling that did not exist. Nothing in 27–36 is
+  a prerequisite — the eval reads a file, so it needs neither a thermal state, nor a flag, nor a
+  device number.
+
+  **What it is honest to say the rung did NOT produce: a number.** The whole corpus is four rows
+  across two exports, one backend, one simulator. The tool refuses on it, by design, and the refusal
+  is the deliverable — see the finding below on what that refusal is worth. A rung that shipped a
+  recommendation here would have shipped the failure its own threshold exists to prevent.
+
+  **Two of the driving prompt's premises did not survive contact, and both are recorded at the
+  code.** The prompt specified a "version-gated" parse: the NDJSON has no version field, and
+  `LedgerExport`'s gate reads the SQLite `user_version` — upstream of the export and invisible to
+  anyone holding the file. The prompt also specified "depends on Core only", which cannot hold with
+  its own instruction to reuse the ratified statistics, since those live in `InferlensBench`. Both
+  were taken to the review loop before any code and both are decided in
+  [ADR-0015](adr/0015-offline-eval-boundary.md), Decisions 5 and 2.
+
 ## Finding, recorded against `ClassificationModel` — case 3 is narrowed, not closed
 
 Rung 22 falsified a prediction it was itself named in, which is the more useful half of landing it.
@@ -339,6 +380,55 @@ one's. Narrower, still reachable, still ordering-decided.
 deduplication, not cancellation: it would also stop a real model being loaded twice, which is a cost
 this rung leaves in place. Recorded here rather than smuggled into rung 22, whose commit would then
 have touched two concerns.
+
+## Finding, recorded against the export — the NDJSON has no version field
+
+Found by building the reader, which is the only way it could have been found: the writer's spec is
+complete and correct, and it says nothing about this because it is not the writer's question.
+
+> `LedgerExport`'s header justifies the always-present `"signals": []` key by saying an absent key
+> *"would read as 'this exporter predates signals', an ambiguity the version gate exists to remove."*
+> The version gate reads the SQLite file's `user_version`. A reader holding only the `.ndjson`
+> cannot see a `user_version`, so nothing in the emitted format distinguishes an old exporter's
+> output from a new one's.
+
+The clause it defends is still right, and for a better reason than the one given: the explicit empty
+array removes the ambiguity **by itself**, with no gate to consult. What is wrong is the appeal to a
+gate that does not reach the reader it is invoked on behalf of. The comment is annotated at the code,
+not rewritten — the disposition every corrected claim here gets.
+
+The consequence for the eval is Decision 5 of ADR-0015: with no version to gate on, the **required
+key set** is the contract. A line missing a key, or carrying one this build does not know, is refused
+by line and by key. That is strictly weaker than a version — it cannot tell "newer" from "wrong" —
+and it is what the format actually supports.
+
+**What would close it: a `schema_version` key on every exported line.** Not done here, on two counts.
+It changes a published interface inside a rung whose subject is a reader, which is two concerns. And
+the two released exports lack the key, so a version-gating tool would refuse, on the day it shipped,
+the entire corpus whose existence justified the rung — a gate whose scope excludes its only case,
+which is the recurring defect this file already has a section about. It needs its own rung, with a
+documented rule for what an absent version means.
+
+## Finding, recorded against the eval — a refusal is not a result, and four rows is not a benchmark
+
+Recorded so the rung's ledger closes honestly, and so nobody quotes the tool's output as evidence of
+anything about Core ML or LiteRT.
+
+`inferlens-eval` runs, parses both published exports, and prints a refusal. That is the correct
+output and it is the whole of what the rung demonstrates: the *machinery* of the eval leg is real and
+tested. It demonstrates **nothing** about which backend is faster, because the corpus is one backend,
+one machine, and one warm row per file.
+
+What the refusal is worth is that it is specific. It names the shortfall (`liteRT has 1 warm row
+(needs 20); fewer than two backends measured`) and the condition that would clear it, so the gap
+between "the loop is built" and "the loop has said something" is a printed number rather than a
+caveat somebody has to remember. The measurement rungs (32, 33, 36) now have a consumer waiting with
+a stated appetite: twenty warm rows for each of two backends, on one device and OS.
+
+**The signal half is thinner still and is reported as such.** Three signal rows exist across the
+whole corpus. The verdict weighs latency only, and says so in its own output rather than in a
+comment; weighing signal would need a second ratified threshold, and a rule ratified against three
+rows would be a branch no real-data fixture could reach.
 
 ## Finding, recorded against a shared preprocessing seam — the resize now exists three times
 

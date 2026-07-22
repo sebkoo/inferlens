@@ -19,7 +19,9 @@ boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0013](docs/adr/0013-remote-leg-realization.md) (what "real" means for the remote leg without a
 production server),
 [0014](docs/adr/0014-cooperative-cancellation.md) (cancellation — a contract clause, a transition,
-and no ledger row). Plan:
+and no ledger row),
+[0015](docs/adr/0015-offline-eval-boundary.md) (the offline eval becomes code — the module graph's
+first library → library arrow, and a ratified refusal threshold). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -34,7 +36,9 @@ at that sentence. A module that serves no clause of it is cut.
 ```
 app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
          InferlensCoreML, InferlensLiteRT, InferlensRemote,
-         InferlensFallback}  →  InferlensCore
+         InferlensFallback, InferlensEval}  →  InferlensCore
+
+                            InferlensEval  →  InferlensBench
 ```
 
 - `InferlensCore` depends on nothing. It is protocols + value types only.
@@ -45,7 +49,15 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
   so cross-engine work lives above the engines without naming one (ADR-0010) — including in its
   own tests, which is why the remote leg moved out of that module (ADR-0013).
 - `InferlensUI` depends on Core's types and the engine *protocol*, never a concrete engine.
-- The app target is thin: composition only.
+- `InferlensEval` reads the exported NDJSON and is the ONE module that depends on another library.
+  `Eval → Bench` is the graph's first library → library arrow and it is deliberate: invariant 1 makes
+  the percentile a ratified choice and `LatencyRecorder` is the only place one is computed, so the
+  eval EXECUTES those choices instead of holding a second definition of the benchmark. It is legal
+  under the lint below because Bench is neither an engine nor Core (ADR-0015). The eval imports no
+  engine and not `InferlensStore`: the stored tokens are the format.
+- The app target is thin: composition only. The `inferlens-eval` executable is thin for the same
+  reason and a second one — it is the only target the simulator suite cannot run, so it holds
+  nothing that can be wrong.
 - A CI dependency-lint fails any arrow pointing back toward an engine or into Core.
 
 ## Invariants (forbidden patterns)
@@ -146,7 +158,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
 - Every commit is green: `make bootstrap` plus the simulator suite via `bash scripts/test-clean.sh`
-  (a fresh `-derivedDataPath` per run; 187 tests counted, 186 run, 1 skipped on the pinned
+  (a fresh `-derivedDataPath` per run; 205 tests counted, 204 run, 1 skipped on the pinned
   iPhone 17 Pro / iOS 26.1) pass. The skipped one is the screenshot renderer, which writes files
   only when asked — and a count is a fact about a tree and a simulator, so it is stated with both
   rather than as a bare number. (Under CI the three per-engine `…SteadyStateTiming` tests XCTSkip on
