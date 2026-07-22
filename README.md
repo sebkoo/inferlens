@@ -66,8 +66,8 @@ assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's 
 [recorded beside it](docs/media/demo-poster-provenance.txt).*
 
 Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
-typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 178
-tests counted, 177 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally via
+typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 187
+tests counted, 186 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally via
 [`test-clean`](scripts/test-clean.sh) (a count is a live fact of the tree, re-derived, not pinned to a
 rotting sha), and that same script now runs
 [on every push in CI](.github/workflows/build.yml) — on iPhone 17 Pro / iOS 26.5, the nearest sim the
@@ -126,11 +126,25 @@ Two lists, so no one has to guess which half of the repo they are reading.
   latency is the device-only rung-32 bench.
 - The fallback chain — [`FallbackEngine`](Sources/InferlensFallback/FallbackEngine.swift), a
   chain of engines that is itself an engine, so the conformance suite runs over it too
-  ([the spec](Tests/InferlensFallbackTests/FallbackEngineTests.swift), 8 tests). The chain is
+  ([the spec](Tests/InferlensFallbackTests/FallbackEngineTests.swift), 11 tests). The chain is
   data walked in order; hops are derived from the walk, one `fellBack` per adjacent pair above
   the leg that answered — the same ordinal shape the ledger row stores. A step-down's on-demand
   load is reported as the fallback backend's cold run under the rung-12 boundary, maintainer-decided
-  in [ADR-0010](docs/adr/0010-remote-leg-scope.md).
+  in [ADR-0010](docs/adr/0010-remote-leg-scope.md). A cancelled leg is not a failed one: the walk
+  stops rather than stepping down, so a superseded photo cannot fabricate a `fellBack` hop for a
+  step that never happened.
+- Cancel-on-input-change — picking a new photo while one is being classified cancels the run in
+  flight ([`ClassificationModel`](Sources/InferlensUI/ClassificationModel.swift)), and the stale
+  result never reaches the screen, the ledger, or the percentiles. It is a **contract clause**, not
+  a view-model trick: `classify` promises cooperative cancellation
+  ([the contract](Sources/InferlensCore/InferenceEngine.swift)), so all five conformers keep it and
+  the [conformance suite](Sources/InferlensConformance/AssertConformsToContract.swift) asserts it
+  against each — structurally, reading no clock, which is why it needs none of the CI scoping the
+  steady-state timing check does. A cancelled attempt is not a run and writes no ledger row, so the
+  p50/p95 stay clean with no filtering step anywhere
+  ([ADR-0014](docs/adr/0014-cooperative-cancellation.md)). Cooperative, never pre-emptive — the
+  engines' compute calls are synchronous and on-actor, so nothing can interrupt one mid-flight; the
+  remote leg is the exception, where `URLSession` really does tear a request down.
 - The third leg — [`RemoteEngine`](Sources/InferlensRemote/RemoteEngine.swift), a `URLSession` actor
   over a wire contract documented as the API's source of truth
   ([ADR-0013](docs/adr/0013-remote-leg-realization.md)): the client preprocesses and sends the
@@ -213,7 +227,9 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [document-store scope](docs/adr/0009-document-store-scope.md),
   [the remote leg and the chain's cold rule](docs/adr/0010-remote-leg-scope.md),
   [the app shell](docs/adr/0011-app-shell.md),
-  [where the truth of index → label lives](docs/adr/0012-label-table-provenance.md)), the
+  [where the truth of index → label lives](docs/adr/0012-label-table-provenance.md),
+  [what "real" means for the remote leg](docs/adr/0013-remote-leg-realization.md),
+  [cooperative cancellation](docs/adr/0014-cooperative-cancellation.md)), the
   [prior-art research](docs/research/PRIOR_ART.md), and a
   [step-by-step plan](docs/ROADMAP.md).
 - The toolchain and commit hygiene — version pins, a [Makefile](Makefile) harness, and a committed
@@ -228,7 +244,6 @@ Two lists, so no one has to guess which half of the repo they are reading.
 **Design-stage (decided, written down, not built)** — each links to
 [the roadmap](docs/ROADMAP.md):
 - OSSignposter spans around load / preprocess / infer
-- Cancel-on-input-change (the chain landed at rung 21; cancellation is its own rung)
 - The first real feature flag and its app wiring (rung 28)
 - The on-device benchmark harness — the empty table's numbers
 
@@ -468,7 +483,7 @@ with the rung where it lands.
 | Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
 | SQL | InferlensStore — append-only ledger + migrations | [round trip + trigger teeth pass](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift) on the sim; the composed app writes a row per run and a signal per thumb |
 | NoSQL | InferlensStore — [DocumentStore](Sources/InferlensStore/DocumentStore.swift), the flag cache's backing store | [built + tested](Tests/InferlensStoreTests/DocumentStoreTests.swift); scope deliberately cut to the cache ([ADR-0009](docs/adr/0009-document-store-scope.md)) |
-| async/await, concurrency, background tasks | actor-isolated engine, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift), partial |
+| async/await, concurrency, background tasks | actor-isolated engines, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift); cancellation is a [contract clause](Sources/InferlensCore/InferenceEngine.swift) all five conformers keep, [asserted structurally](Sources/InferlensConformance/AssertConformsToContract.swift) and driven by the [driver](Sources/InferlensUI/ClassificationModel.swift) ([ADR-0014](docs/adr/0014-cooperative-cancellation.md)) |
 | AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | the [state enum](Sources/InferlensUI/InferenceState.swift) is built — every case with a real trigger, retry driven by `InferenceError.isRetryable`; the fallback chain itself is planned |
 | latency & memory optimization | LatencyRecorder (p50/p95 over cold/warm), OSSignposter spans | recorder [built + property-tested](Tests/InferlensBenchTests/LatencyRecorderTests.swift); Cold/Warm table + OSSignposter planned |
 | feature flags / remote config | FeatureFlagProvider + local JSON provider | [provider built + tested](Tests/InferlensFlagsTests/LocalJSONFlagProviderTests.swift); app wiring at rung 28, with the first real flag |

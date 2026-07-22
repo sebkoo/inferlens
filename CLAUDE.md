@@ -17,7 +17,9 @@ boundaries), [0002](docs/adr/0002-litert-distribution.md) (LiteRT distribution),
 [0011](docs/adr/0011-app-shell.md) (the app shell, and invariant 5 precised),
 [0012](docs/adr/0012-label-table-provenance.md) (where the truth of index → label lives),
 [0013](docs/adr/0013-remote-leg-realization.md) (what "real" means for the remote leg without a
-production server). Plan:
+production server),
+[0014](docs/adr/0014-cooperative-cancellation.md) (cancellation — a contract clause, a transition,
+and no ledger row). Plan:
 [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## The thesis
@@ -106,6 +108,16 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
    thrown from exactly one site, `CoreMLEngine`'s pixel-buffer allocation) — named here rather
    than implied. Recorded like the invariant-1, invariant-2 and RAII corrections; the
    equivalence argument in [ADR-0001](docs/adr/0001-module-boundaries.md) is corrected with it.
+   **A second case was proposed and refused, at the cancel-on-input-change rung: `cancelled`.**
+   It fails the test from the other side — it has a producer (the driver knows exactly when it
+   cancels) and no **consumer**, because a cancelled run exists only when a new run is already
+   starting, so the case would be overwritten by the superseding run's `.classifyBegan` in the same
+   turn it was entered. A state nothing can ever draw is the `warming` mistake wearing a producer.
+   Cancellation is therefore a **transition** and not a state — `(.inferring, .classifyBegan) ->
+   .inferring`, the line already in the table — which is why this invariant is unchanged by that
+   rung rather than corrected a second time. The reasoning is
+   [ADR-0014](docs/adr/0014-cooperative-cancellation.md); this is a case the rule REJECTED, so it is
+   recorded as evidence the rule bites, not as a correction to it.
 5. **No CocoaPods — no second dependency manager of any kind. Dependency management is pure
    SPM.** LiteRT is a checksum-pinned `binaryTarget` (ADR-0002). Precised at rung 37 the
    recorded way (the "exactly one" → "at most one" precedent): the invariant's target was always
@@ -134,7 +146,7 @@ app  →  {InferlensUI, InferlensStore, InferlensFlags, InferlensBench,
 
 - Conventional Commits. One commit, one concern; a commit touching two concerns is split.
 - Every commit is green: `make bootstrap` plus the simulator suite via `bash scripts/test-clean.sh`
-  (a fresh `-derivedDataPath` per run; 178 tests counted, 177 run, 1 skipped on the pinned
+  (a fresh `-derivedDataPath` per run; 187 tests counted, 186 run, 1 skipped on the pinned
   iPhone 17 Pro / iOS 26.1) pass. The skipped one is the screenshot renderer, which writes files
   only when asked — and a count is a fact about a tree and a simulator, so it is stated with both
   rather than as a bare number. (Under CI the three per-engine `…SteadyStateTiming` tests XCTSkip on

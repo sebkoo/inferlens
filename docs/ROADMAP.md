@@ -51,7 +51,9 @@ invariant 6 never gave),
 invariant 5 precised),
 [ADR-0012](adr/0012-label-table-provenance.md) (where the truth of index → label lives),
 [ADR-0013](adr/0013-remote-leg-realization.md) (what "real" means for the remote leg without a
-production server).
+production server),
+[ADR-0014](adr/0014-cooperative-cancellation.md) (cancellation — a contract clause, a transition,
+and no ledger row).
 Ground truth: [PRIOR_ART.md](research/PRIOR_ART.md),
 [MODEL_PROVENANCE.md](research/MODEL_PROVENANCE.md).
 
@@ -297,6 +299,46 @@ read as a skip. The block itself is honest by construction — it shows `[x] 23`
   the workflow and the README. It retires by construction: `test-clean`'s destination default is the
   counted pin, so when one image ships both, deleting the workflow's resolve step restores iOS 26.1 with
   no other change.
+
+- Rung 22 landed after 23–26, 29, 31 and 37–39, and the reason is in the ladder line's own framing.
+  It reads "engine actor; cancel in-flight Tasks **when input changes**" — and an input-change site is
+  a driver. There was none until rung 24 built `ClassificationModel` and rung 29 composed it, so the
+  rung had no place to put its subject. The first clause was already satisfied when this rung began
+  (all four engines have been actors since rungs 10, 15, 21 and 39), which is why the landing is
+  entirely the second. The code named this rung by name while waiting for it, at
+  `ClassificationModel.run(_:)` and at `InferenceState.applying(_:)`'s `(.inferring, .classifyBegan)`
+  case; both comments are now record rather than prediction.
+
+  **Which commit carries the tag, since this rung has TWO `feat` commits.** The convention above says
+  `rung-N` tags the rung's `feat` commit; it does not say which when there are two. The tag is on
+  `feat(ui)` — the driver — because that is the ladder line's literal deliverable and the rung is not
+  functional before it; `feat(core)`, which lands the contract clause and is the rung's larger
+  content, is pushed with it and untagged, as the ADR and the trailing docs are. Recorded because the
+  convention's stated purpose ("where is this rung implemented") genuinely has two answers here.
+
+## Finding, recorded against `ClassificationModel` — case 3 is narrowed, not closed
+
+Rung 22 falsified a prediction it was itself named in, which is the more useful half of landing it.
+
+> `ClassificationModel`'s invariant-1 note recorded case 3 — two loads before any classify, where the
+> cold sample carries whichever load finished last — as undecided, and named the fix: *"making it
+> decided means serializing runs, which is the cancel-on-input-change rung's subject."*
+
+That rung is rung 22, and it does the opposite. It **supersedes** runs rather than serializing them:
+`start(_:)` cancels the run in flight and does **not** await it, because cancellation is cooperative
+(ADR-0005 leaves an in-flight `TfLiteInterpreterInvoke` no suspension point to be interrupted at), so
+awaiting the superseded run would queue the new photo behind a compute nothing can stop. A responsive
+screen was worth more than a closed ambiguity.
+
+What the rung did change: a superseded run now stops at the checkpoint after the load bracket, so
+reaching an overwrite additionally requires the SUPERSEDED run's load to return after the superseding
+one's. Narrower, still reachable, still ordering-decided.
+
+**What would actually close it: a shared load task**, so two overlapping runs cannot both call
+`loadModel()` — the second awaits the first's rather than starting its own. That is load
+deduplication, not cancellation: it would also stop a real model being loaded twice, which is a cost
+this rung leaves in place. Recorded here rather than smuggled into rung 22, whose commit would then
+have touched two concerns.
 
 ## Finding, recorded against a shared preprocessing seam — the resize now exists three times
 
