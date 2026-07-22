@@ -1,80 +1,96 @@
 name: build + test
 
-# The iOS build+test gate — rung 31. This rewrites the workflow_dispatch placeholder that stood here
-# since rung 00: it was deferred until a hosted runner could boot an iOS 26 simulator, and that
-# condition is now met (actions/runner-images macos-15 carries Xcode 26.x, the iOS 26.1 runtime, and
-# the iPhone 17 Pro device type — the exact pinned pair the counted suite runs on).
+# The iOS build+test gate — rung 31. It runs the local green bar, `bash scripts/test-clean.sh`, on a
+# hosted runner: same 0/1/2 exit contract, same fresh -derivedDataPath isolation.
 #
-# WHY THIS CALLS THE SAME SCRIPT AS THE LOCAL GREEN BAR, VERBATIM. The bar this repo commits against is
-# `bash scripts/test-clean.sh` (CLAUDE.md, Process), with its 0/1/2 exit contract, its fresh
-# -derivedDataPath isolation, and its pinned iPhone 17 Pro / iOS 26.1 destination. CI runs that one
-# script, unchanged — same gate, same contract — so there is ZERO drift between "green locally" and
-# "green in CI". test-clean resolves the pin itself; if a future image ever drops it, test-clean exits
-# 2 (harness could not run) and this job goes red, loud, rather than silently testing another OS.
-# test-clean is not edited for CI: no destination seam is needed (the pin is present), and TMPDIR — which
-# it already honors for its fresh -derivedDataPath — is what gives the failure artifact below a stable
-# path, so the trust-path script is untouched.
+# WHY macos-26 AND WHY A NAMED SIM DEVIATION. Package.swift declares swift-tools-version 6.3, and — found
+# empirically on this rung's first two CI runs, the runner being the judge — no GA runner Xcode provides
+# Swift 6.3: macos-15 tops out at Xcode 26.3 / Swift 6.2.3, which cannot even resolve the package graph.
+# Swift 6.3 first ships in Xcode 26.6, which is present ONLY on the macos-26 image (the same Xcode 26.6 /
+# Swift 6.3.3, build 17F113, the maintainer builds with locally — so "green in CI" means the same compiler
+# as "green locally", the axis the failure was actually on). But macos-26 carries no iOS 26.1 runtime —
+# the counted suite's pin. No single runner has BOTH the Swift 6.3 toolchain and the iOS 26.1 sim.
 #
-# WHAT THIS RUNG DELIBERATELY DOES NOT RUN: `make lint` / `make test`. Both are stubs that echo a TODO
-# and exit 0 (CLAUDE.md, Process), so running them here would be an empty target readable as a pass —
-# the exact lie this repo guards against. Wiring swiftformat/swiftlint and a contract-preserving
-# `make test` is the separate "wire swiftformat/swiftlint" Harness-backlog item (docs/ROADMAP.md).
+# The toolchain is non-negotiable (without Swift 6.3 nothing compiles); the sim's OS version is not, because
+# CI runs correctness tests, not published latency numbers (the bench is device-only, a later rung). So CI
+# takes the exact-toolchain runner and runs the iPhone 17 Pro on the NEWEST iOS runtime this image provides,
+# and NAMES that deviation — in the resolve step below, in the job name, and in the README, which keeps CI's
+# pair distinct from the counted suite's iPhone 17 Pro / iOS 26.1. test-clean gains one documented, defaulted
+# env seam (INFERLENS_SIM_OS) for exactly this; unset, its behavior is unchanged.
+#
+# WHAT THIS RUNG DELIBERATELY DOES NOT RUN: `make lint` / `make test` — stubs that echo a TODO and exit 0,
+# so running them here would be an empty target readable as a pass. Wiring swiftformat/swiftlint and a
+# contract-preserving `make test` is the separate "wire swiftformat/swiftlint" Harness-backlog item.
 
 on:
   push:
     branches: [main]
 
-# macOS minutes are billed 10x, so a superseded run is wasted spend: cancel an in-flight run when a
-# newer push to the same ref lands. One workflow, no matrix.
+# macOS minutes are billed 10x, so a superseded run is wasted spend: cancel an in-flight run when a newer
+# push to the same ref lands. One workflow, no matrix.
 concurrency:
   group: build-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-test:
-    name: "build + test (iPhone 17 Pro / iOS 26.1 simulator)"
-    runs-on: macos-15   # GA image: Xcode 26.x + the iOS 26.1 runtime + the iPhone 17 Pro device type
+    name: "build + test (iPhone 17 Pro, newest CI iOS sim)"
+    runs-on: macos-26   # the only image carrying Xcode 26.6 / Swift 6.3.3 — matches the local toolchain
     steps:
       - uses: actions/checkout@v4
 
-      # swift-tools-version:6.3.0 (Package.swift) needs a toolchain >= 6.3.0. The runner default Xcode is
-      # 16.4, and — found empirically on this rung's first CI run, the runner being the judge — Xcode
-      # 26.1.1 ships Swift 6.2.1, which fails to resolve the package graph ("using Swift tools version
-      # 6.3.0 but the installed version is 6.2.1"). The image also carries 26.2 and 26.3, one of which
-      # provides 6.3, but the runner-images manifest does not publish the Xcode->Swift mapping — so rather
-      # than hard-code a second guess, PROBE the installed 26.x Xcodes low-to-high and select the LOWEST
-      # whose swift reports >= 6.3. Lowest, not highest: it stays closest to the .swift-version 6.3 local
-      # pin, so the build sees the fewest new strict-concurrency diagnostics that could red CI where local
-      # is green. Fail loud if none qualifies. The device+OS pair (iPhone 17 Pro / iOS 26.1) is unchanged
-      # whichever Xcode drives it — all invariant 7 governs.
-      - name: Select the lowest Xcode providing Swift >= 6.3
+      # Select Xcode 26.6 (Swift 6.3.3), the exact toolchain the maintainer builds with and the lowest that
+      # satisfies Package.swift's swift-tools-version 6.3. The runner default is older. Assert the Swift
+      # version and fail loud if the image ever moves 26.6, rather than resolve into a wrong toolchain.
+      - name: Select Xcode 26.6 (Swift 6.3.3 — matches the local toolchain)
         run: |
-          picked=""
-          for app in $(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V); do
-            sw="$("$app/Contents/Developer/usr/bin/swift" --version 2>/dev/null \
-                  | grep -oE 'Swift version [0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' | head -1)"
-            [ -z "$sw" ] && { echo "skip $app (no swift reported)"; continue; }
-            maj="${sw%%.*}"; min="${sw#*.}"
-            if [ "$maj" -gt 6 ] || { [ "$maj" -eq 6 ] && [ "$min" -ge 3 ]; }; then
-              picked="$app"; echo "selected $app (Swift $sw)"; break
-            fi
-            echo "skip $app (Swift $sw < 6.3)"
-          done
-          if [ -z "$picked" ]; then
-            echo "FAIL: no installed Xcode provides Swift >= 6.3 (Package.swift needs tools 6.3.0)" >&2
-            exit 1
-          fi
-          sudo xcode-select -s "$picked"
+          sudo xcode-select -s /Applications/Xcode_26.6.app
           xcodebuild -version
           swift --version
+          sw="$(swift --version 2>&1 | grep -oE 'Swift version [0-9]+\.[0-9]+' | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+          maj="${sw%%.*}"; min="${sw#*.}"
+          if [ "${maj:-0}" -lt 6 ] || { [ "$maj" -eq 6 ] && [ "${min:-0}" -lt 3 ]; }; then
+            echo "FAIL: selected Xcode reports Swift '${sw:-none}' (< 6.3); Package.swift needs tools 6.3" >&2
+            exit 1
+          fi
+          echo "ok: Swift $sw (>= 6.3)"
+
+      # The counted suite's pin is iPhone 17 Pro / iOS 26.1, but this image carries no iOS 26.1 runtime. Run
+      # the iPhone 17 Pro on the NEWEST iOS runtime it DOES carry, resolved from the runner (never guessed),
+      # and hand it to test-clean through its documented env seam. This IS the named deviation: CI's pair is
+      # iPhone 17 Pro / iOS <resolved>, printed here and carried in every row, distinct from iOS 26.1. Fail
+      # loud if the image has no iPhone 17 Pro on any iOS runtime at all.
+      - name: Resolve the CI simulator (named OS deviation — no iOS 26.1 on the Swift-6.3 runner)
+        run: |
+          os="$(xcrun simctl list -j devices available | python3 -c '
+          import json, sys
+          devs = json.load(sys.stdin)["devices"]
+          best = None
+          for rt, items in devs.items():
+              if "com.apple.CoreSimulator.SimRuntime.iOS-" not in rt:
+                  continue
+              if not any(i["name"] == "iPhone 17 Pro" and i.get("isAvailable", True) for i in items):
+                  continue
+              ver = rt.split("iOS-")[-1].replace("-", ".")
+              key = [int(p) for p in ver.split(".")]
+              if best is None or key > best[0]:
+                  best = (key, ver)
+          print(best[1] if best else "")
+          ')"
+          if [ -z "$os" ]; then
+            echo "FAIL: no available iPhone 17 Pro on any iOS runtime of this image" >&2
+            xcrun simctl list devices available >&2
+            exit 1
+          fi
+          echo "CI simulator: iPhone 17 Pro / iOS $os  (counted-suite pin is iOS 26.1; the deviation is named)"
+          echo "INFERLENS_SIM_NAME=iPhone 17 Pro" >> "$GITHUB_ENV"
+          echo "INFERLENS_SIM_OS=$os" >> "$GITHUB_ENV"
 
       # Cache the checksum-pinned inputs, keyed on the pins THEMSELVES so a pin change busts the cache by
-      # construction — the key literally cannot outlive the thing it caches, so this can never mask a
-      # fetch regression. Restored: the fetched + derived model bytes (Vendor/Models, Vendor/Fixtures)
-      # and SwiftPM's shared download cache (which holds the LiteRT xcframework binaryTarget,
-      # checksum-pinned in Package.swift). NOT the per-run DerivedData — test-clean rebuilds that from
-      # scratch every run on purpose (its header: the shared swiftpm cache is a "shared but sound INPUT",
-      # a reused build product is not).
+      # construction — it can never mask a fetch regression. Restored: the fetched + derived model bytes and
+      # SwiftPM's shared download cache (the LiteRT xcframework binaryTarget, checksum-pinned in
+      # Package.swift). Both are OS-independent inputs. NOT the per-run DerivedData — test-clean rebuilds
+      # that fresh every run on purpose (its header: the shared swiftpm cache is a "shared but sound INPUT").
       - name: Cache pinned deps (models + SwiftPM/LiteRT)
         uses: actions/cache@v4
         with:
@@ -85,24 +101,24 @@ jobs:
           key: ${{ runner.os }}-inferlens-deps-${{ hashFiles('scripts/fetch-models.sh', 'Package.swift') }}
 
       # Fetches the checksum-pinned models and wires the git hooks. Fails CLOSED on any pin mismatch
-      # (fetch-models.sh exits 1), which reds the job — the whole point of pinning. A bare build has no
-      # engine (CLAUDE.md invariant 8), so bootstrap precedes the suite.
+      # (fetch-models.sh exits 1), which reds the job. A bare build has no engine (invariant 8), so bootstrap
+      # precedes the suite.
       - name: Bootstrap (fetch checksum-pinned models)
         run: make bootstrap
 
-      # Run the SAME script that is the local green bar, verbatim. TMPDIR is pointed at a known workspace
-      # dir only so the failure artifact below has a stable path — test-clean already honors
-      # ${TMPDIR:-/tmp} for its fresh -derivedDataPath, so this is an existing seam, not a code change to
-      # a trust-path script. The script's 0/1/2 exit maps straight onto this step's pass/fail.
-      - name: Build + test (fresh -derivedDataPath, pinned sim)
+      # Run the SAME script that is the local green bar, verbatim — it reads INFERLENS_SIM_* from the resolve
+      # step above. TMPDIR is pointed at a known workspace dir only so the failure artifact below has a stable
+      # path; test-clean already honors ${TMPDIR:-/tmp} for its fresh -derivedDataPath. The script's 0/1/2
+      # exit maps straight onto this step's pass/fail.
+      - name: Build + test (fresh -derivedDataPath, resolved sim)
         run: |
           mkdir -p "$GITHUB_WORKSPACE/ci-derived"
           export TMPDIR="$GITHUB_WORKSPACE/ci-derived"
           bash scripts/test-clean.sh
 
-      # On red — a test failure (exit 1) OR a could-not-run (exit 2) — keep the full xcodebuild log and
-      # the result bundle test-clean wrote inside its fresh DerivedData, so the failure is diagnosable
-      # from the run page without a re-run. Nothing is uploaded on green.
+      # On red — a test failure (exit 1) OR a could-not-run (exit 2) — keep the full xcodebuild log and the
+      # result bundle test-clean wrote inside its fresh DerivedData, so the failure is diagnosable from the
+      # run page without a re-run. Nothing is uploaded on green.
       - name: Upload xcodebuild log + result bundle on failure
         if: failure()
         uses: actions/upload-artifact@v4
