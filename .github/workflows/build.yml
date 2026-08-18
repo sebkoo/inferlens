@@ -18,12 +18,13 @@ name: build + test
 # pair distinct from the counted suite's iPhone 17 Pro / iOS 26.1. test-clean gains one documented, defaulted
 # env seam (INFERLENS_SIM_OS) for exactly this; unset, its behavior is unchanged.
 #
-# WHAT THIS RUNG DELIBERATELY DOES NOT RUN: `make lint` / `make test` — stubs that echo a TODO and exit 0,
-# so running them here would be an empty target readable as a pass. Wiring swiftformat/swiftlint and a
-# contract-preserving `make test` is the separate "wire swiftformat/swiftlint" Harness-backlog item.
+# This workflow runs `scripts/test-clean.sh` directly rather than `make test` so the exit-code
+# contract (0/1/2) is exact; `make lint` is a separate, unenforced local check for now.
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
 
 # macOS minutes are billed 10x, so a superseded run is wasted spend: cancel an in-flight run when a newer

@@ -1,8 +1,8 @@
-# Inferlens — the harness shape lands first. Stubs exit 0 with TODO; real work lands per rung.
+# Inferlens — build, test, and lint the local SPM workspace.
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
 
-.PHONY: help bootstrap format lint test bench claims-audit test-clean anchor-check readme-sync land
+.PHONY: help bootstrap lint test claims-audit test-clean anchor-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -13,17 +13,13 @@ bootstrap: ## Wire git hooks; fetch checksum-pinned models (the LiteRT xcframewo
 	@bash scripts/fetch-models.sh
 	@echo "litert: TensorFlowLiteC is a checksum-pinned SPM binaryTarget (ADR-0002); SPM fetches + verifies it at build — no bootstrap step. Re-vendor a version bump with scripts/vendor-litert.sh."
 
-format: ## Run swiftformat
-	@echo "TODO: swiftformat . --config .swiftformat"
+lint: ## Run swiftformat --lint and swiftlint
+	@command -v swiftformat >/dev/null 2>&1 || { echo "swiftformat not found — install with: brew install swiftformat"; exit 2; }
+	@command -v swiftlint >/dev/null 2>&1 || { echo "swiftlint not found — install with: brew install swiftlint"; exit 2; }
+	swiftformat --lint . && swiftlint lint
 
-lint: ## Run swiftlint
-	@echo "TODO: swiftlint lint --config .swiftlint.yml"
-
-test: ## Build + run the test suite on the iOS simulator (wired at the 'wire make test' rung)
-	@echo "TODO (wire-make-test rung): xcodebuild test -destination 'generic/platform=iOS Simulator'"
-
-bench: ## On-device latency harness -> JSON (the on-device bench rung)
-	@echo "TODO (on-device bench rung): run on-device benchmark; emit device/iOS/thermal/run-count/warm-up JSON."
+test: ## Build + run the test suite on the iOS simulator
+	@bash scripts/test-clean.sh
 
 # Per-rung claims audit (docs/ROADMAP.md "Harness backlog"): a tree grep misses two of the three
 # surfaces rung 12 got burned by — a claim in a commit MESSAGE and a DEAD-SHA orphaned on origin.
@@ -42,30 +38,3 @@ test-clean: ## Build+test on the iOS sim with a fresh -derivedDataPath per run (
 # derived GitHub's way. CI calls the script directly for the 0/1/2 contract; make collapses failures to 2.
 anchor-check: ## Check every in-page Markdown anchor resolves to a unique heading (slug-derived)
 	@bash scripts/anchor-check.sh
-
-# The rungs badge is DERIVED, never typed. N and D use ONE counting rule (rung-00 counts on
-# both sides): N = number of rung-* tags, D = number of rung lines in ROADMAP.md. Computed in
-# one place so the two axes can never diverge (the 4/32-off-by-one bug).
-readme-sync: ## Rewrite the README rungs badge + per-rung status block from git tags + ROADMAP (derived, idempotent)
-	@N=$$(git tag -l 'rung-*' | wc -l | tr -d ' '); \
-	D=$$(grep -c '^[0-9][0-9] ' docs/ROADMAP.md); \
-	sed -i '' -E "s|badge/rungs-[0-9]+%2F[0-9]+-|badge/rungs-$${N}%2F$${D}-|" README.md; \
-	echo "badge synced: rungs $$N/$$D  (N=$$N rung-* tags, D=$$D rung lines, same rule)"; \
-	bash scripts/gen-rung-status.sh; \
-	echo "rung-status block synced from ROADMAP ladder + phase map + rung-* tags"
-
-# Land a rung: DECLARE it in the tag map, LOCALLY. Commit the rung first, then:
-#   make land RUNG=NN
-# The badge self-counts this rung, so the tag is created BEFORE readme-sync (to make N right);
-# the amend that folds the badge in rewrites the SHA, so the tag is force-moved onto the final
-# commit and self-checked (rung-NN == HEAD). NO push here — push branch and tag together,
-# atomically, as the separate final step:  git push --atomic origin main rung-NN
-land: ## Land the current rung LOCALLY: tag rung-NN on HEAD + fold the derived badge in (RUNG=NN)
-	@test -n "$(RUNG)" || { echo "usage: make land RUNG=NN"; exit 1; }
-	git tag "rung-$(RUNG)" HEAD
-	@$(MAKE) --no-print-directory readme-sync
-	git add README.md
-	git commit --amend --no-edit
-	git tag -f "rung-$(RUNG)" HEAD
-	@test "$$(git rev-parse rung-$(RUNG))" = "$$(git rev-parse HEAD)" || { echo "ERROR: rung-$(RUNG) != HEAD"; exit 1; }
-	@echo "landed rung $(RUNG) LOCALLY: tag == HEAD, badge folded. Push atomically: git push --atomic origin main rung-$(RUNG)"

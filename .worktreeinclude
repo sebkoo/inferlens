@@ -1,0 +1,5 @@
+Vendor/
+Sources/InferlensApp/Models/*
+App/Signing.local.xcconfig
+NOTES.local.md
+.claude/README.proposed.md
