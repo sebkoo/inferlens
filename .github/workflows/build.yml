@@ -3,20 +3,22 @@ name: build + test
 # The iOS build+test gate — rung 31. It runs the local green bar, `bash scripts/test-clean.sh`, on a
 # hosted runner: same 0/1/2 exit contract, same fresh -derivedDataPath isolation.
 #
-# WHY macos-26 AND WHY A NAMED SIM DEVIATION. Package.swift declares swift-tools-version 6.3, and — found
-# empirically on this rung's first two CI runs, the runner being the judge — no GA runner Xcode provides
-# Swift 6.3: macos-15 tops out at Xcode 26.3 / Swift 6.2.3, which cannot even resolve the package graph.
-# Swift 6.3 first ships in Xcode 26.6, which is present ONLY on the macos-26 image (the same Xcode 26.6 /
-# Swift 6.3.3, build 17F113, the maintainer builds with locally — so "green in CI" means the same compiler
-# as "green locally", the axis the failure was actually on). But macos-26 carries no iOS 26.1 runtime —
-# the counted suite's pin. No single runner has BOTH the Swift 6.3 toolchain and the iOS 26.1 sim.
+# WHY macos-26 AND WHY A RESOLVED SIM, NOT A HARDCODED ONE. Package.swift declares swift-tools-version 6.3,
+# and — found empirically on this rung's first two CI runs, the runner being the judge — no GA runner Xcode
+# provides Swift 6.3: macos-15 tops out at Xcode 26.3 / Swift 6.2.3, which cannot even resolve the package
+# graph. Swift 6.3 first ships in Xcode 26.6, which is present ONLY on the macos-26 image (the same Xcode
+# 26.6 / Swift 6.3.3, build 17F113, the maintainer builds with locally — so "green in CI" means the same
+# compiler as "green locally", the axis the failure was actually on). That image's iOS simulator runtimes
+# are whatever it happens to carry — the toolchain runner and the pinned-sim runner are not guaranteed to
+# be the same image.
 #
 # The toolchain is non-negotiable (without Swift 6.3 nothing compiles); the sim's OS version is not, because
 # CI runs correctness tests, not published latency numbers (the bench is device-only, a later rung). So CI
 # takes the exact-toolchain runner and runs the iPhone 17 Pro on the NEWEST iOS runtime this image provides,
-# and NAMES that deviation — in the resolve step below, in the job name, and in the README, which keeps CI's
-# pair distinct from the counted suite's iPhone 17 Pro / iOS 26.1. test-clean gains one documented, defaulted
-# env seam (INFERLENS_SIM_OS) for exactly this; unset, its behavior is unchanged.
+# resolved at run time and never assumed — in the resolve step below, printed there, in the job name, and in
+# the README. test-clean gains one documented, defaulted env seam (INFERLENS_SIM_OS) for exactly this;
+# unset, its behavior is unchanged. Today CI's resolved OS is 26.5, the same as test-clean's local default —
+# a fact about this runner's current image, not a rule this workflow depends on.
 #
 # This workflow runs `scripts/test-clean.sh` directly rather than `make test` so the exit-code
 # contract (0/1/2) is exact; `make lint` is a separate, unenforced local check for now.
@@ -56,12 +58,13 @@ jobs:
           fi
           echo "ok: Swift $sw (>= 6.3)"
 
-      # The counted suite's pin is iPhone 17 Pro / iOS 26.1, but this image carries no iOS 26.1 runtime. Run
-      # the iPhone 17 Pro on the NEWEST iOS runtime it DOES carry, resolved from the runner (never guessed),
-      # and hand it to test-clean through its documented env seam. This IS the named deviation: CI's pair is
-      # iPhone 17 Pro / iOS <resolved>, printed here and carried in every row, distinct from iOS 26.1. Fail
-      # loud if the image has no iPhone 17 Pro on any iOS runtime at all.
-      - name: Resolve the CI simulator (named OS deviation — no iOS 26.1 on the Swift-6.3 runner)
+      # test-clean's local default is iPhone 17 Pro / iOS 26.5, but nothing guarantees this image carries
+      # that exact runtime. Run the iPhone 17 Pro on the NEWEST iOS runtime it DOES carry, resolved from the
+      # runner (never guessed), and hand it to test-clean through its documented env seam. CI's pair is
+      # iPhone 17 Pro / iOS <resolved>, printed here and carried in every row — resolved independently of
+      # the local default, even on a run where the two happen to match. Fail loud if the image has no
+      # iPhone 17 Pro on any iOS runtime at all.
+      - name: Resolve the CI simulator (resolved from the runner, not hardcoded to the local pin)
         run: |
           os="$(xcrun simctl list -j devices available | python3 -c '
           import json, sys
@@ -83,7 +86,7 @@ jobs:
             xcrun simctl list devices available >&2
             exit 1
           fi
-          echo "CI simulator: iPhone 17 Pro / iOS $os  (counted-suite pin is iOS 26.1; the deviation is named)"
+          echo "CI simulator: iPhone 17 Pro / iOS $os  (resolved from the runner; test-clean's local default is separate)"
           echo "INFERLENS_SIM_NAME=iPhone 17 Pro" >> "$GITHUB_ENV"
           echo "INFERLENS_SIM_OS=$os" >> "$GITHUB_ENV"
 

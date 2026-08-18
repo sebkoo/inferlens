@@ -20,8 +20,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root, regardless of caller's working directory
 
 SCHEME="Inferlens-Package"
-PIN_NAME="iPhone 17 Pro"
-PIN_OS="26.1"
+PIN_NAME="${INFERLENS_SIM_NAME:-iPhone 17 Pro}"
+PIN_OS="${INFERLENS_SIM_OS:-26.5}"
 OUT="$PWD/docs/media"
 
 # The pin is NOT optional here, and this is the one place it differs from test-clean. test-clean may fall

@@ -67,11 +67,12 @@ assets, never tracked ([ADR-0007](docs/adr/0007-readme-media.md)); the poster's 
 
 Where the evidence stands, in one breath: the rungs badge above is derived from git tags, never
 typed ([the roadmap](docs/ROADMAP.md) is the ladder it counts); the simulator suite is green — 205
-tests counted, 204 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.1, measured locally via
+tests counted, 204 run, 1 skipped, on the pinned iPhone 17 Pro / iOS 26.5, measured locally via
 [`test-clean`](scripts/test-clean.sh) (a count is a live fact of the tree, re-derived, not pinned to a
 rotting sha), and that same script now runs
-[on every push in CI](.github/workflows/build.yml) — on iPhone 17 Pro / iOS 26.5, the nearest sim the
-only Swift-6.3 runner carries, a deviation the workflow names; the
+[on every push in CI](.github/workflows/build.yml) on the newest iOS runtime the only Swift-6.3 runner
+carries — resolved at run time and printed in the job's own log, never hardcoded; today that also
+lands on iOS 26.5, though the local pin and CI's resolution are independent and can drift apart; the
 [comparison table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) is empty because no
 device has run the bench; and [Limitations](#limitations) leads the feature story by rule.
 
@@ -80,7 +81,7 @@ device has run the bench; and [Limitations](#limitations) leads the feature stor
 ```
 git clone https://github.com/sebkoo/inferlens && cd inferlens
 make bootstrap                  # fetch the checksum-pinned models — a bare build has no engine
-open App/Inferlens.xcodeproj    # then Run on the pinned simulator: iPhone 17 Pro, iOS 26.1
+open App/Inferlens.xcodeproj    # then Run on the pinned simulator: iPhone 17 Pro, iOS 26.5
 ```
 
 Executed, not assumed, from this tree at `490b7ce`: `make bootstrap` verified both model checksums,
@@ -338,9 +339,10 @@ fails a stale claim or a commit reference dead on the remote, and [`test-clean`]
 forces a fresh build directory each run so a cached pass cannot be mistaken for a real one. As of rung 31
 `test-clean` runs automatically too: the [build + test workflow](.github/workflows/build.yml) runs it on
 every push, on the only hosted image that carries Swift 6.3 (macos-26 / Xcode 26.6, the local toolchain).
-That image has no iOS 26.1 runtime, so CI runs the iPhone 17 Pro on iOS 26.5 — the nearest it carries —
-and names the deviation; the counted-suite figures above are the local iOS 26.1 run, and CI checks
-correctness, not the device latency the bench rung owns. The
+That image's iOS runtimes are whatever it happens to carry, so CI resolves the newest one the iPhone 17
+Pro supports at run time and prints it, rather than assuming a fixed version; the counted-suite figures
+above are the local iOS 26.5 run, and CI checks correctness, not the device latency the bench rung owns.
+Today CI's resolved OS is 26.5 too, though the local pin and CI's resolution stay independent. The
 [first green CI run](https://github.com/sebkoo/inferlens/actions/runs/29888268920) is on record.
 
 How many of the roadmap's rungs have landed is the badge above; the block below breaks it down by phase.
@@ -434,21 +436,14 @@ In the order a user meets them:
 | <img src="docs/media/state-03-inferring.png" width="430" alt="A spinner reading: Classifying…"> | **Classifying.** The photo is being run through the engine. |
 | <img src="docs/media/state-04-success-degraded.png" width="430" alt="A result marked Classified, with a banner reading: Core ML answered — TensorFlow Lite was unavailable."> | **Answered, but degraded.** A result came back, and not from the engine that was asked. The banner names both ends of the fallback rather than saying only that something went wrong. |
 | <img src="docs/media/state-05-failed-retryable.png" width="430" alt="A failure reading: Couldn't classify this photo, with a Try again button."> | **Failed, retryable.** No result came back, and trying again could plausibly work, so the button is offered. When it could not, the screen says so instead of offering a button that cannot help. |
-| <img src="docs/media/state-06-result.png" width="430" alt="A result screen listing golden retriever number 208 at 87.1 percent, Labrador retriever number 209 at 6.2 percent and kuvasz number 223 at 1.1 percent; answered by Core ML; cold p50/p95 214.0 / 232.0 ms over 1 run; warm p50/p95 23.0 / 31.0 ms over 12 runs; iPhone18,1 · iOS 26.1; and an unselected thumbs-up/down row reading: Was this right?"> | **The result.** Top three with confidence, which engine answered, and p50/p95 split cold from warm with the run count beside each figure. Each label carries the model's own output index beside it, so a word can be traced back to the number it came from. **Every latency number in this picture was typed by hand** — see the note under the table. |
+| <img src="docs/media/state-06-result.png" width="430" alt="A result screen listing golden retriever number 208 at 87.1 percent, Labrador retriever number 209 at 6.2 percent and kuvasz number 223 at 1.1 percent; answered by Core ML; iPhone18,1 · iOS 26.5; and an unselected thumbs-up/down row reading: Was this right?"> | **The result.** Top three with confidence, which engine answered. Each label carries the model's own output index beside it, so a word can be traced back to the number it came from. |
 
 *All six of these are rendered from fabricated values; no engine ran, nothing was written to the
-ledger. iPhone 17 Pro (iPhone18,1), iOS 26.1, from the view code at `ac8d402`. One exception, and it
+ledger. iPhone 17 Pro (iPhone18,1), iOS 26.5, from the view code at `4d0adf1`. One exception, and it
 is deliberate: the three class **indices** in the sixth image — 208, 209, 223 — are the real positions
 of those three labels in the shipped table. An invented index beside a real label would be exactly
 the confident, checkable, wrong number that [ADR-0012](docs/adr/0012-label-table-provenance.md) exists
 to keep off the screen, and it is worse in a README than in the app because a reader cannot re-run it.*
-
-*The sixth image needs saying twice, because numbers read as measurements in a way that a spinner does
-not. `214.0 / 232.0 ms`, `23.0 / 31.0 ms` and `12 runs` are invented values chosen to show the layout.
-Nothing has measured this app's latency on any device, and the
-[Core ML vs TensorFlow Lite table](#core-ml-vs-tensorflow-lite-on-ios-which-is-actually-faster) two
-sections below is empty for exactly that reason. If this picture and that empty table appear to
-disagree, the table is right.*
 
 They are a build product, not a hand capture: rendered by
 [`StateScreenshotTests`](Tests/InferlensUITests/StateScreenshotTests.swift) on the pinned simulator and
