@@ -215,7 +215,7 @@ Two lists, so no one has to guess which half of the repo they are reading.
   [`make bootstrap`](scripts/fetch-models.sh), never committed
   ([ADR-0002](docs/adr/0002-litert-distribution.md),
   [provenance](docs/research/MODEL_PROVENANCE.md)).
-- The decision record — eleven ADRs
+- The decision record — 15 ADRs
   ([module boundaries](docs/adr/0001-module-boundaries.md),
   [LiteRT distribution](docs/adr/0002-litert-distribution.md),
   [benchmark scope](docs/adr/0003-benchmark-comparison-scope.md),
@@ -467,7 +467,7 @@ string. What governs them is [ADR-0007](docs/adr/0007-readme-media.md).
 | UI | SwiftUI | iOS 26 SDK | live | views over an explicit state enum, no engine knowledge — [`InferenceState`](Sources/InferlensUI/InferenceState.swift) |
 | Min OS | iOS | 26 | pinned | no install base, so device coverage is [deliberately not a factor](docs/adr/0001-module-boundaries.md) |
 | Build | Xcode | 26 | pinned | highest stable toolchain; the betas would cost green CI |
-| Packaging | Swift Package Manager | — | done | seven local module packages + the composed app target |
+| Packaging | Swift Package Manager | — | done | ten local module packages + the composed app target |
 | Engine A | Core ML | MobileNetV2 FP16 | live | Apple's on-device runtime, at its native FP16 |
 | Engine B | TensorFlow Lite | C API, 2.17.0 xcframework | live | Google's runtime at native FP32; [vendored by checksum](docs/adr/0002-litert-distribution.md), no first-party SPM package |
 | SQL | SQLite | SDK system module, schema v2 | live | the run ledger is an append-only log, like a Postgres event table; [append-only by trigger](docs/adr/0006-run-ledger-storage.md), no package dependency |
@@ -487,13 +487,13 @@ with the rung where it lands.
 |---|---|---|
 | Swift | every module | live |
 | SwiftUI | InferlensUI | state-machine views and the [screen that picks a photo](Sources/InferlensUI/ClassificationScreen.swift), [built + tested](Tests/InferlensUITests/ClassificationModelTests.swift); the [app target](Sources/InferlensApp/InferlensApp.swift) composes LiteRT into it |
-| Swift Package Manager | workspace, 6 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
+| Swift Package Manager | workspace, 10 local packages, 1 binaryTarget | [Package.swift](Package.swift) |
 | TensorFlow Lite, on-device | InferlensLiteRT (vendored xcframework, C API) | [conformance test passes](Tests/InferlensLiteRTTests/LiteRTEngineConformanceTests.swift) on the sim; device latency is the rung-32 bench |
 | Core ML | InferlensCoreML | [conformance test passes](Tests/InferlensCoreMLTests/CoreMLEngineConformanceTests.swift) |
 | SQL | InferlensStore — append-only ledger + migrations | [round trip + trigger teeth pass](Tests/InferlensStoreTests/RunLedgerSmokeTests.swift) on the sim; the composed app writes a row per run and a signal per thumb |
 | NoSQL | InferlensStore — [DocumentStore](Sources/InferlensStore/DocumentStore.swift), the flag cache's backing store | [built + tested](Tests/InferlensStoreTests/DocumentStoreTests.swift); scope deliberately cut to the cache ([ADR-0009](docs/adr/0009-document-store-scope.md)) |
 | async/await, concurrency, background tasks | actor-isolated engines, cancel-on-input-change | [CoreMLEngine actor](Sources/InferlensCoreML/CoreMLEngine.swift); cancellation is a [contract clause](Sources/InferlensCore/InferenceEngine.swift) all five conformers keep, [asserted structurally](Sources/InferlensConformance/AssertConformsToContract.swift) and driven by the [driver](Sources/InferlensUI/ClassificationModel.swift) ([ADR-0014](docs/adr/0014-cooperative-cancellation.md)) |
-| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | the [state enum](Sources/InferlensUI/InferenceState.swift) is built — every case with a real trigger, retry driven by `InferenceError.isRetryable`; the fallback chain itself is planned |
+| AI UX: loading / retry / fallback / non-determinism | InferenceState enum + fallback chain as a value | the [state enum](Sources/InferlensUI/InferenceState.swift) is built — every case with a real trigger, retry driven by `InferenceError.isRetryable`; the fallback chain is built (`FallbackEngine`) |
 | latency & memory optimization | LatencyRecorder (p50/p95 over cold/warm), OSSignposter spans | recorder [built + property-tested](Tests/InferlensBenchTests/LatencyRecorderTests.swift); Cold/Warm table + OSSignposter planned |
 | feature flags / remote config | FeatureFlagProvider + local JSON provider | [provider built + tested](Tests/InferlensFlagsTests/LocalJSONFlagProviderTests.swift); app wiring at rung 28, with the first real flag |
 | capturing user signals for AI evaluation | thumbs signal → ledger → NDJSON export | live on the simulator: [thumbs to `run_signals`](Sources/InferlensStore/LedgerSchema.swift), [export one line per run](Sources/InferlensStore/LedgerExport.swift); the eval reads the export offline |
@@ -571,10 +571,10 @@ Read these before the plan.
   `preprocess` figure is a number about a 1024 px input, not an arbitrary one
   ([the decoder](Sources/InferlensUI/ImageDecoding.swift)).
 - One architecture (MobileNetV2), one task (image classification).
-- The remote fallback is a stub; there is no server
-  ([ADR-0010](docs/adr/0010-remote-leg-scope.md)) — and streaming is out by the same decision:
-  classification is one-shot, and a streaming state with no real producer would be the `warming`
-  mistake again.
+- No server stands behind the remote leg: `RemoteEngine` is real code composed with no endpoint
+  ([ADR-0013](docs/adr/0013-remote-leg-realization.md)) — and streaming is out by the same
+  decision family ([ADR-0010](docs/adr/0010-remote-leg-scope.md)): classification is one-shot,
+  and a streaming state with no real producer would be the `warming` mistake again.
 - No App Store build — this is a code and benchmark artifact, not a shipping app; the committed
   shell is a run path, not a distribution channel ([ADR-0011](docs/adr/0011-app-shell.md)).
 - **No device numbers.** Simulator runs exist now — the [demo](#see-it-run) shows some — and each
@@ -625,6 +625,12 @@ its on-device inference, rather than trusting a vendor's published number.
 - [ADR-0007 — README media](docs/adr/0007-readme-media.md)
 - [ADR-0008 — the latency-summary boundary](docs/adr/0008-latency-summary-boundary.md)
 - [ADR-0009 — document-store scope](docs/adr/0009-document-store-scope.md)
+- [ADR-0010 — the remote leg and the chain's cold rule](docs/adr/0010-remote-leg-scope.md)
+- [ADR-0011 — the app shell](docs/adr/0011-app-shell.md)
+- [ADR-0012 — where the truth of index → label lives](docs/adr/0012-label-table-provenance.md)
+- [ADR-0013 — what "real" means for the remote leg](docs/adr/0013-remote-leg-realization.md)
+- [ADR-0014 — cooperative cancellation](docs/adr/0014-cooperative-cancellation.md)
+- [ADR-0015 — the offline-eval boundary](docs/adr/0015-offline-eval-boundary.md)
 - [Prior-art research](docs/research/PRIOR_ART.md) ·
   [Model provenance](docs/research/MODEL_PROVENANCE.md)
 - [The roadmap](docs/ROADMAP.md)
@@ -635,7 +641,7 @@ Built with an AI agent, with the method kept in the repo rather than in a commit
 pillars, each with a plain verdict — `working`, `partial`, or `design-stage` — and the artifact that
 proves it. Where a claim outran its evidence, the weaker truth is written here.
 
-**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the eleven [ADRs](docs/adr), and the
+**Context engineering — working.** [CLAUDE.md](CLAUDE.md), the 15 [ADRs](docs/adr), and the
 [roadmap](docs/ROADMAP.md) make a session resumable by reading the repo instead of re-explaining it. A
 fresh session opened at rung 12 quoted [CLAUDE.md](CLAUDE.md) invariant 1 verbatim and it changed what
 got built: the whole measurement path — the per-engine clock brackets and the percentile aggregation —
