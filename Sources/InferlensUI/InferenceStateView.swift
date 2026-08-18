@@ -133,6 +133,7 @@ public struct DegradationBanner: View {
             ForEach(Array(reasons.enumerated()), id: \.offset) { _, reason in
                 Text(reason.displayText)
                     .font(.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .foregroundStyle(.secondary)

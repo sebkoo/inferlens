@@ -3,11 +3,11 @@
 ## Scope
 
 Inferlens is an on-device benchmarking artifact. It performs image classification locally
-and writes a local ledger; it ships no server and, in v0, makes no network calls at
-runtime (the remote fallback is a stub). The realistic security surface is the
-supply chain: the checksum-pinned LiteRT `binaryTarget` and the checksum-pinned model
-artifacts (see [docs/adr/0002](docs/adr/0002-litert-distribution.md) and
-[docs/research/MODEL_PROVENANCE.md](docs/research/MODEL_PROVENANCE.md)).
+and writes a local ledger. The remote leg is real code (`RemoteEngine`) composed with no
+endpoint; the app makes no network calls unless one is configured. The realistic security
+surface is the supply chain: the checksum-pinned LiteRT `binaryTarget` and the
+checksum-pinned model artifacts (see [docs/adr/0002](docs/adr/0002-litert-distribution.md)
+and [docs/research/MODEL_PROVENANCE.md](docs/research/MODEL_PROVENANCE.md)).
 
 ## Reporting a vulnerability
 

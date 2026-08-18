@@ -72,9 +72,8 @@ final class StateScreenshotTests: XCTestCase {
     /// The result, from values typed by hand — no engine ran and no ledger row was written, which is
     /// the sentence ADR-0007 requires the caption to carry verbatim.
     ///
-    /// The latency block is present because a readout WITH a device is the only kind this code can
-    /// build (invariant 7: `LatencyReadout` carries the machine, so an image of a number without one
-    /// cannot be produced by accident).
+    /// `readout` is `nil`: no run measured this render, so no latency figure is typed onto it
+    /// (CLAUDE.md invariant 7 — a figure never appears without the device and OS behind it).
     @MainActor
     private static var resultSubject: some View {
         ClassificationResultView(
@@ -89,24 +88,7 @@ final class StateScreenshotTests: XCTestCase {
                 Classification(label: "kuvasz", confidence: 0.011, index: 223),
             ],
             backend: .coreML,
-            readout: LatencyReadout(
-                summary: LatencySummary(
-                    cold: TimingBreakdown(
-                        preprocess: Percentiles(p50: .milliseconds(4), p95: .milliseconds(6)),
-                        infer: Percentiles(p50: .milliseconds(21), p95: .milliseconds(28)),
-                        total: Percentiles(p50: .milliseconds(214), p95: .milliseconds(232)),
-                        sampleCount: 1
-                    ),
-                    warm: TimingBreakdown(
-                        preprocess: Percentiles(p50: .milliseconds(4), p95: .milliseconds(5)),
-                        infer: Percentiles(p50: .milliseconds(19), p95: .milliseconds(26)),
-                        total: Percentiles(p50: .milliseconds(23), p95: .milliseconds(31)),
-                        sampleCount: 12
-                    )
-                ),
-                device: "iPhone18,1",
-                os: "iOS 26.1"
-            ),
+            readout: nil,
             // The thumbs row, rendered as pure AFFORDANCE: `signal` stays nil so neither symbol
             // is filled, and the tap goes to a no-op — the picture offers the control while
             // claiming no judgement given and nothing written, which is the caption's sentence
