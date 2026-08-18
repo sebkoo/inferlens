@@ -10,7 +10,7 @@ Loop: run → ledger → thumbs → export → eval → choose backend → run.
 
 - `make bootstrap` first: fetches checksum-pinned models and derives the label table into
   `Sources/InferlensApp/Models`, which holds only a `.gitkeep` until it runs.
-- Tests: `bash scripts/test-clean.sh` (fresh DerivedData, iPhone 17 Pro / iOS 26.1 simulator).
+- Tests: `bash scripts/test-clean.sh` (fresh DerivedData, iPhone 17 Pro / iOS 26.5 simulator).
   Never `swift test` on the host: `InferlensLiteRT`'s xcframework carries no macOS slice.
 - App: `open App/Inferlens.xcodeproj`, run on the simulator. A device run needs
   `App/Signing.local.xcconfig` with `DEVELOPMENT_TEAM`; it is git-ignored, and a clean clone

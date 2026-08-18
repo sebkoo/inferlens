@@ -54,18 +54,21 @@ set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root, regardless of caller's working directory
 
 SCHEME="Inferlens-Package"
-# The destination pin. It DEFAULTS to the counted suite's pair — iPhone 17 Pro / iOS 26.1 — so a local
-# run, and any CI run on an image that carries that runtime, are the byte-for-byte same invocation. The
-# two env overrides are a CI seam with a single, recorded reason (ROADMAP rung 31): Swift 6.3, which
-# Package.swift's tools-version requires, ships only on the macos-26 hosted image, and THAT image carries
-# no iOS 26.1 runtime — the toolchain and the pinned sim live on different runners. So CI selects the
-# exact-toolchain runner and overrides PIN_OS to the nearest iOS it actually provides. This does NOT
-# weaken invariant 7 ("every number carries its device + iOS version"): the script prints the destination
-# it resolved (below) and every ledger row still records its own device+OS, so nothing silently tests a
-# different OS — the override is loud, defaulted, and reviewed here at the site rather than smuggled in a
-# CI file. Unset (the local/default case) is unchanged: the pin.
+# The destination pin. It DEFAULTS to the counted suite's pair — iPhone 17 Pro / iOS 26.5 — so a local
+# run, and any CI run on an image that carries that exact runtime, are the byte-for-byte same invocation.
+# The two env overrides are a CI seam with a single, recorded reason (ROADMAP rung 31): Swift 6.3, which
+# Package.swift's tools-version requires, ships only on the macos-26 hosted image, and that image's iOS
+# runtime is whatever it happens to carry — the toolchain runner and the pinned-sim runner are not
+# guaranteed to be the same image. So CI never assumes a number: it resolves the newest iOS runtime the
+# runner actually carries and overrides PIN_OS to it, printing what it resolved. Today that resolves to
+# 26.5, matching the default above — a fact about the runner's current image, not a rule this script
+# depends on. This does NOT weaken invariant 7 ("every number carries its device + iOS version"): the
+# script prints the destination it resolved (below) and every ledger row still records its own
+# device+OS, so nothing silently tests a different OS — the override is loud, defaulted, and reviewed
+# here at the site rather than smuggled in a CI file. Unset (the local/default case) is unchanged: the
+# pin.
 PIN_NAME="${INFERLENS_SIM_NAME:-iPhone 17 Pro}"
-PIN_OS="${INFERLENS_SIM_OS:-26.1}"
+PIN_OS="${INFERLENS_SIM_OS:-26.5}"
 
 # A fresh, unique, EMPTY derived-data dir per run. mktemp -d creates a path that did not exist before
 # this process; the emptiness guard refuses to proceed on the (impossible-by-construction) chance it is
