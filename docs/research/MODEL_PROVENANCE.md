@@ -56,7 +56,7 @@ it rather than slipping in.*
   each value is in `0…1`), where index 0 is a "background" class and 1…1000 are ImageNet-1k. The
   raw `.tflite` carries no embedded label strings. *(True, and it used to end: "so `LiteRTEngine`
   names classes positionally while the Apple side carries real label strings — a divergence for the
-  cross-model agreement rung to reconcile." The first half stands; the attribution was corrected when
+  cross-model agreement work to reconcile." The first half stands; the attribution was corrected when
   the label table landed — see the next note and [ADR-0012](../adr/0012-label-table-provenance.md).)*
 
 - **The ImageNet label table — derived from the Apple model, and the ordering is proved.** The
@@ -88,10 +88,10 @@ it rather than slipping in.*
   output positions, one key. One probability is dropped before `CoreMLEngine` sees it. Recorded here
   as a property of the artifact; the finding and its disposition are in `docs/ROADMAP.md`.
 
-## Resolved input (pinned at rung 15)
+## Resolved input (pinned with the LiteRT engine)
 
 The Google `.tflite` was the single remaining deferred literal in the model pipeline. It is now
 pinned (table + note above): the source is the canonical `download.tensorflow.org` float
 MobileNetV2 dump, and both the archive and the extracted member are checksum-verified by `make
-bootstrap`. The precision (Google FP32 default) was decided earlier (ADR-0003); rung 15 fixed only
+bootstrap`. The precision (Google FP32 default) was decided earlier (ADR-0003); that work fixed only
 the literal URL and the two checksums, by fetching the bytes and computing their sha256.

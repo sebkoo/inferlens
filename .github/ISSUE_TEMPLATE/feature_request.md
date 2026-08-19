@@ -11,7 +11,7 @@ labels: enhancement
 
 ## Proposed change
 
-## Which rung / module does this touch?
+## Which module does this touch?
 
 <!-- See docs/ROADMAP.md and docs/adr/. Architectural changes need a superseding ADR. -->
 
