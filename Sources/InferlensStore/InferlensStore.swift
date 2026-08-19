@@ -10,8 +10,8 @@
 // is overwritten on every refresh, so it cannot live in a database whose triggers refuse UPDATE
 // without either failing every write or decaying the file-level guarantee into a per-table one.
 // ADR-0009 also records what the document store does NOT hold: model metadata, whose facts already
-// live in MODEL_PROVENANCE.md, in fetch-models.sh's checksum enforcement, and in the ledger row —
-// a fourth copy with no reader is a module serving no clause of the thesis, which CLAUDE.md cuts.
+// live in MODEL_PROVENANCE.md, in fetch-models.sh's checksum enforcement, and in the ledger row.
+// A fourth copy would have no reader.
 //
 // Dependency direction (ADR-0001): InferlensStore -> InferlensCore, plus Foundation and the
 // platform's SQLite3 system module. No engine, no UI, and nothing points back the other way. The

@@ -7,8 +7,7 @@
 //   3. the flag's own `defaultValue`
 //
 // Step 2 is why the cache exists and why it is built alongside this: a store nothing reads is a
-// module serving no clause of the thesis. Step 3 is why a flag carries its default — see
-// `FeatureFlag`.
+// store nobody needs. Step 3 is why a flag carries its default — see `FeatureFlag`.
 //
 // Resolution happens ONCE, at init, not per lookup. `isEnabled` is then a dictionary read: no file
 // I/O, no parsing, no possibility that two calls in the same launch disagree because a file changed
