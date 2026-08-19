@@ -8,8 +8,6 @@ Core ML and TensorFlow Lite can be measured against each other on one iPhone.
 [![iOS 26](https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white)](docs/adr/0001-module-boundaries.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue)](LICENSE)
 
-<a href="https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/inferlens-shell-demo.mp4"><img src="docs/media/demo-poster.png" width="260" align="right" alt="Inferlens showing a waterfall photo classified as cliff at 65.4 percent, then valley and castle; answered by TensorFlow Lite; cold p50/p95 151.6 ms; a thumbs up and down row below the result."></a>
-
 Pick a photo. The app runs it through a fallback chain, TensorFlow Lite first and Core ML behind
 it, and shows the top three labels, which engine answered, and p50/p95 latency split into cold
 (the first run after a load) and warm. A thumbs up or down on the result is stored beside the
@@ -21,9 +19,12 @@ are too few.
 run → ledger → thumbs → export → evaluate → choose next backend → run
 ```
 
-[43-second demo recording](https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/inferlens-shell-demo.mp4)
-(iPhone 17 Pro simulator, iOS 26.1, before the pin moved) ·
-[the rows that demo exported](https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/exported-runs.ndjson)
+https://github.com/user-attachments/assets/384752bb-9392-4903-83ae-7f1c339580f7
+
+*A compressed preview of the 43-second take on the iPhone 17 Pro simulator, iOS 26.1, before the
+pin moved — the full recording, its checksums and
+[the rows it exported](https://github.com/sebkoo/inferlens/releases/download/demo-sim-ac8d402/exported-runs.ndjson)
+are on the [demo-sim-ac8d402 release](https://github.com/sebkoo/inferlens/releases/tag/demo-sim-ac8d402).*
 
 ## Results
 
