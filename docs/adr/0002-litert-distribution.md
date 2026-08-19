@@ -2,12 +2,21 @@
 
 - Status: Accepted — 2026-07-17
 - Deciders: maintainer
-- JD must-haves: "Swift Package Manager" and "TensorFlow Lite".
+
+## Summary
+
+- Decision: depend on Google's `TensorFlowLiteC.xcframework` as a checksum-pinned SPM
+  `binaryTarget`, re-hosted as a single-xcframework zip.
+- Why: SPM accepts only a zip whose root entry is the xcframework, Google ships a tar.gz of three
+  frameworks, and CocoaPods would add a second dependency manager.
+- Consequences: a re-vendoring script and a release asset to maintain; the build fails closed on a
+  checksum mismatch, and the simulator slice is asserted before any engine code exists.
 
 ## Context
 
-The job description names both Swift Package Manager and TensorFlow Lite as must-haves.
-Task 0 asked whether both can be satisfied at the same seam on iOS today.
+A second inference runtime, one Apple does not ship, has to arrive inside a build that stays
+pure SPM: no CocoaPods, no second dependency manager, no post-clone step. Task 0 asked whether
+TensorFlow Lite and a pure-SPM build can be satisfied at the same seam on iOS today.
 
 Primary source — Google's canonical iOS quickstart,
 `developers.google.com/edge/litert/ios/quickstart` (301 from
@@ -82,9 +91,8 @@ dependency.
 
 ## Rationale
 
-- Keeps the entire build pure SPM — the SPM must-have is satisfied structurally, not by
-  a shim. (CocoaPods cannot be consumed from inside an SPM package anyway.)
-- Puts SPM and TensorFlow Lite at the exact same seam, which is the point the JD tests.
+- Keeps the entire build pure SPM — SPM resolves the runtime directly, with no shim.
+  (CocoaPods cannot be consumed from inside an SPM package anyway.)
 - A pinned-checksum `binaryTarget` is reproducible and supply-chain-auditable, and the
   repackage script documents that the bytes are Google's, unmodified.
 - Mirrors the recognizable community pattern (e.g. `kewlbear/TensorFlowLiteC` on Swift

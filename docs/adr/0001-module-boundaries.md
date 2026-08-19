@@ -6,16 +6,22 @@
   amended 2026-07-22: 9 → 10, added InferlensEval at the offline-eval rung, with the graph's first
   library → library arrow — ADR-0015)
 - Deciders: maintainer
-- Relates to: the module-implementation ladder; JD must-haves (protocol-oriented design, Core ML,
-  TensorFlow Lite, SQL + NoSQL, feature flags, SwiftUI, Swift 6 concurrency).
+- Relates to: the module-implementation ladder.
+
+## Summary
+
+- Decision: local SPM packages with one dependency direction, App -> modules -> InferlensCore,
+  with Core depending on nothing and the app target doing composition only.
+- Why: each part is testable on its own, and the dependency graph is checkable rather than asserted.
+- Consequences: more package boilerplate, and cross-engine work such as the fallback chain lives
+  above the engines rather than inside one.
 
 ## Context
 
 The MVP is one screen: pick or capture an image → classify on-device → show top-3
 labels with confidence, the active backend, and latency p50/p95 → thumbs up/down →
-append everything to a local ledger. That one screen must exercise every JD line.
-Modules exist to make each JD clause legible and independently testable. A module that
-maps to no JD clause is cut.
+append everything to a local ledger. That one screen must exercise every step of that
+chain. Modules exist to make each step legible and independently testable.
 
 ## Decision — modules and dependency direction
 
@@ -49,7 +55,7 @@ Local SPM packages; the app target is thin (composition only).
   stub it replaces lived there precisely because it was NOT a conforming engine, and this one
   passes the suite. Unconfigured (no endpoint) it throws exactly as the stub did, which is what
   the shipped app composes. Added at the remote-leg rung — 8 → 9.
-- **InferlensEval** — the loop's sixth clause as code: it reads the exported NDJSON, groups rows by
+- **InferlensEval** — the export-to-eval step as code: it reads the exported NDJSON, groups rows by
   `(backend, device, OS)`, and reports p50/p95 with a verdict that **refuses** to recommend below a
   ratified row count. It is the one module that depends on another library — `InferlensBench` — and
   that arrow is the point rather than a compromise: the percentile, the cold/warm partition and the
@@ -68,23 +74,7 @@ arrow that points back toward an engine or into Core — which `Eval → Bench` 
 neither an engine nor Core but aggregation over Core's value types, exactly what a consumer of
 aggregation is allowed to name.
 
-## JD-clause map (a module mapping to nothing is cut)
-
-| Module | JD clause it answers |
-|---|---|
-| InferlensCore | protocol-oriented design; testable contracts |
-| InferlensCoreML | Core ML; on-device inference |
-| InferlensLiteRT | TensorFlow Lite; SPM binary integration (ADR-0002) |
-| InferlensRemote | the backend choice the thesis names is real; networking over a documented contract (ADR-0013) |
-| InferlensStore | SQL (append-only ledger + migrations) **and** NoSQL (doc/KV) |
-| InferlensFlags | feature-flag / remote-config seam; entitlement seam |
-| InferlensUI | SwiftUI; explicit state machine |
-| InferlensBench | latency optimization; the p50/p95 benchmark that fills the README table |
-| InferlensFallback | graceful degradation as data; the chain is one more engine (ADR-0010) |
-| InferlensEval | the eval loop closes in code; benchmark honesty as a refusal, not a recommendation (ADR-0015) |
-| app target | composition; Swift 6 strict concurrency; actor isolation |
-
-## The equivalence argument (an interviewer will ask)
+## The equivalence argument
 
 Server AI UX is `connecting → streaming → retry-on-transient → fallback-to-cheaper-model
 → degraded/error`. The on-device analogue is one-to-one:
@@ -115,7 +105,7 @@ excluded** — this repo has no install base; a reviewer reads the code, nobody 
 it from the App Store. The highest **stable** floor is chosen because green CI is
 load-bearing and Swift 6 strict concurrency + StoreKit 2 are fully mature at 6.3; the
 iOS 27 / Xcode 27 / Swift 6.4 WWDC-2026 betas buy nothing for reading clarity and cost
-green CI. An interviewer should see a chosen constraint, not an accepted default.
+green CI.
 
 ## Invariants (forbidden-pattern list; mirrored in CLAUDE.md)
 
@@ -139,8 +129,8 @@ green CI. An interviewer should see a chosen constraint, not an accepted default
 
 ## Consequences
 
-- Six small packages + a thin app: more `Package.swift` boilerplate, but each JD clause
-  is independently testable and the dependency graph is a diagram, not a claim.
+- Ten small packages + a thin app: more `Package.swift` boilerplate, but each step is
+  independently testable and the dependency graph is a diagram, not a claim.
 - Cross-engine work (the fallback chain, cross-model agreement measurement) lives *above*
   the engines — in the composition layer — never inside an engine.
 
@@ -159,7 +149,7 @@ rather than discovered during Core ML implementation.
 
 ## Alternatives rejected
 
-- **One app target, no packages** — fails to make boundaries legible; the JD map would be
-  aspirational rather than enforced by the compiler.
+- **One app target, no packages** — fails to make boundaries legible; the dependency direction
+  above would be aspirational rather than enforced by the compiler.
 - **Engines aware of each other (for fallback)** — rejected; fallback is a value composed
   above the engines, so degradation is observable and testable without engine coupling.
