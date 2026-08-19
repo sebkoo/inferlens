@@ -4,7 +4,16 @@
 - Deciders: maintainer
 - Relates to: [ADR-0006](0006-run-ledger-storage.md) (the SQL run ledger),
   [ADR-0001](0001-module-boundaries.md) (module boundaries), the finding recorded against rung 19 in
-  `e550986`, and CLAUDE.md's thesis test — a module serving no clause of the loop is cut.
+  `e550986`.
+
+## Summary
+
+- Decision: the document store holds the flag cache and nothing else; the model-metadata half is
+  dropped.
+- Why: model facts are already recorded in provenance, in the fetch script that fails closed, and in
+  every ledger row, so a fourth copy would have no reader.
+- Consequences: the store is a second, independent store beside the ledger, which keeps its
+  file-level append-only guarantee.
 
 ## Context
 
@@ -28,7 +37,7 @@ each doing a job the others cannot, and a store would be a fourth copy with no r
 A fourth copy would have to be written by something and read by something. Nothing reads it: the
 engines take a `ModelDescriptor` constructed at composition, the ledger already carries its own copy
 per row, and the README's provenance claims point at the Markdown and the script. A store here would
-be a module serving no clause of the thesis, which CLAUDE.md cuts.
+be a module nothing reads.
 
 **The one candidate that is real, and why it is still not this rung's.** `MODEL_PROVENANCE.md`
 records that the raw `.tflite` carries no embedded label strings, so `LiteRTEngine` labels classes

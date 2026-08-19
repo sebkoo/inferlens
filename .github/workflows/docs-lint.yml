@@ -1,0 +1,28 @@
+name: docs-lint
+
+# The three documentation checks, run as scripts so their 0/1/2 exit contract survives: 0 clean,
+# 1 findings, 2 the check could not run. `make` would flatten any of those to a bare 2.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs:
+    name: docs lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: anchor-check (every in-page link resolves to a unique heading)
+        run: bash scripts/anchor-check.sh
+
+      # media-check prefers macOS `sips` for pixel dimensions and falls back to reading the PNG
+      # header with python3, so it runs whole on this image rather than exiting 2 here.
+      - name: media-check (ceilings, orphans, alt text)
+        run: bash scripts/media-check.sh
+
+      - name: prose-lint (README length, badges, banned vocabulary)
+        run: bash scripts/prose-lint.sh

@@ -6,8 +6,16 @@
 
 This ADR exists for the alternative it **rejects**. `MODEL_PROVENANCE.md` answers "which
 bytes, from where"; `BENCHMARK_METHOD.md` answers "how the numbers were produced"; this
-ADR answers "why this comparison and not the other" — the question an interviewer will
-actually ask.
+ADR answers "why this comparison and not the other".
+
+## Summary
+
+- Decision: compare the two ecosystems as they ship, Apple's FP16 model against Google's FP32,
+  rather than converting one side to match the other.
+- Why: a converted model measures the conversion, and the precision each vendor ships is what a
+  developer actually gets.
+- Consequences: weights and precision differ, so cross-model agreement is data rather than a pass
+  or fail, and Core ML's `infer` span is slightly more inclusive than LiteRT's.
 
 ## Context
 
@@ -21,9 +29,9 @@ honest.
 converted to `.mlpackage` via coremltools and to `.tflite` via the TFLite converter, at
 one precision, so the table isolates the runtime. Rejected, for reasons that compound:
 
-- **JD-relevance.** Model conversion is ML engineering, not iOS engineering. The
-  converting models would be the single least-JD-relevant work in the ladder, while the JD
-  tests Swift / SPM / concurrency / on-device work.
+- **A different project.** Making two runtimes agree on bit-identical weights is model
+  conversion, which is ML engineering rather than iOS engineering. The scope here is what each
+  ecosystem ships off the shelf, which is the question a backend choice actually faces.
 - **Budget and risk.** It carries the largest toolchain in the project (Python +
   TensorFlow + coremltools 9.0) and the only conversion-fidelity risk — op-support and
   default-quantization divergence between two independent converters.
@@ -32,16 +40,15 @@ one precision, so the table isolates the runtime. Rejected, for reasons that com
   isolation — so it pays the full toolchain cost for a partial gain.
 - **Thesis.** The repo's wedge against MLPerf Mobile is the closed eval loop (ledger +
   signal + export) and the visible fallback chain — not microbenchmark purity. Spending
-  the scarce weekend budget on conversion serves the weakest part of the pitch.
+  the scarce weekend budget on conversion serves the weakest part of the argument.
 
 ## Decision (the chosen alternative)
 
 **(a) Two vendor-shipped MobileNetV2 models** — Apple's Core ML model and Google's TFLite
 model — compared as an **ecosystem comparison**: *what each ecosystem's shipped
 MobileNetV2 costs you on this phone.* This is more representative (the reader ships the
-vendor model, not a self-converted one) and keeps the budget on the iOS surface the JD
-tests. **coremltools is therefore excluded from the toolchain entirely — decided out, not
-deferred.**
+vendor model, not a self-converted one). **coremltools is therefore excluded from the
+toolchain entirely — decided out, not deferred.**
 
 ## Precision is part of the comparison, not a confound to control
 

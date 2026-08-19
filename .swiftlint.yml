@@ -3,7 +3,7 @@
 # by review and by the CI grep-lint that enforces the at-most-one @unchecked Sendable ceiling.
 
 disabled_rules:
-  - todo            # TODO stubs are expected in the early ladder
+  - todo            # TODO stubs are expected while the project is young
 
 opt_in_rules:
   - empty_count

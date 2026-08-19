@@ -1,0 +1,68 @@
+name: commit-lint
+
+# Checks the commit-message rules CLAUDE.md states: a Conventional Commits prefix, a subject of at
+# most 72 characters, and body lines of at most 100.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  format:
+    name: commit message format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check subject prefix, subject length and body width
+        env:
+          BEFORE: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # A PR gives an explicit base. On a push BEFORE is the previous tip; on the first push of
+          # a branch or a force-push it is empty or unfetched, so fall back to the root commit.
+          if [ -n "$BASE_SHA" ]; then
+            range="$BASE_SHA..$HEAD_SHA"
+          elif [ -z "$BEFORE" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            range="$(git rev-list --max-parents=0 HEAD | tail -n1)..$HEAD_SHA"
+          else
+            range="$BEFORE..$HEAD_SHA"
+          fi
+          echo "range: $range"
+
+          types='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+          fail=0
+          checked=0
+          for sha in $(git rev-list --no-merges "$range"); do
+            checked=$((checked + 1))
+            subject="$(git log -1 --format=%s "$sha")"
+            # A squash-merge appends " (#12)" to the subject. That is GitHub's text, not the
+            # author's, so it is stripped before measuring; otherwise a 72-character subject that
+            # passed on its own pull request would fail on main a moment later.
+            written="${subject% (#[0-9]*)}"
+            if ! printf '%s' "$subject" | grep -qE "^($types)(\([a-z0-9._/-]+\))?!?: .+"; then
+              echo "FAIL $sha: no Conventional Commits prefix — $subject" >&2
+              fail=1
+            fi
+            if [ "${#written}" -gt 72 ]; then
+              echo "FAIL $sha: subject is ${#written} characters, over 72 — $written" >&2
+              fail=1
+            fi
+            while IFS= read -r line; do
+              if [ "${#line}" -gt 100 ]; then
+                echo "FAIL $sha: body line is ${#line} characters, over 100 — $line" >&2
+                fail=1
+              fi
+            done < <(git log -1 --format=%b "$sha")
+          done
+
+          if [ "$fail" -ne 0 ]; then
+            echo "commit-lint: FAILED over $checked commit(s) in $range." >&2
+            exit 1
+          fi
+          echo "commit-lint: clean — $checked commit(s) checked in $range."

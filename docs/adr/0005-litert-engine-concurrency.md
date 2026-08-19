@@ -6,6 +6,15 @@
   required to compile under strict concurrency") to "**at most** one," by the probes below.
   Recorded as a methodology self-correction, like the CI-miss in the README.
 
+## Summary
+
+- Decision: the engine is an actor holding the C interpreter on-actor with zero
+  `@unchecked Sendable`, and cleanup is RAII in a private class freed by ARC.
+- Why: typecheck probes showed the handle needs no unsafe box, and an `isolated deinit` compiled and
+  then crashed at test-bundle teardown.
+- Consequences: invariant 2 became "at most one" rather than "exactly one", and off-actor inference
+  would need its own justification and its own serialization.
+
 ## Context
 
 Invariant 2 reserved the repo's single `@unchecked Sendable` for the LiteRT C-handle

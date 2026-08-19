@@ -12,6 +12,15 @@
   ratified cold/warm boundary, applied here), invariant 3 (the chain is a value), invariant 4
   (every state case needs a producer), and the ladder's rung 21.
 
+## Summary
+
+- Decision: the chain walks its legs in priority order to the first that loads, and a step-down's
+  on-demand load is recorded as the answering backend's cold run.
+- Why: cold is the first run after a load, so that load has a home in the ledger rather than
+  vanishing from the record.
+- Consequences: `InferenceOutcome` gains an on-demand load duration, and the chain module holds the
+  chain alone. Decision 1, the always-throwing stub, is superseded by ADR-0013.
+
 ## Context
 
 The ladder line reads "fallback chain LiteRT -> CoreML -> remote stub as a VALUE (not if-else)".

@@ -1,9 +1,17 @@
 # ADR-0004: Commit hygiene — no AI attribution trailers
 
-- Status: Accepted — 2026-07-17
+- Status: Superseded by [ADR-0016](0016-ai-disclosure.md) — 2026-08-18 (accepted 2026-07-17)
 - Deciders: maintainer
 - Relates to: `.githooks/commit-msg`, `.github/workflows/ci.yml` (commit-hygiene job),
   CLAUDE.md invariant 9.
+
+## Summary
+
+- Decision: commit messages carry no AI attribution trailer, enforced by a committed `commit-msg`
+  hook and a CI grep over the pushed range.
+- Why: AI involvement is disclosed as a method in the docs rather than as a per-commit disclaimer.
+- Consequences: superseded by [ADR-0016](0016-ai-disclosure.md) — the hook and the grep are deleted,
+  the commit lint checks format only, and nothing inspects attribution.
 
 ## Decision
 

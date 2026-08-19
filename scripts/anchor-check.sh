@@ -4,9 +4,8 @@
 # heading in the same file, and no anchor targets a slug two headings share.
 #
 # Why: a broken in-page anchor does not 404 — GitHub returns 200 and the page silently scrolls nowhere.
-# It is the cross-document-pointer failure nothing else catches: claims-audit sees forbidden claims and
-# dead shas, not anchors (docs/ROADMAP.md Harness backlog). This is the ANCHOR half of that gap; the
-# rung-number half stays on the backlog.
+# No other check here reads anchors, and a link that points at nothing looks identical to one that
+# works until someone clicks it.
 #
 # Slugs are DERIVED the GitHub (cmark-gfm) way, verified against the api.github.com/markdown renderer, not
 # string-matched against a hardcoded expectation: lowercase; drop every char not in [a-z0-9_ -]; then each
@@ -20,12 +19,11 @@
 #      see this; a per-slug COUNT can. Flagged ONLY when an anchor actually targets the shared slug —
 #      undirected duplicate headings are harmless, and noise is what gets a check switched off.
 #
-# EXIT-CODE CONTRACT (the same contract claims-audit and test-clean carry — a gate whose failure is
-# indistinguishable from its absence is not a gate):
+# EXIT-CODE CONTRACT (the same one media-check, prose-lint and test-clean carry — a check whose
+# failure is indistinguishable from its absence is not a check):
 #   0 clean; 1 findings (a link to a missing heading, or an anchor onto a colliding slug); 2 the check
 #   could not run (not a git repo, or zero Markdown files examined). `make` collapses any recipe failure
-#   to its own 2, so CI calls `bash scripts/anchor-check.sh` directly, never `make anchor-check` — the
-#   reason CLAUDE.md's Process green-bar names the script.
+#   to its own 2, so CI calls `bash scripts/anchor-check.sh` directly, never `make anchor-check`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,7 +34,7 @@ examined=0
 
 # The sed rule below is taken from GitHub's own renderer (api.github.com/markdown), not guessed — three
 # probes, each heading -> the id GitHub emitted:
-#   "Harness backlog — the per-rung claims audit" -> harness-backlog--the-per-rung-claims-audit  (em-dash)
+#   "Cross-document pointers — the specification" -> cross-document-pointers--the-specification  (em-dash)
 #   "Foo  Bar"                                     -> foo--bar                                    (two spaces)
 #   "A - B"                                        -> a---b                                       (hyphen)
 # So each space becomes ONE hyphen and consecutive spaces are NOT collapsed: it is `s/ /-/g`, never

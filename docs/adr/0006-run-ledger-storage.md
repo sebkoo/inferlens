@@ -7,6 +7,15 @@
   3 (degradation is surfaced, never silent), 5 (no CocoaPods), and 7 (every number carries its
   device + iOS version).
 
+## Summary
+
+- Decision: raw SQLite3 from the SDK, append-only enforced by `BEFORE UPDATE` / `BEFORE DELETE`
+  triggers in the file, versioned by `PRAGMA user_version`, with the connection owned by an actor.
+- Why: triggers hold for every connection rather than only for callers who go through this module,
+  and the SDK's SQLite adds no package dependency.
+- Consequences: migrations are appended and never edited, and a test proves the refusal from a
+  connection opened outside the module.
+
 ## Context
 
 The product loop is `run → ledger → signal → export → evaluate`. The ledger is the second step and

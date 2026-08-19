@@ -56,7 +56,7 @@ Loop: run → ledger → thumbs → export → eval → choose backend → run.
 - Branch → PR → CI green → squash-merge. The maintainer commits; the agent proposes a diff and
   a commit message and does not run git commit or git push.
 - Follow-ups and findings go to GitHub Issues, not into ROADMAP.md or code comments.
-- Never commit interview notes, job-description text, or recruiter mail. NOTES.local.md is
-  git-ignored scratch.
-- Built with an AI coding agent as a pair; disclosed in README ("How this was built") and
-  docs/process.md.
+- NOTES.local.md is git-ignored scratch. Neither the file nor anything quoted from it ever
+  enters the tree.
+- Built with an AI coding agent as a pair; disclosed in README ("How it was built") and
+  docs/process.md (ADR-0016).

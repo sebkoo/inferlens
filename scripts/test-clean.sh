@@ -23,7 +23,7 @@
 #     VERIFIED input and a reused UNVERIFIED build product are different things; only the second produces
 #     the spurious green this target exists to prevent.
 #
-# EXIT-CODE CONTRACT (the same contract scripts/claims-audit.sh carries — one contract, every target):
+# EXIT-CODE CONTRACT (the same one the doc checks carry — one contract, every target):
 #   0  tests ran and PASSED
 #   1  tests ran and FAILED
 #   2  the harness could NOT run the tests (no simulator, or the build did not reach test execution)
@@ -49,14 +49,14 @@
 # decides 0 vs 1 once that is established. Anything else is 2.
 #
 # Scope: the simulator suite only. Device-only paths (Neural Engine warm-up, real latency) cannot run
-# here and are the on-device bench rung, not this target.
+# here; they belong to the on-device bench.
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root, regardless of caller's working directory
 
 SCHEME="Inferlens-Package"
 # The destination pin. It DEFAULTS to the counted suite's pair — iPhone 17 Pro / iOS 26.5 — so a local
 # run, and any CI run on an image that carries that exact runtime, are the byte-for-byte same invocation.
-# The two env overrides are a CI seam with a single, recorded reason (ROADMAP rung 31): Swift 6.3, which
+# The two env overrides are a CI seam with a single, recorded reason: Swift 6.3, which
 # Package.swift's tools-version requires, ships only on the macos-26 hosted image, and that image's iOS
 # runtime is whatever it happens to carry — the toolchain runner and the pinned-sim runner are not
 # guaranteed to be the same image. So CI never assumes a number: it resolves the newest iOS runtime the

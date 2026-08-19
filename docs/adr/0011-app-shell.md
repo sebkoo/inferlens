@@ -8,6 +8,15 @@
   hosts), CLAUDE.md invariant 5 (precised by this decision), invariant 7 (what the shell finally
   feeds), invariant 8 (bootstrap precedes build), and the ladder's rung 37.
 
+## Summary
+
+- Decision: a hand-authored minimal Xcode project at `App/` wraps the package, with signing in a
+  git-ignored xcconfig and user state untracked.
+- Why: zero new tools and the standard run path, and a project at the repo root would enter
+  xcodebuild's container discovery and break the package scheme's bare resolution.
+- Consequences: invariant 5 is precised to name dependency management as its target; a second
+  dependency manager, an unpinned binary, or a package override in the pbxproj still fails review.
+
 ## Context
 
 The composed app has been real since the composition rung:
@@ -36,7 +45,7 @@ construction rather than accepted:
   `-scheme Inferlens-Package` with no `-project` flag, against whatever container xcodebuild
   discovers in the working directory. A project at the root would enter that discovery, and the
   green bar's scheme resolution with it; under `App/` the shell is invisible to it. (Probed at
-  the feat landing — see the execution notes in `docs/prompts/rung-37-app-shell.md`.)
+  the feat landing — see the execution notes in `docs/prompts/app-shell.md`.)
 - **Library products only.** The app target compiles `InferlensApp.swift` — referenced in place,
   it does not move — plus the shim, and links the same eight library products the package's
   executable target names. It never links the SPM executable target, and the package's

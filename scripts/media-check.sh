@@ -4,15 +4,15 @@
 # screenshots exist; it was deliberately NOT built while docs/media/ was empty, because a check over an
 # empty set passes unconditionally and reads as coverage.
 #
-# EXIT-CODE CONTRACT (the same one claims-audit, anchor-check and test-clean carry):
+# EXIT-CODE CONTRACT (the same one anchor-check, prose-lint and test-clean carry):
 #   0  clean
 #   1  FINDINGS — a file over a ceiling, a video, an orphan, a missing caption element (see FAIL lines)
 #   2  the gate could NOT run (not a git work tree, or a tool it depends on is missing)
 # Exit 1 is reserved for findings ALONE. A gate whose failure is indistinguishable from its absence is
 # not a gate, and one whose SCAN SET excludes the thing under test is worse — it reports clean about a
 # corpus the reader thinks it covered. This repo hit that three times in a week: a stale DerivedData
-# reporting a pass, claims-audit sweeping git ls-files past an untracked file, and a screenshot check
-# that caught a placeholder glyph and passed a completely blank image. Hence check E below.
+# reporting a pass, a sweep reading git ls-files past an untracked file, and a screenshot check that
+# caught a placeholder glyph and passed a completely blank image. Hence check E below.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,8 +25,15 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
   echo "media-check: not a git work tree — the gate cannot enumerate what is committed." >&2
   exit 2
 fi
-if ! command -v sips >/dev/null 2>&1; then
-  echo "media-check: 'sips' is unavailable, so pixel dimensions cannot be read." >&2
+# Dimensions come from `sips` on macOS and from the PNG header itself elsewhere, so the gate runs
+# the same on a Linux CI runner. Width and height are two big-endian 32-bit fields at a fixed
+# offset in the IHDR chunk, which is why a reader fits in one line and needs no image library.
+if command -v sips >/dev/null 2>&1; then
+  pixel_dims() { sips -g pixelWidth -g pixelHeight "$1" 2>/dev/null | awk '/pixel(Width|Height)/{print $2}'; }
+elif command -v python3 >/dev/null 2>&1; then
+  pixel_dims() { python3 -c 'import struct,sys; d=open(sys.argv[1],"rb").read(24); sys.exit(1) if d[:8]!=b"\x89PNG\r\n\x1a\n" else print(*struct.unpack(">II", d[16:24]), sep="\n")' "$1" 2>/dev/null; }
+else
+  echo "media-check: neither 'sips' nor 'python3' is available, so pixel dimensions cannot be read." >&2
   exit 2
 fi
 
@@ -50,8 +57,9 @@ while IFS= read -r f; do
   if [ "$bytes" -gt "$MAX_FILE_BYTES" ]; then
     note "$f is $bytes bytes, over the $MAX_FILE_BYTES-byte per-file ceiling (ADR-0007)."
   fi
-  w=$(sips -g pixelWidth  "$f" 2>/dev/null | awk '/pixelWidth/{print $2}')
-  h=$(sips -g pixelHeight "$f" 2>/dev/null | awk '/pixelHeight/{print $2}')
+  dims="$(pixel_dims "$f" || true)"
+  w="$(printf '%s\n' "$dims" | sed -n 1p)"
+  h="$(printf '%s\n' "$dims" | sed -n 2p)"
   if [ -z "$w" ] || [ -z "$h" ]; then
     note "$f — could not read pixel dimensions; it may not be a valid image."
   else
@@ -114,7 +122,7 @@ if [ "$fail" -ne 0 ]; then
   exit 1
 fi
 
-# Print the corpus size on success too. A gate that says "clean" without saying what it looked at is
-# the failure recorded in ROADMAP's backlog; the counts are how a reader checks the scope was right.
+# Print the corpus size on success too: a check that says "clean" without saying what it looked at
+# hides its own scope, and the counts are how a reader confirms the scope was right.
 echo "media-check: clean — $png_count image(s) in $MEDIA_DIR, $total bytes total (ceiling $MAX_TOTAL_BYTES); alt text checked in both syntaxes across $md_count Markdown file(s)."
 exit 0
