@@ -14,6 +14,15 @@
   stays pure SPM), invariant 7 (every number carries its device + iOS version), and the ladder's
   rung 40.
 
+## Summary
+
+- Decision: the eval is an in-repo Swift library plus a thin executable, calling `LatencyRecorder`
+  rather than reimplementing it, and refusing to recommend below 20 warm rows per backend.
+- Why: an external sidecar would re-implement both the export schema and the statistics where
+  nothing this repo runs would check them.
+- Consequences: the first library-to-library edge in the module graph, and on today's corpus the
+  refusal is the output.
+
 ## Context
 
 The README's Loop-engineering paragraph carries the repo's own honesty note about the loop's sixth

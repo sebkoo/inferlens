@@ -7,6 +7,14 @@
   CLAUDE.md invariants 1 (timing code), 4 (UI states), and 7 (every number carries its device and
   iOS version).
 
+## Summary
+
+- Decision: the summary value types live in Core while the computation and every biasable choice
+  stay in Bench; the UI is handed a summarize closure.
+- Why: exactly one definition of a percentile can then exist, and the UI cannot grow a second.
+- Consequences: composition passes the closure, and the offline eval calls the same recorder rather
+  than a copy of it.
+
 ## Context
 
 Rung 24 puts p50/p95 on screen. Nothing about that is obvious, because the number and the

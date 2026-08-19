@@ -12,6 +12,15 @@
   only if it is verifiable and scoped. [ROADMAP](../ROADMAP.md) rung 36 completes the README with
   visuals; this ADR decides the rules that rung will be held to.
 
+## Summary
+
+- Decision: screenshots are committed to `docs/media/` under per-file, per-directory and pixel
+  ceilings; video is never committed in any container and is linked as a release asset.
+- Why: a README that renders only while an external host is up is not a README, and a video in git
+  is weight the history keeps forever.
+- Consequences: every image carries alt text and a caption naming what produced it, and
+  `media-check` enforces the ceilings over whatever is committed.
+
 ## Context
 
 There are zero media files in this repo today. That is exactly why the policy is being written now:

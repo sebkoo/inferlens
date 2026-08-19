@@ -8,6 +8,15 @@
   assigned it elsewhere — corrected in Decision 4 below), CLAUDE.md invariants 6 and 8, and the
   thesis: a thumbs press is evidence only if the person could judge what they confirmed.
 
+## Summary
+
+- Decision: the index-to-label table is derived at bootstrap from the pinned Apple model's own
+  1001-entry vector, checksum-pinned like the models, with `class N` as the explicit fallback.
+- Why: published lists carry 1000 entries with no background class, and the off-by-one puts a
+  confident wrong word under the thumbs button.
+- Consequences: ordering is proved three ways, by count, by spot-checks against upstream output, and
+  by a reference photograph; both engines render through one table.
+
 ## Context
 
 The screen showed `class 973`.

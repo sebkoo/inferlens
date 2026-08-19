@@ -11,6 +11,15 @@
   invariant 2 (zero `@unchecked Sendable`), invariant 3 (the chain is a value), invariant 4 (a case
   needs a producer), invariant 5 (no second dependency manager), and the ladder's rung 39.
 
+## Summary
+
+- Decision: the remote leg is a real `URLSession` engine over a wire contract documented here as the
+  API's source of truth, proven against a loopback server the tests stand up.
+- Why: what the repo can prove without a production server is a local server in the suite; a
+  hardcoded third-party URL proves nothing.
+- Consequences: the app composes the leg with no endpoint, so no public endpoint ships and nothing
+  users see changes; the stub type is deleted.
+
 ## Context
 
 ADR-0010 recorded a real remote endpoint as the option **not taken**, and named exactly what would

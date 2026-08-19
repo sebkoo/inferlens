@@ -13,6 +13,15 @@
   checkpoint may sit), invariant 3 (the chain is a value), invariant 4 (a state case needs a producer
   AND a consumer), and the ladder's rung 22.
 
+## Summary
+
+- Decision: `classify` promises cooperative cancellation and gains `InferenceError.cancelled`; a
+  cancelled run writes no ledger row.
+- Why: typed throws cannot carry `CancellationError`, so the clause and the new case are one
+  decision, and a cancelled attempt is not a run.
+- Consequences: all five conformers keep the promise, asserted once in the shared suite, and compute
+  spent on a cancelled run leaves no trace anywhere.
+
 ## Context
 
 Ladder line 22 reads, verbatim:
